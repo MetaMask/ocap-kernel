@@ -109,7 +109,6 @@ describe('makeHostRestrictedFetch', () => {
 
       await restrictedFetch(request);
 
-      // Forwarded as an equivalent copy, never the caller's own.
       const [forwarded] = (global.fetch as ReturnType<typeof vi.fn>).mock
         .calls[0] as [Request];
       expect(forwarded).toBeInstanceOf(Request);

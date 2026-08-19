@@ -10,6 +10,7 @@ let logger = new Logger(LOG_TAG);
 // The Snaps network factory reads `globalThis.fetch` at call time, so stub
 // it before the supervisor is constructed. Endoify hardens intrinsics but
 // not `globalThis.fetch`, so the override sticks.
+
 // Read a `Request`'s URL the way a real `fetch` does, without `new Request()`,
 // which would consume the caller's body as a side effect. Deliberately
 // unbound: applied to whichever `Request` this fetch is handed.
@@ -26,8 +27,8 @@ globalThis.fetch = async (input, init) => {
   const target =
     input instanceof Request ? getRequestUrl.call(input) : String(input);
   logger.debug('fetch', target);
-  // A `redirectTo` query names where this request is to be answered with a
-  // redirect, so a test can drive a per-hop redirect check.
+  // A `redirectTo` query makes this mock answer with a redirect to it, so a
+  // test can drive the per-hop check.
   const redirectTo = new URL(target).searchParams.get('redirectTo');
   if (redirectTo) {
     return new Response('', {
@@ -35,9 +36,9 @@ globalThis.fetch = async (input, init) => {
       headers: { location: redirectTo },
     });
   }
-  // Report the target back in a header too, so a test can assert that the URL
-  // reached by fetch is the one the caveat approved, and the redirect mode it
-  // was asked for, which has to survive the Snaps endowment wrapping this.
+  // Echo the target and the redirect mode, so a test can assert that fetch
+  // reached the URL the caveat approved and that `manual` survived the Snaps
+  // endowment wrapping this.
   return new Response('Hello, world!', {
     headers: {
       'x-fetched-url': target,

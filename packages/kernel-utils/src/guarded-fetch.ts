@@ -1,12 +1,15 @@
 import { resolveFetchInput } from './fetch-input.ts';
+import type { ResolvedFetchInput } from './fetch-input.ts';
 
 /**
- * A gate run before every request a guarded `fetch` makes: the caller's, and
- * each redirect hop that follows from it. It receives the URL that will
- * actually be requested — never the caller's raw input — and refuses it by
- * throwing.
+ * Run before every request a guarded `fetch` makes — the caller's and each
+ * redirect hop — on the URL that will actually be requested. Throws to refuse.
+ *
+ * Takes the URL alone: a guard given the request as well would be shown a
+ * first hop assembled differently from every later one, and a policy that is
+ * sound only after the first hop is worse than one that cannot be written.
  */
-export type FetchGuard = (url: URL, init?: RequestInit) => Promise<void>;
+export type FetchGuard = (url: URL) => Promise<void>;
 
 /** The redirect limit the fetch spec imposes. */
 const MAX_REDIRECTS = 20;
@@ -15,44 +18,40 @@ const REDIRECT_STATUSES: ReadonlySet<number> = new Set([
   301, 302, 303, 307, 308,
 ]);
 
-/** The schemes the fetch spec will follow a redirect to. */
 const FETCHABLE_PROTOCOLS: ReadonlySet<string> = new Set(['http:', 'https:']);
 
 /**
- * Headers describing a body, dropped along with it when a redirect rewrites
- * the request to a GET. `content-length` is not in the spec's list, because a
- * browser computes it rather than carrying it in the header list; here the
- * caller may have supplied one, and it would then describe a body no longer
- * being sent.
+ * Dropped with the body when a redirect rewrites the request to a GET.
+ * `content-length` is not in the spec's list, since a browser computes it; a
+ * caller here can supply one, and it would then describe a body not sent.
  */
-const BODY_HEADERS = [
+const BODY_HEADERS: readonly string[] = harden([
   'content-encoding',
   'content-language',
   'content-location',
   'content-type',
   'content-length',
-];
+]);
 
 /**
- * Credentials the caller aimed at one origin, which must not be replayed to
- * another. `fetch` strips exactly these when it follows a redirect itself,
+ * Stripped when a hop leaves the origin, which is what `fetch` does itself —
  * bar `host`, which it refuses to send from a header list at all.
  */
-const CROSS_ORIGIN_HEADERS = ['authorization', 'cookie', 'proxy-authorization'];
+const CROSS_ORIGIN_HEADERS: readonly string[] = harden([
+  'authorization',
+  'cookie',
+  'proxy-authorization',
+]);
 
 /**
- * Whether a body can be sent a second time: only one still held as a value
- * can be, since a stream is consumed by the hop that sent it.
- *
- * Stricter than the spec, which replays a stream whose source it kept. That
- * source is not reachable from here, and a `Request`'s body is a stream
- * however it was built — so a `Request` carrying any body fails a hop that
- * keeps it, where `fetch` would have replayed it. Buffering every body up
- * front so that it could be replayed would make an unbounded upload an
- * unbounded allocation, which is the worse of the two failures.
+ * Stricter than the spec, which replays a stream from a source it kept. That
+ * source is not reachable from here, and a `Request`'s body is a stream however
+ * it was built, so a `Request` carrying any body fails a hop that keeps it.
+ * Buffering every body up front would turn an unbounded upload into an
+ * unbounded allocation, the worse of the two failures.
  *
  * @param body - The body the request carries.
- * @returns Whether it survives a replay.
+ * @returns Whether it can be sent again.
  */
 const isReplayableBody = (body: RequestInit['body']): boolean =>
   body === null ||
@@ -64,8 +63,9 @@ const isReplayableBody = (body: RequestInit['body']): boolean =>
   body instanceof FormData;
 
 /**
- * Compare scheme, host and port, which is the comparison undici itself makes
- * when deciding whether to strip these headers on a hop it follows.
+ * Matches undici's own origin comparison for a hop it follows. Spelled out
+ * rather than `left.origin === right.origin`, which reports `"null"` for an
+ * opaque origin and would call two such URLs the same.
  *
  * @param left - One URL.
  * @param right - The other.
@@ -77,13 +77,28 @@ const isSameOrigin = (left: URL, right: URL): boolean =>
   left.port === right.port;
 
 /**
- * A view of `response` that reports `redirected: true`. The flag is derived
- * from the URL list of the response `fetch` returned, and each hop here is a
- * separate `fetch` that saw no redirect of its own — so the last hop reports
- * `false` for a chain the caller did travel. It cannot be defined on the
- * response directly, because the response may be frozen: the vat `fetch`
- * endowment hardens what it returns. The view is not itself hardened, but
- * every write forwards to the target, so a frozen response stays frozen.
+ * Release a response nobody will read. Its connection is held open until the
+ * body is either read or discarded, so every exit that abandons one comes
+ * through here. A cancel that fails means the stream was already errored or
+ * locked — the bytes are gone either way, and failing a fetch over a body
+ * nobody wanted would be worse.
+ *
+ * @param response - The response to abandon.
+ */
+const discardBody = async (response: Response): Promise<void> => {
+  await response.body?.cancel().catch(() => undefined);
+};
+
+/**
+ * Each hop is a separate `fetch` that saw no redirect of its own, so the last
+ * one reports `redirected: false` for a chain the caller did travel. A proxy
+ * rather than a defined property because the response may be frozen — the vat
+ * `fetch` endowment hardens what it returns — and every write here forwards to
+ * the target, so a frozen response stays frozen.
+ *
+ * Being a proxy, it satisfies `instanceof Response` and answers method calls,
+ * but it is not the response: `Response.prototype.text.call(view)` throws where
+ * `view.text()` works, and each read of a method yields a fresh bound function.
  *
  * @param response - The final hop's response.
  * @returns The same response, reporting that it was redirected.
@@ -91,11 +106,18 @@ const isSameOrigin = (left: URL, right: URL): boolean =>
 const asRedirected = (response: Response): Response =>
   new Proxy(response, {
     get: (target, property) => {
-      if (property === 'redirected') {
-        return true;
-      }
-      if (property === 'clone') {
-        return () => asRedirected(target.clone());
+      // A platform `Response` carries both of these on its prototype, so there
+      // is nothing own to contradict. A response that is a frozen plain object
+      // — a test double, say — carries them as non-configurable own values, and
+      // overriding one would violate a proxy invariant and throw on every read.
+      // Report what is there instead: a wrong flag beats an unreadable response.
+      if (!Object.hasOwn(target, property)) {
+        if (property === 'redirected') {
+          return true;
+        }
+        if (property === 'clone') {
+          return () => asRedirected(target.clone());
+        }
       }
       const value = Reflect.get(target, property, target);
       // Bound to the target: a `Response` reaches its state through `this`,
@@ -105,22 +127,17 @@ const asRedirected = (response: Response): Response =>
   });
 
 /**
- * Wrap a `fetch` so that `guard` runs before every request it makes, the
- * caller's and every redirect hop alike.
+ * Wrap a `fetch` so that `guard` runs before every request it makes.
  *
- * The caller's input is resolved to a URL exactly once and replaced with a
- * stand-in that resolves to nothing else, so the URL `guard` approves is the
- * URL that is requested. Redirects are then followed here rather than by
- * `fetch`, one hop at a time: left to itself `fetch` walks the whole chain and
- * consults nobody, so a guard that only ever sees the pre-flight URL is one
- * `Location` header away from being bypassed.
+ * Redirects are followed here, one hop at a time, rather than by `fetch`: left
+ * to itself `fetch` walks the whole chain and consults nobody, so a guard that
+ * sees only the pre-flight URL is one `Location` header away from being
+ * bypassed. The caller's input is resolved once by {@link resolveFetchInput},
+ * so the URL `guard` approves is the URL requested.
  *
- * A hop `guard` refuses fails the whole call; the caller never sees the
- * refused host's response. A hop it allows is followed transparently, so the
- * response returned is the one the chain ended at. A caller asking for
- * `redirect: 'manual'` or `'error'` is asking for less than that and is
- * obeyed; one asking for `'follow'` gets the guarded walk instead, which is
- * the only mode that could otherwise reach an unapproved host.
+ * `redirect: 'follow'` is therefore overridden and `baseFetch` is always called
+ * with `'manual'`; `'manual'` and `'error'` ask for less than the guarded walk
+ * and are obeyed.
  *
  * @param options - An options bag.
  * @param options.baseFetch - The `fetch` to make requests with.
@@ -137,25 +154,38 @@ export const makeGuardedFetch = ({
   /**
    * Make one request and insist on being able to see where it points next.
    *
-   * @param target - What to request; already resolved, never the caller's own.
+   * Takes the resolved pair rather than a destination and the URL it is claimed
+   * to be, so the two cannot disagree and the caller's own input is not of a
+   * type this accepts.
+   *
+   * @param resolved - What to request, and the URL it resolves to.
+   * @param resolved.url - The URL that will be requested.
+   * @param resolved.input - What to hand `baseFetch` to request it.
    * @param requestInit - The init to request it with.
-   * @param at - The URL `target` resolves to, for the error message.
    * @returns The response.
    */
   const requestOnce = async (
-    target: Parameters<typeof fetch>[0],
+    { url, input }: ResolvedFetchInput,
     requestInit: RequestInit,
-    at: URL,
   ): Promise<Response> => {
-    const response = await baseFetch(target, requestInit);
-    // Undici answers a manual redirect with the real response. A browser
+    const response = await baseFetch(input, requestInit);
+    // Undici answers a manual redirect with the real response; a browser
     // follows the spec and answers with an opaque-redirect one — status 0, no
-    // headers — which hides the hop rather than exposing it for checking.
-    // Refuse: returning it would hand the caller something that silently is
-    // not the resource they asked for.
+    // headers — which hides the hop instead of exposing it for checking.
     if (response.type === 'opaqueredirect') {
+      await discardBody(response);
       throw new Error(
-        `Fetch of ${at.href} was redirected, but this runtime hides the target of a manual redirect, so the hop cannot be checked.`,
+        `Fetch of ${url.href} was redirected, but this runtime hides the target of a manual redirect, so the hop cannot be checked.`,
+      );
+    }
+    // Every request here asks for `manual`, so a chain was walked by something
+    // below `baseFetch` that never consulted the guard. Refuse the response:
+    // treating it as the approved resource is the pre-flight-only checking this
+    // wrapper exists to replace.
+    if (response.redirected) {
+      await discardBody(response);
+      throw new Error(
+        `Fetch of ${url.href} followed a redirect below the guard, which cannot check where it went. A guarded fetch's \`baseFetch\` must honour \`redirect: 'manual'\`.`,
       );
     }
     return response;
@@ -164,35 +194,39 @@ export const makeGuardedFetch = ({
   const guardedFetch = async (
     ...[rawInput, rawInit]: Parameters<typeof fetch>
   ): Promise<Response> => {
-    const { url, input } = resolveFetchInput(rawInput);
+    const resolved = resolveFetchInput(rawInput);
+    const { url, input } = resolved;
 
-    // undici honours a `dispatcher` in place of the transport, so it decides
-    // where the bytes go whatever URL the guard approved. Refused rather than
-    // dropped: dropping it would fall back to the global transport and send
-    // the request anyway, so a caller relying on a proxy or a client
-    // certificate would silently egress without one.
-    if (rawInit?.dispatcher !== undefined) {
+    // Snapshot the caller's `init`, so no later read can see a destination the
+    // guard did not. `body` and `signal` stay the caller's objects: neither can
+    // be copied, and neither names a destination.
+    const init: RequestInit = { ...rawInit };
+
+    // Checked on the copy, not on `rawInit`: an accessor answering the check
+    // with `undefined` and the copy with a dispatcher is the same substitution
+    // this wrapper exists to stop. Refused rather than dropped, because
+    // dropping it would fall back to the global transport and send anyway, so a
+    // caller relying on a proxy or a client certificate would silently egress
+    // without one. Reached through `in` so the check compiles where the ambient
+    // `RequestInit` is the DOM one, which does not declare `dispatcher`.
+    //
+    if ('dispatcher' in init && init.dispatcher !== undefined) {
       throw new Error(
         'A guarded fetch cannot accept a `dispatcher`: it stands in for the transport, so it would decide where the bytes go whatever URL the guard approved. Build it into the `baseFetch` instead.',
       );
     }
 
-    // Read the caller's `init` once, into an object of our own, so that no
-    // later read can see a destination the guard did not. Its `body` and
-    // `signal` are still the caller's objects — neither can be copied, and
-    // neither names a destination.
-    const init: RequestInit = { ...rawInit, redirect: 'manual' };
-
-    // The request state a redirect carries or rewrites. With a `Request` input
-    // it lives on the request, and `init` wins wherever it names the same
-    // thing, which is how `fetch` merges the two. Reading it costs nothing
-    // here — none of these accessors consumes a body.
+    // `init` wins wherever it names the same thing as the `Request`, which is
+    // how `fetch` merges the two. None of these accessors consumes a body.
     const request = input instanceof Request ? input : undefined;
     if (request) {
-      // A redirect carries these over unchanged, and a hop is built from the
-      // init alone — so what arrived on the `Request` has to be copied across
-      // or it is silently dropped from the second hop onward. `integrity` is
-      // the one with teeth: an unenforced digest is worse than none.
+      // A hop is built from the init alone, so what arrived on the `Request`
+      // has to be copied across or it is silently dropped from the second hop
+      // onward. `integrity` is the one with teeth: an unenforced digest is
+      // worse than none.
+      // Not `cache`: this package compiles against undici's `RequestInit`,
+      // which has no such field because undici ignores cache mode. A hop in a
+      // browser realm therefore reverts to the default.
       init.credentials ??= request.credentials;
       init.integrity ??= request.integrity;
       init.keepalive ??= request.keepalive;
@@ -213,18 +247,29 @@ export const makeGuardedFetch = ({
     // `Request`'s own body still stands behind it.
     let body = init.body ?? request?.body ?? null;
 
-    // Read before `redirect` is overridden. Only `follow` — the mode that
-    // would otherwise walk to an unapproved host — is overridden; a caller
-    // asking for less than that is obeyed.
-    const requested = rawInit?.redirect ?? request?.redirect ?? 'follow';
+    // Read from the copy, before `redirect` is overridden below.
+    const requested = init.redirect ?? request?.redirect ?? 'follow';
+    init.redirect = 'manual';
 
-    await guard(url, init);
-    let response = await requestOnce(input, init, url);
+    await guard(url);
+    let response = await requestOnce(resolved, init);
 
     let currentUrl = url;
     let redirects = 0;
 
     while (REDIRECT_STATUSES.has(response.status)) {
+      // Answered before the `Location` header is consulted, as the spec does:
+      // the mode turns on the status alone, so `error` fails a redirect that
+      // names nowhere to go rather than passing it off as an ordinary response.
+      if (requested === 'manual') {
+        return response;
+      }
+      if (requested === 'error') {
+        await discardBody(response);
+        throw new Error(
+          `Fetch of ${currentUrl.href} was redirected, and redirect: 'error' was requested.`,
+        );
+      }
       const location = response.headers.get('location');
       // A redirect status with no usable `Location` is just a response. An
       // empty one resolves back to the current URL, which `fetch` dutifully
@@ -232,19 +277,8 @@ export const makeGuardedFetch = ({
       if (!location?.trim()) {
         break;
       }
-      if (requested === 'manual') {
-        return response;
-      }
-      if (requested === 'error') {
-        throw new Error(
-          `Fetch of ${currentUrl.href} was redirected, and redirect: 'error' was requested.`,
-        );
-      }
-      // Nothing below reads this response, and its connection is held open
-      // until the body is either read or discarded. A cancel that fails means
-      // the stream was already errored or locked — the bytes are gone either
-      // way, and failing a fetch over a body nobody wanted would be worse.
-      await response.body?.cancel().catch(() => undefined);
+      // Nothing below reads this response.
+      await discardBody(response);
 
       redirects += 1;
       if (redirects > MAX_REDIRECTS) {
@@ -270,10 +304,20 @@ export const makeGuardedFetch = ({
         );
       }
 
+      // Resolved through the same function as the caller's input, so this hop's
+      // destination is fixed the same way the first hop's was — including
+      // against a guard that normalizes in place the URL it was handed, which is
+      // now a `URL` nothing else here holds. Asked first, so a hop out of the
+      // allowlist is reported as that rather than as whatever else about it is
+      // also wrong.
+      const nextResolved = resolveFetchInput(nextUrl.href);
+      await guard(nextResolved.url);
+
       const { status } = response;
+      // The fetch spec's own rewrite of the method and body across these
+      // statuses. Normalized here only: `fetch` upper-cases the methods it
+      // knows and passes anything else along as written.
       const normalizedMethod = method.toUpperCase();
-      // The fetch spec's rewrite: 303 turns anything but a GET or HEAD into a
-      // bodyless GET, and 301/302 do the same for a POST alone.
       if (
         (status === 303 &&
           normalizedMethod !== 'GET' &&
@@ -289,16 +333,13 @@ export const makeGuardedFetch = ({
       }
       if (!isReplayableBody(body)) {
         throw new Error(
-          `Cannot follow the ${status} redirect from ${currentUrl.href} to ${nextUrl.href}: it keeps the request body, and this one cannot be sent a second time. A Request's body is a stream whatever it was built from — pass the body through the init argument instead, where it can be replayed.`,
+          `Cannot follow the ${status} redirect from ${currentUrl.href} to ${nextResolved.url.href}: it keeps the request body, and a stream cannot be sent a second time. Pass a body that can be replayed — a string, ArrayBuffer, view, URLSearchParams, Blob or FormData — through the init argument; a Request's body is a stream whatever it was built from.`,
         );
       }
 
       const hopInit: RequestInit = { ...init, method, headers, body, signal };
-      await guard(nextUrl, hopInit);
-      // Requested as a string, so this hop's destination is fixed as firmly as
-      // the first hop's.
-      response = await requestOnce(nextUrl.href, hopInit, nextUrl);
-      currentUrl = nextUrl;
+      response = await requestOnce(nextResolved, hopInit);
+      currentUrl = nextResolved.url;
     }
 
     return redirects === 0 ? response : asRedirected(response);

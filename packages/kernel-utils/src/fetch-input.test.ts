@@ -69,8 +69,6 @@ describe('resolveFetchInput', () => {
     const resolved = resolveFetchInput(input);
 
     expect(resolved.url.href).toBe('https://example.test/path');
-    // The stand-in is a primitive, so re-reading it cannot yield anything
-    // else, however many times `fetch` reads it.
     expect(resolved.input).toBe('https://example.test/path');
     expect(getReads()).toBe(2);
   });
@@ -97,11 +95,9 @@ describe('resolveFetchInput', () => {
     const target = 'https://evil.test/target';
     const request = new Request(decoy);
 
-    // Where a runtime keeps a Request's state in a mutable own property —
-    // undici on Node 22 uses a configurable symbol — the caller can make the
-    // original report the decoy once and the target thereafter. Where the
-    // state is a private field this loop finds nothing to redefine and the
-    // assertions below are simply the ordinary case.
+    // Tamper with the backing state where the runtime lets us — see
+    // `resolveFetchInput`. Where it is a private field this loop finds nothing
+    // to redefine and the assertions below are simply the ordinary case.
     for (const key of Object.getOwnPropertySymbols(request)) {
       const state = Reflect.get(request, key) as { urlList?: URL[] };
       if (!state?.urlList) {
@@ -124,8 +120,8 @@ describe('resolveFetchInput', () => {
 
     const resolved = resolveFetchInput(request);
 
-    // The security property, whatever the original now reports: what `fetch`
-    // will resolve the forwarded input to is what was validated.
+    // The property under test: what `fetch` resolves the forwarded input to is
+    // what was validated.
     expect(resolved.input).not.toBe(request);
     expect(new Request(resolved.input as Request).url).toBe(resolved.url.href);
   });
@@ -133,10 +129,8 @@ describe('resolveFetchInput', () => {
   it('resolves a Request to a URL the caller cannot mutate afterwards', () => {
     const href = 'https://example.test/path';
     const request = new Request(href);
-    // A caller that can reach the state can leave a `URL` of its own in it,
-    // then change it in the window between the check and the send. Where the
-    // state is private this loop finds nothing and the assertion below is
-    // simply the ordinary case.
+    // Same conditional tampering as above; here the planted `URL` is mutated
+    // after the check.
     const planted = new URL(href);
     for (const key of Object.getOwnPropertySymbols(request)) {
       const state = Reflect.get(request, key) as { urlList?: URL[] };
@@ -156,25 +150,10 @@ describe('resolveFetchInput', () => {
     expect(new Request(resolved.input as Request).url).toBe(href);
   });
 
-  it('does not carry over a dispatcher planted on the caller’s Request', () => {
-    // Rebuilding the request reads its argument as a `RequestInit`, by string
-    // name. `dispatcher` is undici's extension for choosing where the bytes go,
-    // so a planted one would route the request anywhere regardless of the URL.
-    // Copying first means only a genuine `Request`'s internals are read.
-    const planted = { dispatch: () => true, close: () => undefined };
-    const request = new Request('https://example.test/path');
-    Object.defineProperty(request, 'dispatcher', {
-      configurable: true,
-      get: () => planted,
-    });
-
-    const { input } = resolveFetchInput(request);
-
-    const carried = Object.getOwnPropertySymbols(input as Request)
-      .filter((key) => String(key).includes('dispatcher'))
-      .map((key) => Reflect.get(input as Request, key));
-    expect(carried).not.toContain(planted);
-  });
+  // A dispatcher planted on the caller's `Request` is shed by the copy that
+  // precedes the rebuild. Only observable on the wire — the rebuilt `Request`
+  // keeps a dispatcher out of reach whether or not it carried one — so it is
+  // asserted against a live server in `guarded-fetch.test.ts`.
 
   it('throws for an object wearing Request.prototype without the internal slot', () => {
     const fake = Object.create(Request.prototype);

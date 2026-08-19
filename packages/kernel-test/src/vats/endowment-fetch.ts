@@ -43,10 +43,8 @@ export async function buildRootObject(vatPowers: TestPowers) {
         throw error;
       }
     },
-    // Attempt the CWE-367 escape from the HackerOne report: hand `fetch` an
-    // input that names an allowlisted host on its first read and a forbidden
-    // one thereafter, hoping the caveat validates the former while the
-    // network reaches the latter.
+    // The CWE-367 escape from #7557: an input that names the allowed host on
+    // the caveat's read and a forbidden one on fetch's.
     fetchWithTwoFacedUrl: async (decoyUrl: string, targetUrl: string) => {
       let reads = 0;
       const twoFaced = {
@@ -63,7 +61,6 @@ export async function buildRootObject(vatPowers: TestPowers) {
       }
       tlog(`reads: ${reads}`);
     },
-    // A redirect used to let the server name a host the vat was never granted.
     fetchFollowingRedirect: async (url: string) => {
       try {
         const response = await fetch(url);
@@ -77,10 +74,11 @@ export async function buildRootObject(vatPowers: TestPowers) {
         tlog(`error: ${String(error)}`);
       }
     },
-    // The same escape via a `Request` subclass whose `url` getter lies, while
-    // its internal slot — the one `fetch` reads — holds the forbidden host.
     fetchWithSpoofedRequest: async (decoyUrl: string, targetUrl: string) => {
-      /** A `Request` whose reported URL differs from its internal one. */
+      /**
+       * A `Request` whose `url` getter lies while its internal slot — the one
+       * `fetch` reads — holds the forbidden host.
+       */
       class SpoofedRequest extends Request {
         /** @returns The decoy URL, not the URL this request was built with. */
         override get url(): string {

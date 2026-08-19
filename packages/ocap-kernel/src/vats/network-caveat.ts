@@ -3,9 +3,6 @@ import type { FetchGuard } from '@metamask/kernel-utils';
 
 export type FetchCapability = typeof fetch;
 
-/** A vat-facing name for {@link FetchGuard}. */
-type FetchCaveat = FetchGuard;
-
 /**
  * Build a caveat that rejects fetches whose hostname is not in
  * `allowedHosts`. Matching is a case-sensitive exact comparison against
@@ -21,7 +18,7 @@ type FetchCaveat = FetchGuard;
  * @param allowedHosts - The allowed hostnames.
  * @returns A caveat that restricts fetch to the allowed hostnames.
  */
-export const makeHostCaveat = (allowedHosts: string[]): FetchCaveat => {
+export const makeHostCaveat = (allowedHosts: string[]): FetchGuard => {
   return harden(async ({ hostname, protocol }: URL) => {
     if (protocol === 'file:') {
       throw new Error(
@@ -36,9 +33,8 @@ export const makeHostCaveat = (allowedHosts: string[]): FetchCaveat => {
 };
 
 /**
- * Wrap a fetch capability so a caveat runs before every request it makes,
- * rejecting the fetch if it throws. See {@link makeGuardedFetch}, which
- * resolves the input once and re-runs the caveat on every redirect hop.
+ * Wrap a fetch capability so a caveat runs before every request it makes —
+ * see {@link makeGuardedFetch} — rejecting the fetch if the caveat throws.
  *
  * @param baseFetch - The fetch capability to wrap.
  * @param caveat - The caveat to apply before each request.
@@ -46,5 +42,5 @@ export const makeHostCaveat = (allowedHosts: string[]): FetchCaveat => {
  */
 export const makeCaveatedFetch = (
   baseFetch: FetchCapability,
-  caveat: FetchCaveat,
+  caveat: FetchGuard,
 ): FetchCapability => makeGuardedFetch({ baseFetch, guard: caveat });

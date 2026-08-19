@@ -15,8 +15,7 @@ import { makeGuardedFetch } from '@metamask/kernel-utils';
 /**
  * Creates a fetch function that only allows requests to the specified hosts.
  * Matching is against `URL.host`, so the port is significant and the scheme is
- * not. See {@link makeGuardedFetch}, which resolves the input once and re-runs
- * the check on every redirect hop.
+ * not. See {@link makeGuardedFetch}.
  *
  * @param allowedHosts - The hosts to allow requests to.
  * @param baseFetch - The fetch function to use as a base. Defaults to the global fetch function.

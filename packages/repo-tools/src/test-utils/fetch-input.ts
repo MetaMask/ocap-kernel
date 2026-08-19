@@ -1,16 +1,12 @@
 /**
- * Make a `fetch` input whose stringifier answers `first` on the first read and
- * `rest` on every read thereafter — the CWE-367 primitive from the reported
- * vat sandbox escape, where a host allowlist validated one URL and `fetch`
- * requested another.
+ * The CWE-367 primitive from MetaMask/MetaMask-planning#7557: an input whose
+ * stringifier names one host when an allowlist reads it and another when
+ * `fetch` does. Pass the same value twice for a stringifier that is merely
+ * unusual rather than hostile.
  *
- * Pass the same value twice for a stringifier that is merely unusual rather
- * than hostile.
- *
- * @param first - The URL to report on the first read.
- * @param rest - The URL to report on every read after the first.
- * @returns The input, typed as a fetch input, and a count of how often its
- * stringifier has been called.
+ * @param first - Reported on the first read.
+ * @param rest - Reported on every read thereafter.
+ * @returns The input, and a count of the reads its stringifier has served.
  */
 export const makeTwoFacedFetchInput = (
   first: string,

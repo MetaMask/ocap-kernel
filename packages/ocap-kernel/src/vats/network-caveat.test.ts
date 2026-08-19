@@ -1,5 +1,6 @@
 import { makeTwoFacedFetchInput } from '@ocap/repo-tools/test-utils/fetch-input';
 import { describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { makeHostCaveat, makeCaveatedFetch } from './network-caveat.ts';
 
@@ -46,6 +47,24 @@ describe('makeHostCaveat', () => {
 });
 
 describe('makeCaveatedFetch', () => {
+  // Allows `example.test` only, over a base answering with each response in
+  // turn and repeating the last, as the chains it replaces did.
+  const makeExampleFetch = (
+    ...responses: Response[]
+  ): { caveated: typeof fetch; baseFetch: Mock } => {
+    const baseFetch = vi.fn();
+    responses.slice(0, -1).forEach((response) => {
+      baseFetch.mockResolvedValueOnce(response);
+    });
+    if (responses.length > 0) {
+      baseFetch.mockResolvedValue(responses[responses.length - 1]);
+    }
+    return {
+      caveated: makeCaveatedFetch(baseFetch, makeHostCaveat(['example.test'])),
+      baseFetch,
+    };
+  };
+
   it('applies caveat and forwards to fetch', async () => {
     const mockResponse = new Response('test');
     const baseFetch = vi.fn().mockResolvedValue(mockResponse);
@@ -54,15 +73,11 @@ describe('makeCaveatedFetch', () => {
     const caveated = makeCaveatedFetch(baseFetch, caveat);
     const result = await caveated('https://example.test/path');
 
-    const forwarded = { redirect: 'manual', headers: expect.any(Headers) };
-    expect(caveat).toHaveBeenCalledWith(
-      new URL('https://example.test/path'),
-      forwarded,
-    );
-    expect(baseFetch).toHaveBeenCalledWith(
-      'https://example.test/path',
-      forwarded,
-    );
+    expect(caveat).toHaveBeenCalledWith(new URL('https://example.test/path'));
+    expect(baseFetch).toHaveBeenCalledWith('https://example.test/path', {
+      redirect: 'manual',
+      headers: expect.any(Headers),
+    });
     expect(result).toBe(mockResponse);
   });
 
@@ -85,28 +100,18 @@ describe('makeCaveatedFetch', () => {
     const init = { method: 'POST', body: 'data' };
     await caveated('https://example.test/path', init);
 
-    // One snapshot of the caller's `init`, shared by the caveat and `fetch`.
-    const forwarded = {
+    // The caveat is shown the URL alone; `fetch` gets a snapshot of the
+    // caller's `init`, never the caller's own object.
+    expect(caveat).toHaveBeenCalledWith(new URL('https://example.test/path'));
+    expect(baseFetch).toHaveBeenCalledWith('https://example.test/path', {
       ...init,
       redirect: 'manual',
       headers: expect.any(Headers),
-    };
-    expect(caveat).toHaveBeenCalledWith(
-      new URL('https://example.test/path'),
-      forwarded,
-    );
-    expect(baseFetch).toHaveBeenCalledWith(
-      'https://example.test/path',
-      forwarded,
-    );
+    });
   });
 
   it('forwards a URL object as its href', async () => {
-    const baseFetch = vi.fn().mockResolvedValue(new Response('ok'));
-    const caveated = makeCaveatedFetch(
-      baseFetch,
-      makeHostCaveat(['example.test']),
-    );
+    const { caveated, baseFetch } = makeExampleFetch(new Response('ok'));
 
     await caveated(new URL('https://example.test/path'));
 
@@ -117,11 +122,7 @@ describe('makeCaveatedFetch', () => {
   });
 
   it('forwards a copy of a Request, never the vat’s own', async () => {
-    const baseFetch = vi.fn().mockResolvedValue(new Response('ok'));
-    const caveated = makeCaveatedFetch(
-      baseFetch,
-      makeHostCaveat(['example.test']),
-    );
+    const { caveated, baseFetch } = makeExampleFetch(new Response('ok'));
     const request = new Request('https://example.test/path');
 
     await caveated(request);
@@ -133,22 +134,14 @@ describe('makeCaveatedFetch', () => {
   });
 
   it('rejects malformed URLs by propagating the URL constructor error', async () => {
-    const baseFetch = vi.fn();
-    const caveated = makeCaveatedFetch(
-      baseFetch,
-      makeHostCaveat(['example.test']),
-    );
+    const { caveated, baseFetch } = makeExampleFetch();
 
     await expect(caveated('not a url')).rejects.toThrow(/Invalid URL/u);
     expect(baseFetch).not.toHaveBeenCalled();
   });
 
   it('composes host caveat with base fetch end-to-end', async () => {
-    const baseFetch = vi.fn().mockResolvedValue(new Response('ok'));
-    const caveated = makeCaveatedFetch(
-      baseFetch,
-      makeHostCaveat(['example.test']),
-    );
+    const { caveated, baseFetch } = makeExampleFetch(new Response('ok'));
 
     const response = await caveated('https://example.test/data');
     expect(await response.text()).toBe('ok');
@@ -162,11 +155,7 @@ describe('makeCaveatedFetch', () => {
 
   describe('input that resolves differently on each read', () => {
     it('rejects rather than quietly fetching whichever URL was shown first', async () => {
-      const baseFetch = vi.fn();
-      const caveated = makeCaveatedFetch(
-        baseFetch,
-        makeHostCaveat(['example.test']),
-      );
+      const { caveated, baseFetch } = makeExampleFetch();
 
       await expect(
         caveated(
@@ -180,11 +169,7 @@ describe('makeCaveatedFetch', () => {
     });
 
     it('still host-checks a stringifier that resolves consistently', async () => {
-      const baseFetch = vi.fn();
-      const caveated = makeCaveatedFetch(
-        baseFetch,
-        makeHostCaveat(['example.test']),
-      );
+      const { caveated, baseFetch } = makeExampleFetch();
 
       await expect(
         caveated(
@@ -198,11 +183,7 @@ describe('makeCaveatedFetch', () => {
     });
 
     it('rejects a file: URL hidden behind a second read', async () => {
-      const baseFetch = vi.fn();
-      const caveated = makeCaveatedFetch(
-        baseFetch,
-        makeHostCaveat(['example.test']),
-      );
+      const { caveated, baseFetch } = makeExampleFetch();
 
       await expect(
         caveated(
@@ -221,15 +202,9 @@ describe('makeCaveatedFetch', () => {
       new Response('', { status, headers: { location } });
 
     it('refuses a hop out of the allowlist, and never requests it', async () => {
-      const baseFetch = vi
-        .fn()
-        .mockResolvedValueOnce(
-          redirectTo('http://169.254.169.254/latest/meta-data/'),
-        )
-        .mockResolvedValue(new Response('credentials'));
-      const caveated = makeCaveatedFetch(
-        baseFetch,
-        makeHostCaveat(['example.test']),
+      const { caveated, baseFetch } = makeExampleFetch(
+        redirectTo('http://169.254.169.254/latest/meta-data/'),
+        new Response('credentials'),
       );
 
       await expect(caveated('https://example.test/start')).rejects.toThrow(
@@ -239,13 +214,9 @@ describe('makeCaveatedFetch', () => {
     });
 
     it('follows a hop that stays inside the allowlist', async () => {
-      const baseFetch = vi
-        .fn()
-        .mockResolvedValueOnce(redirectTo('https://example.test/landed'))
-        .mockResolvedValue(new Response('landed'));
-      const caveated = makeCaveatedFetch(
-        baseFetch,
-        makeHostCaveat(['example.test']),
+      const { caveated, baseFetch } = makeExampleFetch(
+        redirectTo('https://example.test/landed'),
+        new Response('landed'),
       );
 
       const response = await caveated('https://example.test/start');
@@ -266,12 +237,8 @@ describe('makeCaveatedFetch', () => {
     });
 
     it('refuses a hop to a file: URL by naming the scheme', async () => {
-      const baseFetch = vi
-        .fn()
-        .mockResolvedValueOnce(redirectTo('file:///etc/passwd'));
-      const caveated = makeCaveatedFetch(
-        baseFetch,
-        makeHostCaveat(['example.test']),
+      const { caveated, baseFetch } = makeExampleFetch(
+        redirectTo('file:///etc/passwd'),
       );
 
       await expect(caveated('https://example.test/start')).rejects.toThrow(
@@ -281,13 +248,9 @@ describe('makeCaveatedFetch', () => {
     });
 
     it('checks the hop even when the vat asks fetch to follow', async () => {
-      const baseFetch = vi
-        .fn()
-        .mockResolvedValueOnce(redirectTo('https://evil.test/exfil'))
-        .mockResolvedValue(new Response('exfiltrated'));
-      const caveated = makeCaveatedFetch(
-        baseFetch,
-        makeHostCaveat(['example.test']),
+      const { caveated, baseFetch } = makeExampleFetch(
+        redirectTo('https://evil.test/exfil'),
+        new Response('exfiltrated'),
       );
 
       await expect(
@@ -299,17 +262,13 @@ describe('makeCaveatedFetch', () => {
     it.each(['manual', 'error'] as const)(
       'leaves the forbidden host uncontacted when the vat asks for redirect: %s',
       async (redirect) => {
-        const baseFetch = vi
-          .fn()
-          .mockResolvedValueOnce(redirectTo('https://evil.test/exfil'))
-          .mockResolvedValue(new Response('exfiltrated'));
-        const caveated = makeCaveatedFetch(
-          baseFetch,
-          makeHostCaveat(['example.test']),
+        const { caveated, baseFetch } = makeExampleFetch(
+          redirectTo('https://evil.test/exfil'),
+          new Response('exfiltrated'),
         );
 
-        // A vat asking for less than `follow` is obeyed, which cannot reach
-        // further than the guarded walk would have.
+        // `error` throws and `manual` returns; either way nothing reaches the
+        // second hop.
         await caveated('https://example.test/start', { redirect }).catch(
           () => undefined,
         );
@@ -318,13 +277,9 @@ describe('makeCaveatedFetch', () => {
     );
 
     it('checks the hop even when the vat’s Request asks fetch to follow', async () => {
-      const baseFetch = vi
-        .fn()
-        .mockResolvedValueOnce(redirectTo('https://evil.test/exfil'))
-        .mockResolvedValue(new Response('exfiltrated'));
-      const caveated = makeCaveatedFetch(
-        baseFetch,
-        makeHostCaveat(['example.test']),
+      const { caveated, baseFetch } = makeExampleFetch(
+        redirectTo('https://evil.test/exfil'),
+        new Response('exfiltrated'),
       );
 
       await expect(
@@ -342,11 +297,7 @@ describe('makeCaveatedFetch', () => {
         return 'https://example.test/decoy';
       }
     }
-    const baseFetch = vi.fn();
-    const caveated = makeCaveatedFetch(
-      baseFetch,
-      makeHostCaveat(['example.test']),
-    );
+    const { caveated, baseFetch } = makeExampleFetch();
 
     await expect(
       caveated(new SpoofedRequest('https://evil.test/exfil')),

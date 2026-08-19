@@ -27,11 +27,8 @@ type Responder = (
 ) => void;
 
 type TestServer = {
-  /** The port the server listens on, addressable via any loopback name. */
   port: number;
-  /** Every request the server received, in order. */
   received: ReceivedRequest[];
-  /** Replace what the server answers with. */
   respondWith: (responder: Responder) => void;
 };
 
@@ -79,13 +76,6 @@ const startServer = async (): Promise<TestServer> => {
   };
 };
 
-/**
- * Answer every request with a redirect to `location`.
- *
- * @param status - The redirect status to answer with.
- * @param location - The `Location` header to send.
- * @returns A responder.
- */
 const redirectTo =
   (status: number, location: string): Responder =>
   (_request, response) => {
@@ -93,17 +83,55 @@ const redirectTo =
     response.end('redirecting');
   };
 
-/**
- * A guard that allows `localhost` only, so that `127.0.0.1` names a forbidden
- * host on the very same loopback interface.
- *
- * @param url - The URL about to be requested.
- */
+// Allows `localhost` only, so `127.0.0.1` is a forbidden host on the same
+// loopback interface.
 const allowLocalhost: FetchGuard = async (url: URL) => {
   if (url.hostname !== 'localhost') {
     throw new Error(`Invalid host: ${url.hostname}`);
   }
 };
+
+// For tests about what a hop carries rather than where it goes.
+const allowAnyHost: FetchGuard = async () => undefined;
+
+const guardedLoopback = (guard: FetchGuard = allowLocalhost): typeof fetch =>
+  makeGuardedFetch({ baseFetch: fetch, guard });
+
+// A server that redirects to a second one. `host` picks the name the second is
+// reached by, so the hop can be made to leave the allowlist or stay inside it.
+const startRedirect = async ({
+  status = 302,
+  host = 'localhost',
+  path = '/landed',
+}: { status?: number; host?: string; path?: string } = {}): Promise<{
+  start: TestServer;
+  destination: TestServer;
+}> => {
+  const destination = await startServer();
+  const start = await startServer();
+  start.respondWith(
+    redirectTo(status, `http://${host}:${destination.port}${path}`),
+  );
+  return { start, destination };
+};
+
+// Redirect each path in `routes` to the location it maps to, answering anything
+// else with `body`.
+const redirectRoutes =
+  (
+    routes: Record<string, string>,
+    { status = 302, body = 'landed' }: { status?: number; body?: string } = {},
+  ): Responder =>
+  (request, response) => {
+    const location = routes[request.url as string];
+    if (location) {
+      response.writeHead(status, { location });
+      response.end();
+      return;
+    }
+    response.writeHead(200);
+    response.end(body);
+  };
 
 /**
  * A request body that cannot be sent twice.
@@ -147,10 +175,7 @@ describe('makeGuardedFetch', () => {
 
   it('passes a request the guard allows straight through', async () => {
     const server = await startServer();
-    const guarded = makeGuardedFetch({
-      baseFetch: fetch,
-      guard: allowLocalhost,
-    });
+    const guarded = guardedLoopback();
 
     const response = await guarded(`http://localhost:${server.port}/thing`);
 
@@ -161,10 +186,7 @@ describe('makeGuardedFetch', () => {
 
   it('refuses a request the guard rejects', async () => {
     const server = await startServer();
-    const guarded = makeGuardedFetch({
-      baseFetch: fetch,
-      guard: allowLocalhost,
-    });
+    const guarded = guardedLoopback();
 
     await expect(guarded(`http://127.0.0.1:${server.port}/`)).rejects.toThrow(
       'Invalid host: 127.0.0.1',
@@ -174,15 +196,11 @@ describe('makeGuardedFetch', () => {
 
   describe('redirects', () => {
     it('refuses a redirect to a host the guard rejects, and never contacts it', async () => {
-      const forbidden = await startServer();
-      const allowed = await startServer();
-      allowed.respondWith(
-        redirectTo(302, `http://127.0.0.1:${forbidden.port}/secrets`),
-      );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
+      const { start: allowed, destination: forbidden } = await startRedirect({
+        host: '127.0.0.1',
+        path: '/secrets',
       });
+      const guarded = guardedLoopback();
 
       await expect(
         guarded(`http://localhost:${allowed.port}/start`),
@@ -193,15 +211,8 @@ describe('makeGuardedFetch', () => {
     });
 
     it('follows a redirect the guard allows and returns the final response', async () => {
-      const first = await startServer();
-      const second = await startServer();
-      first.respondWith(
-        redirectTo(302, `http://localhost:${second.port}/landed`),
-      );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const { start: first, destination: second } = await startRedirect();
+      const guarded = guardedLoopback();
 
       const response = await guarded(`http://localhost:${first.port}/start`);
 
@@ -214,17 +225,12 @@ describe('makeGuardedFetch', () => {
     it('follows a chain of allowed hops and re-runs the guard on each', async () => {
       const server = await startServer();
       const origin = `http://localhost:${server.port}`;
-      server.respondWith((request, response) => {
-        if (request.url === '/one') {
-          response.writeHead(302, { location: `${origin}/two` });
-        } else if (request.url === '/two') {
-          response.writeHead(302, { location: `${origin}/three` });
-        } else {
-          response.writeHead(200);
-          response.end('arrived');
-        }
-        response.end();
-      });
+      server.respondWith(
+        redirectRoutes(
+          { '/one': `${origin}/two`, '/two': `${origin}/three` },
+          { body: 'arrived' },
+        ),
+      );
       const guard = vi.fn(allowLocalhost);
       const guarded = makeGuardedFetch({ baseFetch: fetch, guard });
 
@@ -252,10 +258,7 @@ describe('makeGuardedFetch', () => {
         });
         response.end();
       });
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       await expect(
         guarded(`http://localhost:${allowed.port}/one`),
@@ -266,17 +269,12 @@ describe('makeGuardedFetch', () => {
     it('follows a redirect back to an allowed host', async () => {
       const other = await startServer();
       const home = await startServer();
-      home.respondWith((request, response) => {
-        if (request.url === '/out') {
-          response.writeHead(302, {
-            location: `http://127.0.0.1:${other.port}/via`,
-          });
-          response.end();
-        } else {
-          response.writeHead(200);
-          response.end('home again');
-        }
-      });
+      home.respondWith(
+        redirectRoutes(
+          { '/out': `http://127.0.0.1:${other.port}/via` },
+          { body: 'home again' },
+        ),
+      );
       other.respondWith(redirectTo(302, `http://localhost:${home.port}/back`));
       // Both loopback names allowed, so the excursion is legitimate.
       const guarded = makeGuardedFetch({
@@ -299,10 +297,7 @@ describe('makeGuardedFetch', () => {
       const server = await startServer();
       const origin = `http://localhost:${server.port}`;
       server.respondWith(redirectTo(302, `${origin}/loop`));
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       await expect(guarded(`${origin}/loop`)).rejects.toThrow(
         'exceeded 20 redirects',
@@ -317,10 +312,7 @@ describe('makeGuardedFetch', () => {
         response.writeHead(302);
         response.end('nowhere');
       });
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       const response = await guarded(`http://localhost:${server.port}/`);
 
@@ -337,19 +329,13 @@ describe('makeGuardedFetch', () => {
       first.respondWith(
         redirectTo(302, `http://localhost:${second.port}/deep/start`),
       );
-      second.respondWith((request, response) => {
-        if (request.url === '/deep/start') {
-          response.writeHead(301, { location: '../landed' });
-          response.end();
-        } else {
-          response.writeHead(200);
-          response.end('relative');
-        }
-      });
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      second.respondWith(
+        redirectRoutes(
+          { '/deep/start': '../landed' },
+          { status: 301, body: 'relative' },
+        ),
+      );
+      const guarded = guardedLoopback();
 
       const response = await guarded(`http://localhost:${first.port}/one`);
 
@@ -366,24 +352,13 @@ describe('makeGuardedFetch', () => {
      *
      * @returns Both servers.
      */
-    const startEscapeRoute = async (): Promise<{
-      allowed: TestServer;
-      forbidden: TestServer;
-    }> => {
-      const forbidden = await startServer();
-      const allowed = await startServer();
-      allowed.respondWith(
-        redirectTo(302, `http://127.0.0.1:${forbidden.port}/secrets`),
-      );
-      return { allowed, forbidden };
-    };
 
     it('checks the hop when init asks fetch to follow', async () => {
-      const { allowed, forbidden } = await startEscapeRoute();
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
+      const { start: allowed, destination: forbidden } = await startRedirect({
+        host: '127.0.0.1',
+        path: '/secrets',
       });
+      const guarded = guardedLoopback();
 
       await expect(
         guarded(`http://localhost:${allowed.port}/start`, {
@@ -394,11 +369,11 @@ describe('makeGuardedFetch', () => {
     });
 
     it('checks the hop when a Request asks fetch to follow', async () => {
-      const { allowed, forbidden } = await startEscapeRoute();
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
+      const { start: allowed, destination: forbidden } = await startRedirect({
+        host: '127.0.0.1',
+        path: '/secrets',
       });
+      const guarded = guardedLoopback();
 
       await expect(
         guarded(
@@ -411,11 +386,11 @@ describe('makeGuardedFetch', () => {
     });
 
     it('hands back the redirect unfollowed when the caller asks for manual', async () => {
-      const { allowed, forbidden } = await startEscapeRoute();
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
+      const { start: allowed, destination: forbidden } = await startRedirect({
+        host: '127.0.0.1',
+        path: '/secrets',
       });
+      const guarded = guardedLoopback();
 
       const response = await guarded(`http://localhost:${allowed.port}/start`, {
         redirect: 'manual',
@@ -430,11 +405,11 @@ describe('makeGuardedFetch', () => {
     });
 
     it('fails the fetch when the caller asks for error', async () => {
-      const { allowed, forbidden } = await startEscapeRoute();
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
+      const { start: allowed, destination: forbidden } = await startRedirect({
+        host: '127.0.0.1',
+        path: '/secrets',
       });
+      const guarded = guardedLoopback();
 
       await expect(
         guarded(`http://localhost:${allowed.port}/start`, {
@@ -444,12 +419,25 @@ describe('makeGuardedFetch', () => {
       expect(forbidden.received).toStrictEqual([]);
     });
 
+    it('fails the fetch when the caller asks for error and the hop names nowhere', async () => {
+      const server = await startServer();
+      server.respondWith((_request, response) => {
+        response.writeHead(302);
+        response.end('redirecting');
+      });
+      const guarded = guardedLoopback();
+
+      // Why the mode is answered before the `Location` is read: see `guardedFetch`.
+      await expect(
+        guarded(`http://localhost:${server.port}/start`, {
+          redirect: 'error',
+        }),
+      ).rejects.toThrow(/was redirected, and redirect: 'error' was requested/u);
+    });
+
     it('follows a hop for a caller that asked for manual but was not redirected', async () => {
       const server = await startServer();
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       const response = await guarded(`http://localhost:${server.port}/thing`, {
         redirect: 'manual',
@@ -463,10 +451,7 @@ describe('makeGuardedFetch', () => {
     it('is refused rather than dropped, since dropping it would egress anyway', async () => {
       const server = await startServer();
       const dispatch = vi.fn();
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       await expect(
         guarded(`http://localhost:${server.port}/`, {
@@ -480,14 +465,11 @@ describe('makeGuardedFetch', () => {
     it('is shed from a Request rather than refused, being unreadable there', async () => {
       const server = await startServer();
       const dispatch = vi.fn();
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       // A `Request` exposes no dispatcher to check for — undici keeps it out
       // of reach on some runtimes — so `resolveFetchInput`'s rebuild dropping
-      // it is the whole defence. This test is what notices if that changes.
+      // it is the whole defence.
       const response = await guarded(
         new Request(`http://localhost:${server.port}/`, {
           dispatcher: { dispatch, close: async () => undefined },
@@ -499,12 +481,57 @@ describe('makeGuardedFetch', () => {
       expect(server.received).toHaveLength(1);
     });
 
+    it('is shed from a Request that carries it as an own property', async () => {
+      const server = await startServer();
+      const dispatch = vi.fn();
+      const guarded = guardedLoopback();
+      // Planted where the rebuild reads its argument as a `RequestInit`, by
+      // string name. Without the copy that precedes the rebuild this would be
+      // read back off the caller's own object and honoured — the copy is the
+      // only thing between this and a transport of the caller's choosing.
+      const planted = new Request(`http://localhost:${server.port}/`);
+      Object.defineProperty(planted, 'dispatcher', {
+        configurable: true,
+        get: () => ({ dispatch, close: async () => undefined }),
+      });
+
+      const response = await guarded(planted);
+
+      expect(await response.text()).toBe('landed');
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(server.received).toHaveLength(1);
+    });
+
+    it('is not honoured when an accessor hides it from the check', async () => {
+      const server = await startServer();
+      const dispatch = vi.fn();
+      const guarded = guardedLoopback();
+      // The CWE-367 shape aimed at the check rather than the URL. One read
+      // serves both the check and the request, so the dispatcher is either
+      // refused or absent — never refused and then sent.
+      let reads = 0;
+      const init = {
+        get dispatcher() {
+          reads += 1;
+          return reads === 1
+            ? undefined
+            : { dispatch, close: async () => undefined };
+        },
+      };
+
+      const response = await guarded(
+        `http://localhost:${server.port}/`,
+        init as RequestInit,
+      );
+
+      expect(await response.text()).toBe('landed');
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(server.received).toHaveLength(1);
+    });
+
     it('is not confused by an absent one', async () => {
       const server = await startServer();
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       const response = await guarded(`http://localhost:${server.port}/`, {
         dispatcher: undefined,
@@ -516,15 +543,8 @@ describe('makeGuardedFetch', () => {
 
   describe('method and body across a redirect', () => {
     it('leaves a HEAD alone on a 303, which rewrites everything else', async () => {
-      const destination = await startServer();
-      const start = await startServer();
-      start.respondWith(
-        redirectTo(303, `http://localhost:${destination.port}/landed`),
-      );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const { start, destination } = await startRedirect({ status: 303 });
+      const guarded = guardedLoopback();
 
       await guarded(`http://localhost:${start.port}/start`, { method: 'HEAD' });
 
@@ -543,10 +563,7 @@ describe('makeGuardedFetch', () => {
         start.respondWith(
           redirectTo(status, `http://localhost:${destination.port}/landed`),
         );
-        const guarded = makeGuardedFetch({
-          baseFetch: fetch,
-          guard: allowLocalhost,
-        });
+        const guarded = guardedLoopback();
 
         const response = await guarded(`http://localhost:${start.port}/start`, {
           method,
@@ -580,10 +597,7 @@ describe('makeGuardedFetch', () => {
         start.respondWith(
           redirectTo(status, `http://localhost:${destination.port}/landed`),
         );
-        const guarded = makeGuardedFetch({
-          baseFetch: fetch,
-          guard: allowLocalhost,
-        });
+        const guarded = guardedLoopback();
 
         await guarded(`http://localhost:${start.port}/start`, {
           method,
@@ -615,15 +629,8 @@ describe('makeGuardedFetch', () => {
     );
 
     it('refuses to replay a stream body rather than truncating the request', async () => {
-      const destination = await startServer();
-      const start = await startServer();
-      start.respondWith(
-        redirectTo(307, `http://localhost:${destination.port}/landed`),
-      );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const { start, destination } = await startRedirect({ status: 307 });
+      const guarded = guardedLoopback();
 
       await expect(
         guarded(`http://localhost:${start.port}/start`, {
@@ -637,15 +644,8 @@ describe('makeGuardedFetch', () => {
     });
 
     it('drops a stream body on a 303 instead of failing, since the hop does not keep it', async () => {
-      const destination = await startServer();
-      const start = await startServer();
-      start.respondWith(
-        redirectTo(303, `http://localhost:${destination.port}/landed`),
-      );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const { start, destination } = await startRedirect({ status: 303 });
+      const guarded = guardedLoopback();
 
       const response = await guarded(`http://localhost:${start.port}/start`, {
         method: 'POST',
@@ -662,15 +662,11 @@ describe('makeGuardedFetch', () => {
 
   describe('credentials across a redirect', () => {
     it('drops them when the hop leaves the origin', async () => {
-      const destination = await startServer();
-      const start = await startServer();
-      start.respondWith(
-        redirectTo(307, `http://127.0.0.1:${destination.port}/landed`),
-      );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: async () => undefined,
+      const { start, destination } = await startRedirect({
+        status: 307,
+        host: '127.0.0.1',
       });
+      const guarded = guardedLoopback(allowAnyHost);
 
       await guarded(`http://localhost:${start.port}/start`, {
         headers: { authorization: 'Bearer secret', cookie: 'session=secret' },
@@ -684,19 +680,10 @@ describe('makeGuardedFetch', () => {
     it('keeps them when the hop stays on the origin', async () => {
       const server = await startServer();
       const origin = `http://localhost:${server.port}`;
-      server.respondWith((request, response) => {
-        if (request.url === '/start') {
-          response.writeHead(307, { location: `${origin}/landed` });
-          response.end();
-        } else {
-          response.writeHead(200);
-          response.end('landed');
-        }
-      });
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      server.respondWith(
+        redirectRoutes({ '/start': `${origin}/landed` }, { status: 307 }),
+      );
+      const guarded = guardedLoopback();
 
       await guarded(`${origin}/start`, {
         headers: { authorization: 'Bearer secret' },
@@ -765,10 +752,7 @@ describe('makeGuardedFetch', () => {
   describe('a Request input', () => {
     it('keeps its method, headers and body', async () => {
       const server = await startServer();
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       await guarded(
         new Request(`http://localhost:${server.port}/thing`, {
@@ -787,10 +771,7 @@ describe('makeGuardedFetch', () => {
 
     it('is overridden by an init that names the same thing', async () => {
       const server = await startServer();
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       await guarded(
         new Request(`http://localhost:${server.port}/thing`, {
@@ -807,18 +788,10 @@ describe('makeGuardedFetch', () => {
     });
 
     it('carries its body to a hop that keeps it only if it can be replayed', async () => {
-      const destination = await startServer();
-      const start = await startServer();
-      start.respondWith(
-        redirectTo(307, `http://localhost:${destination.port}/landed`),
-      );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const { start, destination } = await startRedirect({ status: 307 });
+      const guarded = guardedLoopback();
 
-      // A `Request`'s body is a stream whatever it was built from, and the
-      // bytes behind it are not reachable a second time.
+      // Why a string body still fails here: see `isReplayableBody`.
       await expect(
         guarded(
           new Request(`http://localhost:${start.port}/start`, {
@@ -832,16 +805,17 @@ describe('makeGuardedFetch', () => {
   });
 
   describe('with a scripted fetch', () => {
-    /**
-     * Reply with each response in turn, so a hop's exact arguments can be
-     * inspected without a server in the way.
-     *
-     * @param responses - What to answer each successive call with.
-     * @returns The scripted fetch.
-     */
-    const scriptFetch = (...responses: Response[]): typeof fetch => {
+    // Replies with each response in turn, so a hop's exact arguments can be
+    // inspected without a server in the way. Returned as the mock rather than as
+    // `typeof fetch`, so a test can read what each hop was actually sent —
+    // `baseFetch` is where a hop's init is complete, the guard being handed the
+    // URL alone.
+    const scriptFetch = (...responses: Response[]) => {
       const remaining = [...responses];
-      return vi.fn(async () => remaining.shift() as Response) as typeof fetch;
+      return vi.fn(
+        async (_input: RequestInfo | URL, _init?: RequestInit) =>
+          remaining.shift() as Response,
+      );
     };
 
     it('discards the body of a redirect it does not return', async () => {
@@ -866,11 +840,36 @@ describe('makeGuardedFetch', () => {
       const response = await guarded('http://localhost/start');
 
       expect(await response.text()).toBe('landed');
-      // Unread and unreturned, its connection would be held until collection.
       expect(cancelled).toBe(true);
     });
 
-    it('hands the guard the request each hop will actually make', async () => {
+    it('sends each hop the request the rewrite left it with', async () => {
+      const baseFetch = scriptFetch(
+        new Response('', {
+          status: 303,
+          headers: { location: 'http://localhost/landed' },
+        }),
+        new Response('landed'),
+      );
+      const guarded = makeGuardedFetch({ baseFetch, guard: allowLocalhost });
+
+      await guarded('http://localhost/start', { method: 'POST', body: 'sent' });
+
+      expect(baseFetch.mock.calls[0]?.[1]).toMatchObject({
+        method: 'POST',
+        body: 'sent',
+        redirect: 'manual',
+      });
+      // The 303 rewrote the request, and the hop is sent the rewrite.
+      expect(baseFetch.mock.calls[1]?.[0]).toBe('http://localhost/landed');
+      expect(baseFetch.mock.calls[1]?.[1]).toMatchObject({
+        method: 'GET',
+        body: null,
+        redirect: 'manual',
+      });
+    });
+
+    it('hands the guard the URL of each hop and nothing else', async () => {
       const guard = vi.fn(allowLocalhost);
       const guarded = makeGuardedFetch({
         baseFetch: scriptFetch(
@@ -885,26 +884,37 @@ describe('makeGuardedFetch', () => {
 
       await guarded('http://localhost/start', { method: 'POST', body: 'sent' });
 
-      const [firstUrl, firstInit] = guard.mock.calls[0] as [URL, RequestInit];
-      expect(firstUrl).toStrictEqual(new URL('http://localhost/start'));
-      expect(firstInit).toMatchObject({
-        method: 'POST',
-        body: 'sent',
-        redirect: 'manual',
-      });
-      // The 303 rewrote the request, and the guard sees the rewrite.
-      const [hopUrl, hopInit] = guard.mock.calls[1] as [URL, RequestInit];
-      expect(hopUrl).toStrictEqual(new URL('http://localhost/landed'));
-      expect(hopInit).toMatchObject({
-        method: 'GET',
+      // A guard shown the request too would be shown a first hop assembled
+      // differently from every later one — `method` and `body` reach the first
+      // request from the caller's own init, and later ones from the rewrite.
+      expect(guard.mock.calls).toStrictEqual([
+        [new URL('http://localhost/start')],
+        [new URL('http://localhost/landed')],
+      ]);
+    });
+
+    it('refuses a response that followed a redirect below the guard', async () => {
+      // Every request here asks for `manual`, so a base fetch reporting that it
+      // was redirected walked a chain the guard never saw. Returning it would be
+      // the pre-flight-only checking this wrapper replaces.
+      const followed = {
+        type: 'basic',
+        status: 200,
+        redirected: true,
+        headers: new Headers(),
         body: null,
-        redirect: 'manual',
-      });
+      } as unknown as Response;
+      const baseFetch = scriptFetch(followed);
+      const guarded = makeGuardedFetch({ baseFetch, guard: allowLocalhost });
+
+      await expect(guarded('http://localhost/start')).rejects.toThrow(
+        /followed a redirect below the guard/u,
+      );
+      expect(baseFetch).toHaveBeenCalledTimes(1);
     });
 
     it('refuses an opaque redirect, which hides the hop instead of exposing it', async () => {
-      // What a browser answers a manual redirect with: no status, no headers,
-      // no way to check where it points.
+      // A browser's opaque-redirect response: no status, no headers.
       const opaque = {
         type: 'opaqueredirect',
         status: 0,
@@ -931,7 +941,6 @@ describe('makeGuardedFetch', () => {
         ),
         guard: allowLocalhost,
       });
-      // A body nobody wanted must not be able to fail the request.
       // eslint-disable-next-line n/no-unsupported-features/node-builtins
       vi.spyOn(ReadableStream.prototype, 'cancel').mockRejectedValue(
         new Error('already gone'),
@@ -943,45 +952,41 @@ describe('makeGuardedFetch', () => {
     });
 
     it('strips credentials on a hop that only changes scheme', async () => {
-      const guard = vi.fn(async () => undefined);
+      const baseFetch = scriptFetch(
+        new Response('', {
+          status: 307,
+          headers: { location: 'http://example.test/landed' },
+        }),
+        new Response('landed'),
+      );
       const guarded = makeGuardedFetch({
-        baseFetch: scriptFetch(
-          new Response('', {
-            status: 307,
-            headers: { location: 'http://example.test/landed' },
-          }),
-          new Response('landed'),
-        ),
-        guard,
+        baseFetch,
+        guard: allowAnyHost,
       });
 
       await guarded('https://example.test/start', {
         headers: { authorization: 'Bearer secret' },
       });
 
-      const [, hopInit] = guard.mock.calls[1] as unknown as [URL, RequestInit];
+      const hopInit = baseFetch.mock.calls[1]?.[1] as RequestInit;
       expect((hopInit.headers as Headers).get('authorization')).toBeNull();
     });
 
     it('carries a Request’s integrity to the hop, where it is still enforced', async () => {
-      const guard = vi.fn(allowLocalhost);
-      const guarded = makeGuardedFetch({
-        baseFetch: scriptFetch(
-          new Response('', {
-            status: 307,
-            headers: { location: 'http://localhost/landed' },
-          }),
-          new Response('landed'),
-        ),
-        guard,
-      });
+      const baseFetch = scriptFetch(
+        new Response('', {
+          status: 307,
+          headers: { location: 'http://localhost/landed' },
+        }),
+        new Response('landed'),
+      );
+      const guarded = makeGuardedFetch({ baseFetch, guard: allowLocalhost });
 
       await guarded(
         new Request('http://localhost/start', { integrity: 'sha256-abc' }),
       );
 
-      const [, hopInit] = guard.mock.calls[1] as unknown as [URL, RequestInit];
-      expect(hopInit.integrity).toBe('sha256-abc');
+      expect(baseFetch.mock.calls[1]?.[1]?.integrity).toBe('sha256-abc');
     });
 
     it('shows the guard the headers it will send, not ones changed since', async () => {
@@ -1042,10 +1047,7 @@ describe('makeGuardedFetch', () => {
       allowed.respondWith(
         redirectTo(302, location.replace('PORT', String(forbidden.port))),
       );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       await expect(
         guarded(`http://localhost:${allowed.port}/start`),
@@ -1060,10 +1062,7 @@ describe('makeGuardedFetch', () => {
     ])('refuses a hop to %s by naming its scheme', async (location) => {
       const server = await startServer();
       server.respondWith(redirectTo(302, location));
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       await expect(
         guarded(`http://localhost:${server.port}/start`),
@@ -1074,10 +1073,7 @@ describe('makeGuardedFetch', () => {
     it('hands back an empty Location rather than requesting the same URL again', async () => {
       const server = await startServer();
       server.respondWith(redirectTo(302, '   '));
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       const response = await guarded(`http://localhost:${server.port}/start`);
 
@@ -1088,10 +1084,7 @@ describe('makeGuardedFetch', () => {
     it('refuses a Location that will not parse', async () => {
       const server = await startServer();
       server.respondWith(redirectTo(302, 'http://['));
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       await expect(
         guarded(`http://localhost:${server.port}/start`),
@@ -1103,23 +1096,15 @@ describe('makeGuardedFetch', () => {
   describe('the origin comparison that decides credential stripping', () => {
     it('treats a different hostname on the same port as a different origin', async () => {
       const server = await startServer();
-      server.respondWith((request, response) => {
-        if (request.url === '/start') {
-          // The same server under a name the allowlist also permits, so the
-          // hostname is the only part of the origin that differs.
-          response.writeHead(307, {
-            location: `http://127.0.0.1:${server.port}/landed`,
-          });
-          response.end();
-        } else {
-          response.writeHead(200);
-          response.end('landed');
-        }
-      });
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: async () => undefined,
-      });
+      // The same server under a name the allowlist also permits, so the
+      // hostname is the only part of the origin that differs.
+      server.respondWith(
+        redirectRoutes(
+          { '/start': `http://127.0.0.1:${server.port}/landed` },
+          { status: 307 },
+        ),
+      );
+      const guarded = guardedLoopback(allowAnyHost);
 
       await guarded(`http://localhost:${server.port}/start`, {
         headers: { authorization: 'Bearer secret' },
@@ -1129,15 +1114,8 @@ describe('makeGuardedFetch', () => {
     });
 
     it('treats a different port on the same hostname as a different origin', async () => {
-      const destination = await startServer();
-      const start = await startServer();
-      start.respondWith(
-        redirectTo(307, `http://localhost:${destination.port}/landed`),
-      );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const { start, destination } = await startRedirect({ status: 307 });
+      const guarded = guardedLoopback();
 
       await guarded(`http://localhost:${start.port}/start`, {
         headers: { authorization: 'Bearer secret' },
@@ -1149,15 +1127,11 @@ describe('makeGuardedFetch', () => {
     it.each(['proxy-authorization', 'cookie', 'authorization'])(
       'drops %s across origins',
       async (header) => {
-        const destination = await startServer();
-        const start = await startServer();
-        start.respondWith(
-          redirectTo(307, `http://127.0.0.1:${destination.port}/landed`),
-        );
-        const guarded = makeGuardedFetch({
-          baseFetch: fetch,
-          guard: async () => undefined,
+        const { start, destination } = await startRedirect({
+          status: 307,
+          host: '127.0.0.1',
         });
+        const guarded = guardedLoopback(allowAnyHost);
 
         await guarded(`http://localhost:${start.port}/start`, {
           headers: { [header]: 'secret' },
@@ -1170,15 +1144,11 @@ describe('makeGuardedFetch', () => {
 
   describe('a Request input carried across a hop', () => {
     it('keeps its method and headers, less the credentials the hop leaves behind', async () => {
-      const destination = await startServer();
-      const start = await startServer();
-      start.respondWith(
-        redirectTo(307, `http://127.0.0.1:${destination.port}/landed`),
-      );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: async () => undefined,
+      const { start, destination } = await startRedirect({
+        status: 307,
+        host: '127.0.0.1',
       });
+      const guarded = guardedLoopback(allowAnyHost);
 
       await guarded(
         new Request(`http://localhost:${start.port}/start`, {
@@ -1193,18 +1163,9 @@ describe('makeGuardedFetch', () => {
     });
 
     it('is not emptied by an init body of null, which means "not supplied"', async () => {
-      const destination = await startServer();
-      const start = await startServer();
-      start.respondWith(
-        redirectTo(307, `http://localhost:${destination.port}/landed`),
-      );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const { start, destination } = await startRedirect({ status: 307 });
+      const guarded = guardedLoopback();
 
-      // The Request's body still stands, so the hop that keeps it is refused
-      // rather than sent on with nothing in it.
       await expect(
         guarded(
           new Request(`http://localhost:${start.port}/start`, {
@@ -1239,15 +1200,8 @@ describe('makeGuardedFetch', () => {
         },
       },
     ])('replays $label across a 307', async ({ makeBody }) => {
-      const destination = await startServer();
-      const start = await startServer();
-      start.respondWith(
-        redirectTo(307, `http://localhost:${destination.port}/landed`),
-      );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const { start, destination } = await startRedirect({ status: 307 });
+      const guarded = guardedLoopback();
 
       const response = await guarded(`http://localhost:${start.port}/start`, {
         method: 'POST',
@@ -1262,15 +1216,8 @@ describe('makeGuardedFetch', () => {
 
   describe('the response of a followed chain', () => {
     it('clones as a redirected response', async () => {
-      const second = await startServer();
-      const first = await startServer();
-      first.respondWith(
-        redirectTo(302, `http://localhost:${second.port}/landed`),
-      );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const { start: first, destination: second } = await startRedirect();
+      const guarded = guardedLoopback();
 
       const response = await guarded(`http://localhost:${first.port}/start`);
       const clone = response.clone();
@@ -1291,10 +1238,7 @@ describe('makeGuardedFetch', () => {
       first.respondWith(
         redirectTo(302, `http://localhost:${second.port}/landed`),
       );
-      const guarded = makeGuardedFetch({
-        baseFetch: fetch,
-        guard: allowLocalhost,
-      });
+      const guarded = guardedLoopback();
 
       const response = await guarded(`http://localhost:${first.port}/start`);
 
@@ -1308,11 +1252,7 @@ describe('makeGuardedFetch', () => {
     });
 
     it('reports redirected through a frozen response, which cannot be written to', async () => {
-      const second = await startServer();
-      const first = await startServer();
-      first.respondWith(
-        redirectTo(302, `http://localhost:${second.port}/landed`),
-      );
+      const { start: first } = await startRedirect();
       const guarded = makeGuardedFetch({
         // Stands in for the vat `fetch` endowment, which hardens what it
         // returns before the caveat ever sees it.
@@ -1324,6 +1264,31 @@ describe('makeGuardedFetch', () => {
       const response = await guarded(`http://localhost:${first.port}/start`);
 
       expect(response.redirected).toBe(true);
+      expect(await response.text()).toBe('landed');
+    });
+
+    it('stays readable when the response carries redirected as a frozen own value', async () => {
+      const { start: first } = await startRedirect();
+      const guarded = makeGuardedFetch({
+        // A hardened object literal, so `redirected` is a non-configurable own
+        // value — the case `asRedirected` must not override.
+        baseFetch: async (input, init) => {
+          const real = await fetch(input, init);
+          return harden({
+            status: real.status,
+            headers: real.headers,
+            redirected: false,
+            text: async () => await real.text(),
+          }) as unknown as Response;
+        },
+        guard: allowLocalhost,
+      });
+
+      const response = await guarded(`http://localhost:${first.port}/start`);
+
+      // Reported as the target has it. The flag is wrong for the chain that was
+      // travelled, which is the price of the response staying readable at all.
+      expect(response.redirected).toBe(false);
       expect(await response.text()).toBe('landed');
     });
   });

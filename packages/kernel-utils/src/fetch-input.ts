@@ -4,23 +4,24 @@ export type ResolvedFetchInput = {
   /** The URL that `fetch` will request. */
   url: URL;
   /**
-   * What to hand to `fetch` in place of the caller's input. Resolving it again
-   * always yields `url`, however often and whenever it is read. It is not
-   * otherwise sealed off from the caller: a `Request` body stream is still the
-   * caller's, so the guarantee is over the destination, not the payload.
+   * To hand to `fetch` in place of the caller's input: resolving it again
+   * always yields `url`. The guarantee is over the destination only — a
+   * `Request` body stream is still the caller's.
    */
   input: FetchInput;
 };
 
 /**
- * Find the genuine `url` accessor for `Request` instances. It is not always an
- * own property of `Request.prototype`: jsdom, for one, exposes a `Request`
- * subclass whose own prototype carries only `constructor`, leaving the
- * accessor a level up.
+ * The `url` accessor is not always an own property of `Request.prototype`:
+ * jsdom exposes a `Request` subclass whose own prototype carries only
+ * `constructor`, leaving the accessor a level up.
  *
- * @returns The accessor, or `undefined` if this environment has no `Request`.
+ * @returns The accessor, or `undefined` where `url` is a data property rather
+ * than an accessor, as a polyfill assigning `this.url` leaves it.
  */
 const findRequestUrlAccessor = (): ((this: Request) => string) | undefined => {
+  // Not an `instanceof` guard's problem: this runs at module load, where a
+  // realm without `Request` would otherwise fail the import outright.
   let proto: object | null =
     typeof Request === 'undefined' ? null : Request.prototype;
   while (proto) {
@@ -68,37 +69,37 @@ export const resolveFetchInput = (input: FetchInput): ResolvedFetchInput => {
     return { url: new URL(input), input };
   }
   if (input instanceof Request) {
-    // Two steps, and both are load-bearing.
-    //
     // Copy first, so that only a genuine `Request`'s internals are read below.
-    // A `Request` carries settings such as undici's `dispatcher` — which
-    // decides where the bytes actually go — behind internal keys, but the
-    // second step reads its argument as a `RequestInit`, by string name. Given
-    // the caller's own object that would let a planted `dispatcher` property
-    // route the request anywhere. This throws for anything wearing
-    // `Request.prototype` without the backing state.
+    // The rebuild reads its argument as a `RequestInit`, by string name, so a
+    // `dispatcher` planted on the caller's own object — undici's hook for where
+    // the bytes go — would route the request anywhere. Also throws for anything
+    // wearing `Request.prototype` without the backing state.
     const genuine = new Request(input);
-    // Then rebuild around the URL as a string. Copying alone is not enough:
-    // runtimes differ in how tamper-proof a `Request`'s state is, and undici on
-    // Node 22 keeps it in a configurable own property, so a caller can leave a
-    // `URL` object it still holds in there — copied by reference, then mutated
-    // after the check and re-read at send time. Parsing a string fixes the
-    // destination.
+    // Copying alone is not enough: undici on Node 22 keeps a `Request`'s state
+    // in a configurable own property, so a caller can leave a `URL` it still
+    // holds in there — copied by reference, mutated after the check, re-read at
+    // send time. Parsing a string fixes the destination.
+    //
+    // Preferring the captured accessor is hardening, not the invariant: whatever
+    // `href` turns out to be, the guard checks `new URL(href)` and the stand-in
+    // is built from `url.href`, and `RequestInit` has no `url` member for
+    // `genuine` to override. So check and request are pinned to the same string
+    // either way; reading the slot only denies a lying subclass the choice of
+    // which URL gets submitted for approval.
     const href = getRequestUrl ? getRequestUrl.call(genuine) : genuine.url;
     const url = new URL(href);
     return { url, input: new Request(url.href, genuine) };
   }
-  // A `URL`, or an object with a stringifier. Both reads below are ours, and
-  // the URL is parsed from the captured primitive rather than from `input`,
-  // so the object is never consulted again.
+  // A `URL`, or an object with a stringifier. Parsed from the captured
+  // primitive, so `input` is never consulted again.
   const href = String(input);
   const url = new URL(href);
   // Forwarding a primitive already makes a second read harmless, but an input
-  // that answers differently each time is an escape attempt in progress, not a
-  // mistake. Refuse it, so it surfaces as an error instead of a silent request
-  // to whichever URL it happened to show first.
+  // that answers differently each time is an escape attempt, not a mistake:
+  // surface it rather than silently requesting whichever URL came first.
   if (String(input) !== href) {
     throw new Error('fetch input resolved to a different URL when read again.');
   }
   return { url, input: url.href };
 };
+harden(resolveFetchInput);

@@ -10,6 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **SECURITY:** `makeHostRestrictedFetch` can no longer reach a host outside `allowedHosts`. The host was checked against one resolution of the input while `fetch` resolved it again (CWE-367), and a redirect out of the allowlist was followed unchecked ([#1026](https://github.com/MetaMask/ocap-kernel/pull/1026))
-  - Redirects are now checked per hop, and `redirect: 'follow'` no longer overrides this. A `dispatcher` in `init` is rejected, and a redirect that keeps a body that cannot be sent again now fails
+  - `redirect: 'follow'` no longer reaches the hop unchecked, so the `baseFetch` argument is always called with `redirect: 'manual'` and must honour it. A `dispatcher` in `init` is rejected, and a redirect that keeps a body that cannot be sent again now fails
 
 [Unreleased]: https://github.com/MetaMask/ocap-kernel/

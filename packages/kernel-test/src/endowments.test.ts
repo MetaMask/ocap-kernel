@@ -114,18 +114,15 @@ describe('endowments', () => {
     expect(extractTestLogs(entries, vatId)).toStrictEqual([
       'buildRootObject',
       'bootstrap',
-      // Both reads are the kernel's, and their disagreement is refused rather
-      // than resolved in the vat's favour.
       'error: Error: fetch input resolved to a different URL when read again.',
+      // Two reads, both the kernel's: it resolves once and checks once.
       'reads: 2',
-      // A `Request` is copied before it is forwarded, so the lying getter buys
-      // nothing and the real host is rejected.
+      // The copy defeats the lying getter; see `resolveFetchInput`.
       `error: Error: Invalid host: ${badHost}`,
     ]);
   });
 
-  // A redirect used to be a second chance to name a host the vat was never
-  // granted, the caveat having seen only the pre-flight URL.
+  // Regression test for the unchecked redirect hop; see `makeGuardedFetch`.
   it('confines a vat whose allowed host redirects it elsewhere', async () => {
     const vatId: VatId = 'v1';
     const v1Root: KRef = 'ko4';
