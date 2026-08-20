@@ -118,6 +118,27 @@ describe('persistent storage', { timeout: 20_000 }, () => {
       'Counter incremented to: 3',
     );
     await kernel2.stop();
+
+    // Terminating it has to mean terminating it. Give the bundle back and boot
+    // again: a record left in the store outlives the subcluster that owned it,
+    // so the vat the operator was rid of comes back — running, with its durable
+    // state intact but its c-lists cleaned up underneath it, and belonging to
+    // nothing. `getVats` asks every vat for its subcluster, so from then on
+    // `getStatus` throws for every caller that asks.
+    await copyFile(
+      fileURLToPath(getBundleSpec('persistence-counter-vat')),
+      doomedBundlePath,
+    );
+    const database3 = await makeSQLKernelDatabase({ dbFilename: databasePath });
+    const kernel3 = await makeKernel(
+      database3,
+      false,
+      logger.logger.subLogger({ tags: ['test'] }),
+    );
+
+    expect(kernel3.getVatIds()).toStrictEqual(['v1']);
+    expect(await kernel3.getStatus()).toBeDefined();
+    await kernel3.stop();
   });
 
   it('restores a vat whose code becomes reachable again', async () => {

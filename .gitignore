@@ -2,6 +2,7 @@
 dist/
 coverage/
 docs/*
+reviews/
 !docs/*.md
 !docs/contributing
 

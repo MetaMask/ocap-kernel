@@ -1,3 +1,4 @@
+import { Logger } from '@metamask/logger';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MockInstance } from 'vitest';
 
@@ -751,6 +752,58 @@ describe('KernelRouter', () => {
           ).not.toHaveBeenCalled();
         },
       );
+
+      it('allocates nothing in the c-list of an endpoint it is skipping', async () => {
+        await kernelRouter.deliver(makeLiveNotify());
+
+        // Both translations import if needed, minting a c-list entry with the
+        // reachable flag set and incrementing the refcount of every slot. Doing
+        // that for an endpoint nobody will tell writes rows only that endpoint
+        // could ever release, and it can't — the crank commits now that the
+        // delivery no longer throws, so what a rollback used to undo persists.
+        expect(kernelStore.translateRefKtoE).not.toHaveBeenCalled();
+        expect(kernelStore.translateCapDataKtoE).not.toHaveBeenCalled();
+      });
+
+      it('throws for an endpoint id that is neither a vat nor a remote', async () => {
+        (getEndpoint as unknown as MockInstance).mockImplementation(
+          (requested: EndpointId) => {
+            throw new Error(`invalid endpoint ID ${requested}`);
+          },
+        );
+
+        // A missing vat and a missing remote are ordinary; an id that is
+        // neither is corrupt state or a kernel bug, and GC actions are parsed
+        // through `insistEndpointId` before they are ever queued. Swallowing it
+        // buys nothing and hides the one case worth hearing about.
+        await expect(
+          kernelRouter.deliver({
+            type: 'bringOutYourDead',
+            endpointId: 'bogus' as EndpointId,
+          }),
+        ).rejects.toThrow('invalid endpoint ID bogus');
+      });
+
+      it('reports the skip above the per-delivery trace level', async () => {
+        const logger = new Logger('test');
+        const warnSpy = vi.spyOn(logger, 'warn');
+        const router = new KernelRouter(
+          kernelStore,
+          kernelQueue,
+          getEndpoint,
+          vi.fn(),
+          logger,
+        );
+
+        await router.deliver({ type: 'bringOutYourDead', endpointId });
+
+        // A delivery dropped on the floor is not routine traffic, and it is the
+        // only trace of a vat that has quietly stopped doing anything.
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining(endpointId),
+          expect.anything(),
+        );
+      });
 
       it('still releases the notify’s own reference when it is skipped', async () => {
         const notifyItem = makeLiveNotify();

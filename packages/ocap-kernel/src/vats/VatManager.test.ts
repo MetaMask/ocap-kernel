@@ -71,6 +71,8 @@ describe('VatManager', () => {
       getVatSubcluster: vi.fn().mockReturnValue('s1'),
       isVatActive: vi.fn().mockReturnValue(true),
       markVatAsTerminated: vi.fn(),
+      deleteVat: vi.fn(),
+      getPromisesByDecider: vi.fn().mockReturnValue([]),
       getRootObject: vi.fn().mockReturnValue('ko1'),
       pinObject: vi.fn(),
       unpinObject: vi.fn(),
@@ -81,6 +83,7 @@ describe('VatManager', () => {
 
     mockKernelQueue = {
       waitForCrank: vi.fn().mockResolvedValue(undefined),
+      resolvePromises: vi.fn(),
     } as unknown as Mocked<KernelQueue>;
 
     mockLogger = new Logger('test');
@@ -521,6 +524,46 @@ describe('VatManager', () => {
 
       expect(mockPlatformServices.terminate).not.toHaveBeenCalled();
       expect(mockKernelStore.markVatAsTerminated).toHaveBeenCalledWith('v2');
+    });
+
+    it('discards the persisted record of a vat that is not running', async () => {
+      // `markVatAsTerminated` alone does not retire a vat. The deferred cleanup
+      // it schedules walks keys prefixed `${vatId}.`, which never matches
+      // `vatConfig.${vatId}` — only `deleteVat` removes that, along with the
+      // vat's own store and its subcluster membership. Leave it behind and the
+      // next boot restores the vat the operator just terminated.
+      await vatManager.terminateVat('v2');
+
+      expect(mockKernelStore.deleteVat).toHaveBeenCalledWith('v2');
+    });
+
+    it('rejects the promises a vat that is not running was deciding', async () => {
+      mockKernelStore.getPromisesByDecider.mockReturnValue(['kp1', 'kp2']);
+
+      await vatManager.terminateVat('v2');
+
+      // `cleanupTerminatedVat` deletes these promises' c-list entries and drops
+      // the decider's refcount on the stated understanding that its caller has
+      // already rejected them. Nothing else can: a promise left unresolved with
+      // a decider that no longer exists hangs its waiters for good.
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('v2', [
+        ['kp1', true, expect.anything()],
+      ]);
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('v2', [
+        ['kp2', true, expect.anything()],
+      ]);
+    });
+
+    it('carries the termination reason into those rejections', async () => {
+      mockKernelStore.getPromisesByDecider.mockReturnValue(['kp1']);
+
+      await vatManager.terminateVat('v2', { body: 'Custom reason', slots: [] });
+
+      const [, resolutions] = mockKernelQueue.resolvePromises.mock.calls[0] as [
+        string,
+        [string, boolean, { body: string }][],
+      ];
+      expect(resolutions[0]?.[2]?.body).toContain('Custom reason');
     });
 
     it('throws for a vat that is neither running nor persisted', async () => {
