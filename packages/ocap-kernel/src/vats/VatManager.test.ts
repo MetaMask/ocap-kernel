@@ -160,6 +160,14 @@ describe('VatManager', () => {
       expect(kref).toBe('ko1');
     });
 
+    it('pins the root for the vat lifetime', async () => {
+      // A root is addressable while its vat lives whether or not anyone
+      // imports it, so without this GC retires it as the last importer lets go.
+      await vatManager.launchVat(createMockVatConfig(), 'test');
+
+      expect(mockKernelStore.pinObject).toHaveBeenCalledWith('ko1');
+    });
+
     it('launches a new vat with subcluster', async () => {
       const config = createMockVatConfig();
       const kref = await vatManager.launchVat(config, 'test', 's1');
@@ -234,6 +242,24 @@ describe('VatManager', () => {
       );
       expect(vatHandles[0]?.terminate).toHaveBeenCalledWith(false, undefined);
       expect(vatManager.hasVat('v1')).toBe(false);
+    });
+
+    it('keeps the root pin across a restart', async () => {
+      await vatManager.runVat('v1', createMockVatConfig());
+
+      await vatManager.stopVat('v1', false);
+
+      // The same root comes back, so releasing the pin would let GC retire it
+      // in the window where the vat has no handle.
+      expect(mockKernelStore.unpinObject).not.toHaveBeenCalled();
+    });
+
+    it('releases the root pin on termination', async () => {
+      await vatManager.runVat('v1', createMockVatConfig());
+
+      await vatManager.stopVat('v1', true);
+
+      expect(mockKernelStore.unpinObject).toHaveBeenCalledWith('ko1');
     });
 
     it('stops a vat for termination with reason', async () => {
@@ -426,6 +452,25 @@ describe('VatManager', () => {
         config: config2,
         subclusterId: 's1',
       });
+    });
+  });
+
+  describe('releaseVatRootPin', () => {
+    it('releases the pin on a vat root', async () => {
+      await vatManager.runVat('v1', createMockVatConfig());
+
+      vatManager.releaseVatRootPin('v1');
+
+      expect(mockKernelStore.unpinObject).toHaveBeenCalledWith('ko1');
+    });
+
+    it('does nothing for a vat with no root', () => {
+      // Teardown can outlive the kernel's knowledge of the vat, and there is
+      // no pin to release in that case.
+      mockKernelStore.getRootObject.mockReturnValue(undefined);
+
+      expect(() => vatManager.releaseVatRootPin('v1')).not.toThrow();
+      expect(mockKernelStore.unpinObject).not.toHaveBeenCalled();
     });
   });
 

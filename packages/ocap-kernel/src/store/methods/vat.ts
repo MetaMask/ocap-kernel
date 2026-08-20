@@ -5,7 +5,6 @@ import { getCListMethods } from './clist.ts';
 import { getObjectMethods } from './object.ts';
 import { getPromiseMethods } from './promise.ts';
 import { getReachableMethods } from './reachable.ts';
-import { getRefCountMethods } from './refcount.ts';
 import type {
   EndpointId,
   KRef,
@@ -35,29 +34,42 @@ const VAT_CONFIG_BASE_LEN = VAT_CONFIG_BASE.length;
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getVatMethods(ctx: StoreContext) {
   const { kv } = ctx;
-  const { getPrefixedKeys, getSlotKey, getOwnerKey } = getBaseMethods(ctx.kv);
-  const { deleteCListEntry } = getCListMethods(ctx);
+  const { getPrefixedKeys, getSlotKey, getCListPrefix, getOwnerKey } =
+    getBaseMethods(ctx.kv);
+  const { deleteCListEntry, forgetKref } = getCListMethods(ctx);
   const { getReachableAndVatSlot } = getReachableMethods(ctx);
-  const {
-    initKernelPromise,
-    setPromiseDecider,
-    getKernelPromise,
-    addPromiseSubscriber,
-  } = getPromiseMethods(ctx);
-  const { initKernelObject, getObjectRefCount } = getObjectMethods(ctx);
+  const { initKernelPromise, setPromiseDecider, addPromiseSubscriber } =
+    getPromiseMethods(ctx);
+  const { initKernelObject } = getObjectMethods(ctx);
   const { addCListEntry } = getCListMethods(ctx);
-  const { incrementRefCount, decrementRefCount } = getRefCountMethods(ctx);
 
   /**
    * Delete all persistent state associated with an endpoint.
    *
+   * Each surviving c-list entry is torn down rather than merely deleted: an
+   * entry is a reference, so dropping the key without releasing its count
+   * leaves the target held by a holder that no longer exists — pinned alive
+   * forever, and reported by the audit as a count nothing accounts for.
+   * `cleanupTerminatedVat` has already emptied the c-list by the time it calls
+   * this, so in practice there is nothing here to release; a caller that has
+   * not done that work first depends on this.
+   *
    * @param endpointId - The endpoint whose state is to be deleted.
    */
   function deleteEndpoint(endpointId: EndpointId): void {
-    for (const key of getPrefixedKeys(`cle.${endpointId}.`)) {
-      kv.delete(key);
+    const prefix = getCListPrefix(endpointId);
+    // Snapshot the keys: forgetKref deletes both halves of a pair, so mutating
+    // while walking the live key sequence would step over entries.
+    for (const key of [...getPrefixedKeys(prefix)]) {
+      const ref = key.slice(prefix.length);
+      // The kref-keyed half of each pair, which is the half that names the
+      // reference to release. The eref-keyed half goes with it.
+      if (parseRef(ref).context === 'kernel') {
+        forgetKref(endpointId, ref as KRef);
+      }
     }
-    for (const key of getPrefixedKeys(`clk.${endpointId}.`)) {
+    // Any half-pair left over has no kref side to release through.
+    for (const key of getPrefixedKeys(prefix)) {
       kv.delete(key);
     }
     kv.delete(`e.nextObjectId.${endpointId}`);
@@ -261,11 +273,8 @@ export function getVatMethods(ctx: StoreContext) {
       const { vatSlot } = getReachableAndVatSlot(vatID, kref);
       ctx.kv.delete(getSlotKey(vatID, kref));
       ctx.kv.delete(getSlotKey(vatID, vatSlot));
-      // Skip baseline decrement if GC already zeroed reachable via dropImports.
-      const { reachable } = getObjectRefCount(kref);
-      if (reachable > 0) {
-        decrementRefCount(kref, 'cleanup|export|baseline');
-      }
+      // An export entry holds no count, so there is nothing to release; the
+      // object is now orphaned, and GC retires it once importers let go.
       ctx.maybeFreeKrefs.add(kref);
       work.exports += 1;
     }
@@ -282,20 +291,15 @@ export function getVatMethods(ctx: StoreContext) {
       work.imports += 1;
     }
 
-    // The caller used enumeratePromisesByDecider() before calling us,
-    // so they have already rejected the orphan promises, but those
-    // kpids are still present in the dead vat's c-list. Clean those up now.
+    // The caller rejected the orphan promises via getPromisesByDecider() before
+    // calling us, which is what released each promise's unsettled reference,
+    // but their kpids are still in the dead vat's c-list. Clean those up now.
     for (const key of getPrefixedKeys(promisePrefix)) {
       const krefStr = ctx.kv.get<KRef>(key) ?? Fail`getNextKey ensures get`;
       assert(key.startsWith(clistPrefix), key);
       const vref = key.slice(clistPrefix.length) as ERef;
       // the following will also delete both db keys
       deleteCListEntry(vatID, krefStr, vref);
-      // If the dead vat was still the decider, drop the decider’s refcount, too.
-      const kp = getKernelPromise(krefStr);
-      if (kp.decider === vatID) {
-        decrementRefCount(krefStr, 'cleanup|promise|decider');
-      }
       work.promises += 1;
     }
 
@@ -377,49 +381,28 @@ export function getVatMethods(ctx: StoreContext) {
       }
       const { isPromise } = parseRef(eref);
       if (isPromise) {
-        // deleteCListEntry decrements the promise refcount via the
-        // recognizable path. Additionally, if the endpoint was still
-        // recorded as decider, drop the decider's reference too.
+        // The caller already rejected the promises this endpoint was deciding,
+        // so only the c-list entry's own reference is left.
         deleteCListEntry(endpointId, kref, eref);
-        const kp = getKernelPromise(kref);
-        if (kp.decider === endpointId) {
-          decrementRefCount(kref, 'cleanup|peerRestart|promise|decider');
-        }
       } else {
         // Object exports: drop the owner mapping if it still names the
-        // restarting endpoint, decrement the baseline refcount the kernel
-        // implicitly held while the endpoint owned the object, and queue
-        // it for GC. Then tear down the c-list pair.
-        //
-        // We deliberately do NOT call deleteCListEntry here: that path uses
-        // `onlyRecognizable: true`, which is the right semantics for an
-        // endpoint dropping its imports but the wrong semantics for
-        // releasing an export the endpoint owned. The baseline decrement
-        // below corresponds to the implicit reference exportFromEndpoint
-        // installed when the kernel object was first created.
+        // restarting endpoint, tear down the c-list pair, and queue the object
+        // for GC. An export entry holds no count, so this changes none. If
+        // ownership has migrated (e.g. a kernel-internal handoff), leave the
+        // new owner's mapping alone: the kref is theirs from here.
         const ownerKey = getOwnerKey(kref);
         const currentOwner = ctx.kv.get(ownerKey);
-        const stillOwned = currentOwner === endpointId;
-        if (stillOwned) {
+        if (currentOwner === endpointId) {
           ctx.kv.delete(ownerKey);
         } else if (currentOwner !== undefined) {
-          // Ownership has migrated (e.g. via a kernel-internal handoff).
-          // The baseline reference is now owed to the new owner; do not
-          // decrement against their accounting. Tear down our c-list pair
-          // and stop — the new owner is responsible for the kref's lifetime.
           ctx.logger?.warn(
             `forgetEndpointImports: kref ${kref} was exported by ${endpointId} ` +
-              `but is now owned by ${currentOwner}; preserving baseline refcount`,
+              `but is now owned by ${currentOwner}`,
           );
-          const { vatSlot } = getReachableAndVatSlot(endpointId, kref);
-          ctx.kv.delete(getSlotKey(endpointId, kref));
-          ctx.kv.delete(getSlotKey(endpointId, vatSlot));
-          continue;
         }
         const { vatSlot } = getReachableAndVatSlot(endpointId, kref);
         ctx.kv.delete(getSlotKey(endpointId, kref));
         ctx.kv.delete(getSlotKey(endpointId, vatSlot));
-        decrementRefCount(kref, 'cleanup|peerRestart|export|baseline');
         ctx.maybeFreeKrefs.add(kref);
       }
     }
@@ -444,11 +427,9 @@ export function getVatMethods(ctx: StoreContext) {
     } else {
       kref = initKernelObject(endpointId);
     }
+    // addCListEntry takes the entry's reference: none for an object, since the
+    // owner is not one of its referrers, and one for a promise.
     addCListEntry(endpointId, kref, eref);
-    incrementRefCount(kref, 'export', {
-      isExport: true,
-      onlyRecognizable: true,
-    });
     ctx.logger?.debug('exportFromEndpoint', endpointId, eref, kref);
     if (context === 'remote' && isPromise) {
       addPromiseSubscriber(endpointId, kref);

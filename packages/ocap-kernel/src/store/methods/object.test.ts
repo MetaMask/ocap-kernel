@@ -29,7 +29,7 @@ describe('object-methods', () => {
   });
 
   describe('initKernelObject', () => {
-    it('creates a new kernel object with initial reference counts', () => {
+    it('creates a new kernel object, unreferenced', () => {
       const owner: EndpointId = 'v1';
       const koId = objectStore.initKernelObject(owner);
 
@@ -39,13 +39,13 @@ describe('object-methods', () => {
       // Check the owner is set correctly
       expect(kv.get(`${koId}.owner`)).toBe(owner);
 
-      // Check reference counts are initialized to 1,1
-      expect(kv.get(`${koId}.refCount`)).toBe('1,1');
-
-      // Check via the API
-      const refCounts = objectStore.getObjectRefCount(koId);
-      expect(refCounts.reachable).toBe(1);
-      expect(refCounts.recognizable).toBe(1);
+      // A new object has no referrers yet; the owner's own export entry is
+      // not one of them
+      expect(kv.get(`${koId}.refCount`)).toBe('0,0');
+      expect(objectStore.getObjectRefCount(koId)).toStrictEqual({
+        reachable: 0,
+        recognizable: 0,
+      });
     });
 
     it('initializes the revoked flag to false', () => {
@@ -171,8 +171,10 @@ describe('object-methods', () => {
     it('returns reference counts for existing objects', () => {
       const koId = objectStore.initKernelObject('v1');
 
+      objectStore.setObjectRefCount(koId, { reachable: 1, recognizable: 2 });
+
       const refCounts = objectStore.getObjectRefCount(koId);
-      expect(refCounts).toStrictEqual({ reachable: 1, recognizable: 1 });
+      expect(refCounts).toStrictEqual({ reachable: 1, recognizable: 2 });
     });
 
     it('returns zero counts for non-existent objects', () => {
@@ -276,8 +278,8 @@ describe('object-methods', () => {
       // Check initial state
       expect(objectStore.getOwner(koId)).toBe('v1');
       expect(objectStore.getObjectRefCount(koId)).toStrictEqual({
-        reachable: 1,
-        recognizable: 1,
+        reachable: 0,
+        recognizable: 0,
       });
 
       // Update reference counts

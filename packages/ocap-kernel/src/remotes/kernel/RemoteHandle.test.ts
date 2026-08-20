@@ -536,7 +536,8 @@ describe('RemoteHandle', () => {
     for (const kref of krefs) {
       const { isPromise } = parseRef(kref);
       if (isPromise) {
-        expect(mockKernelStore.getRefCount(kref)).toBe(1);
+        // 1 for the unsettled promise, 1 for the remote's c-list entry
+        expect(mockKernelStore.getRefCount(kref)).toBe(2);
       } else {
         expect(mockKernelStore.getObjectRefCount(kref)).toStrictEqual({
           reachable: 1,
@@ -557,7 +558,7 @@ describe('RemoteHandle', () => {
     for (const kref of krefs) {
       const { isPromise } = parseRef(kref);
       if (isPromise) {
-        expect(mockKernelStore.getRefCount(kref)).toBe(1);
+        expect(mockKernelStore.getRefCount(kref)).toBe(2);
       } else {
         expect(mockKernelStore.getObjectRefCount(kref)).toStrictEqual({
           reachable: 0,
@@ -623,7 +624,6 @@ describe('RemoteHandle', () => {
 
     // As if we're no longer using it (which, in fact, we weren't), which is a
     // prequisite for a valid 'retireImports' delivery
-    mockKernelStore.decrementRefCount(koref, 'test');
     mockKernelStore.clearReachableFlag(remote.remoteId, koref);
 
     // Now have the "other end" retire the import (include seq for incoming message)
@@ -660,7 +660,12 @@ describe('RemoteHandle', () => {
     const remote = makeRemote();
     const mockOcapURL = 'as if it was a URL';
     const mockReplyKey = 'replyKey';
-    const replyKRef = 'ko100';
+    // A URL only ever names an object the kernel still has, so redeem one that
+    // exists: importing a deleted kref is refused outright.
+    const replyKRef = mockKernelStore.initKernelObject('kernel');
+    vi.spyOn(mockRemoteComms, 'redeemLocalOcapURL').mockResolvedValue(
+      replyKRef,
+    );
     const replyRRef = 'ro+1';
     // Include seq for incoming message
     const request = JSON.stringify({

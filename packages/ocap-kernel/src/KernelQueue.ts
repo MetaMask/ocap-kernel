@@ -344,6 +344,7 @@ export class KernelQueue {
       await this.#terminateVat(vatId, info);
     }
     this.#kernelStore.collectGarbage();
+    this.#kernelStore.assertRefCountsIfAuditing();
   }
 
   /**
@@ -504,11 +505,6 @@ export class KernelQueue {
     for (const resolution of resolutions) {
       const [kpid, rejected, data] = resolution;
 
-      this.#kernelStore.incrementRefCount(kpid, 'resolve|kpid');
-      for (const slot of data.slots || []) {
-        this.#kernelStore.incrementRefCount(slot, 'resolve|slot');
-      }
-
       const promise = this.#kernelStore.getKernelPromise(kpid);
       const { state, decider, subscribers } = promise;
       if (state !== 'unresolved') {
@@ -520,6 +516,13 @@ export class KernelQueue {
       }
       if (!subscribers) {
         throw Fail`${kpid} subscribers not set`;
+      }
+
+      // Charged only once the resolve is known to be legal: a vat's illegal
+      // `syscall.resolve` throws out of the checks above, and a unit taken
+      // before them would be left behind with nobody holding it.
+      for (const slot of data.slots || []) {
+        this.#kernelStore.incrementRefCount(slot, 'resolve|slot');
       }
 
       // Enqueue notifications for each subscriber (immediate or buffered based on flag).

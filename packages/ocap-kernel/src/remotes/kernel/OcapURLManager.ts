@@ -4,6 +4,7 @@ import { parseOcapURL } from './remote-comms.ts';
 import type { RemoteManager } from './RemoteManager.ts';
 import { kslot, krefOf } from '../../liveslots/kernel-marshal.ts';
 import type { SlotValue } from '../../liveslots/kernel-marshal.ts';
+import type { KernelStore } from '../../store/index.ts';
 import type { KRef } from '../../types.ts';
 
 /**
@@ -25,6 +26,7 @@ export type OcapURLRedemptionService = {
 
 type OcapURLManagerConstructorProps = {
   remoteManager: RemoteManager;
+  kernelStore: KernelStore;
 };
 
 /**
@@ -33,6 +35,9 @@ type OcapURLManagerConstructorProps = {
 export class OcapURLManager {
   /** Remote manager for handling remote connections */
   readonly #remoteManager: RemoteManager;
+
+  /** The kernel's store, for retaining the objects issued URLs name */
+  readonly #kernelStore: KernelStore;
 
   /** OCAP URL issuer service object */
   readonly #ocapURLIssuerService: object;
@@ -45,9 +50,11 @@ export class OcapURLManager {
    *
    * @param options - Constructor options.
    * @param options.remoteManager - The remote manager for handling cross-kernel communications.
+   * @param options.kernelStore - The kernel's store.
    */
-  constructor({ remoteManager }: OcapURLManagerConstructorProps) {
+  constructor({ remoteManager, kernelStore }: OcapURLManagerConstructorProps) {
     this.#remoteManager = remoteManager;
+    this.#kernelStore = kernelStore;
 
     // Create the OCAP URL issuer service
     this.#ocapURLIssuerService = Far('ocapURLIssuerService', {
@@ -119,7 +126,22 @@ export class OcapURLManager {
    */
   async issueOcapURL(kref: KRef): Promise<string> {
     const identity = this.#remoteManager.getRemoteIdentity();
-    return identity.issueOcapURL(kref);
+    // Before minting the token, not after: the URL is unretractable once it
+    // exists, so the target must already be retained. Minting also awaits, and
+    // a collection crank can run in that window. See `retainForOcapURL`.
+    this.#kernelStore.retainForOcapURL(kref);
+    try {
+      return await identity.issueOcapURL(kref);
+    } catch (error) {
+      // Nothing else undoes this. A rejected kernel-service call is reported to
+      // the caller rather than thrown out of the crank, so the crank commits
+      // and the pin outlives the kernel that took it, naming a URL that never
+      // existed. This unwinds exactly the one retention above took, so the
+      // retentions of URLs that were minted — including any issued for this
+      // same kref while this one was in flight — are left alone.
+      this.#kernelStore.undoOcapURLRetention(kref);
+      throw error;
+    }
   }
 
   /**

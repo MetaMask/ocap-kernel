@@ -1,3 +1,5 @@
+import { Fail } from '@endo/errors';
+
 import { getBaseMethods } from './base.ts';
 import { getReachableMethods } from './reachable.ts';
 import { getRefCountMethods } from './refcount.ts';
@@ -20,23 +22,32 @@ import {
 export function getCListMethods(ctx: StoreContext) {
   const { getSlotKey } = getBaseMethods(ctx.kv);
   const { clearReachableFlag } = getReachableMethods(ctx);
-  const { decrementRefCount } = getRefCountMethods(ctx);
+  const { incrementRefCount, decrementRefCount } = getRefCountMethods(ctx);
 
   /**
    * Add an entry to an endpoint's c-list, creating a new bidirectional mapping
    * between an ERef belonging to the endpoint and a KRef belonging to the
    * kernel.
    *
+   * The entry is itself a reference, so creating one takes a count, mirroring
+   * {@link deleteCListEntry}. An object import is born recognizing but not
+   * reaching: reachability is `setReachableFlag`'s job, when the reference is
+   * handed over. An object export takes no count — the owner is not one of its
+   * own referrers — and is born flagged. A promise entry takes a full count
+   * whichever direction it faces, since a promise has only the one count.
+   *
    * @param endpointId - The endpoint whose c-list is to be added to.
    * @param kref - The KRef.
    * @param eref - The ERef.
    */
   function addCListEntry(endpointId: EndpointId, kref: KRef, eref: ERef): void {
+    const isExport = parseRef(eref).direction === 'export';
     ctx.kv.set(
       getSlotKey(endpointId, kref),
-      buildReachableAndVatSlot(true, eref),
+      buildReachableAndVatSlot(isExport, eref),
     );
     ctx.kv.set(getSlotKey(endpointId, eref), kref);
+    incrementRefCount(kref, 'add|kref', { isExport, onlyRecognizable: true });
   }
 
   /**
@@ -133,16 +144,24 @@ export function getCListMethods(ctx: StoreContext) {
   }
 
   /**
-   * Look up the ERefs that an endpoint's c-list maps aa list of KRefs to.
+   * Look up the ERefs that an endpoint's c-list maps a list of KRefs to,
+   * without allocating entries or disturbing reachability.
+   *
+   * Every kref must already be mapped. Garbage collection is the only caller
+   * and has already established that each kref has an entry, so a missing one
+   * means the two disagree — worth hearing about rather than silently dropping
+   * the notification.
    *
    * @param endpointId - The endpoint in question.
    * @param krefs - The KRefs to look up.
-   * @returns The given endpoint's ERefs corresponding to `krefs`
+   * @returns The given endpoint's ERefs corresponding to `krefs`.
    */
-  function krefsToExistingErefs(endpointId: EndpointId, krefs: KRef[]): ERef[] {
-    return krefs
-      .map((kref) => krefToEref(endpointId, kref))
-      .filter((eref): eref is ERef => Boolean(eref));
+  function krefsToErefs(endpointId: EndpointId, krefs: KRef[]): ERef[] {
+    return krefs.map(
+      (kref) =>
+        krefToEref(endpointId, kref) ??
+        Fail`unmapped kref ${kref} in ${endpointId} c-list`,
+    );
   }
 
   /**
@@ -182,6 +201,6 @@ export function getCListMethods(ctx: StoreContext) {
     krefToEref,
     forgetEref,
     forgetKref,
-    krefsToExistingErefs,
+    krefsToErefs,
   };
 }

@@ -252,7 +252,6 @@ test.describe('Control Panel', () => {
       `{"key":"v3.c.o+0","value":"${v3Root}"}`,
       `{"key":"v3.c.${v3Promise}","value":"R p-1"}`,
       `{"key":"v3.c.p-1","value":"${v3Promise}"}`,
-      `{"key":"${v3Root}.refCount","value":"1,1"}`,
       `{"key":"${v3Promise}.refCount","value":"2"}`,
     ];
     // Derived too: v1 imports the two roots as the bootstrap's calls are
@@ -282,6 +281,21 @@ test.describe('Control Panel', () => {
         popupPage.locator('[data-testid="message-output"]'),
       ).toContainText(value);
     }
+    // A live vat's root is pinned once, by `launchVat`, and its count is that
+    // pin plus v1's import. Both are asserted only while v3 is alive, since
+    // terminating it releases the pin — which is the point of the pair of
+    // assertions after the termination below. Worth asserting at all because a
+    // pin is the audit's own ground truth: a root that lost its pin agrees with
+    // its own refcount, so the audit stays silent while the last importer's
+    // drop can retire a live vat's root.
+    for (const value of [
+      `{"key":"pinned.${v3Root}","value":"1"}`,
+      `{"key":"${v3Root}.refCount","value":"2,2"}`,
+    ]) {
+      await expect(
+        popupPage.locator('[data-testid="message-output"]'),
+      ).toContainText(value);
+    }
     await popupPage.click('button:text("Control Panel")');
     await popupPage.locator('[data-testid="accordion-header"]').first().click();
     await popupPage
@@ -307,6 +321,14 @@ test.describe('Control Panel', () => {
         popupPage.locator('[data-testid="message-output"]'),
       ).toContainText(value);
     }
+    // Terminating the vat released the pin its launch took, leaving the root
+    // held only by v1's import — so it can now be collected once v1 lets go.
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).not.toContainText(`{"key":"pinned.${v3Root}"`);
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText(`{"key":"${v3Root}.refCount","value":"1,1"}`);
     await popupPage.click('button:text("Control Panel")');
 
     await popupPage.click('button:text("Collect Garbage")');

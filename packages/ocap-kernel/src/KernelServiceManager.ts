@@ -162,11 +162,10 @@ export class KernelServiceManager {
    * harmful if left: still pinned, so they accumulate with every restart.
    *
    * Note what this does *not* guarantee. The kernel object is deleted only
-   * once nothing references it, which with the current `(1, 1)` refcount
-   * baseline (see #1006) is never; a survivor therefore keeps its `'kernel'`
-   * owner, and a delivery to it still routes to `invokeKernelService`. That
-   * case is made survivable there, by rejecting the caller's promise rather
-   * than throwing, and not here.
+   * once nothing references it, so a survivor that a vat import or a still
+   * queued message holds keeps its `'kernel'` owner, and a delivery to it
+   * still routes to `invokeKernelService`. That case is made survivable there,
+   * by rejecting the caller's promise rather than throwing, and not here.
    *
    * Runs before the run queue starts, so the unpinning is complete before
    * anything can address one of these krefs.
@@ -196,8 +195,7 @@ export class KernelServiceManager {
    *
    * The kernel object itself is deleted here once nothing references it,
    * rather than being left to `collectGarbage`, which skips kernel-owned
-   * objects. With the current refcount baseline this branch does not fire;
-   * it is the correct place for the deletion once that changes (see #1006).
+   * objects.
    *
    * @param kref - The kref of the object to release.
    */

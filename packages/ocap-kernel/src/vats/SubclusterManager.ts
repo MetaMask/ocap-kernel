@@ -295,6 +295,11 @@ export class SubclusterManager {
 
     // Delete vat configs and mark vats as terminated so their data will be cleaned up
     for (const vatId of Object.values(subcluster.vats)) {
+      // These vats are not running, so `stopVat` never gets to release the pin
+      // its `launchVat` took in the incarnation that did run them. Without this
+      // the root's count never reaches zero and the pin outlives the vat it
+      // was taken for.
+      this.#vatManager.releaseVatRootPin(vatId);
       this.#kernelStore.deleteVatConfig(vatId);
       this.#kernelStore.markVatAsTerminated(vatId);
     }

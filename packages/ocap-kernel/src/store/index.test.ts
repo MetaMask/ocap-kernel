@@ -47,6 +47,8 @@ describe('kernel store', () => {
         'addSubcluster',
         'addSubclusterVat',
         'allocateErefForKref',
+        'assertRefCountsIfAuditing',
+        'auditRefCounts',
         'bufferCrankOutput',
         'cleanupOrphanMessages',
         'cleanupTerminatedVat',
@@ -84,6 +86,7 @@ describe('kernel store', () => {
         'forgetEref',
         'forgetKref',
         'forgetTerminatedVat',
+        'formatRefCountViolations',
         'getAllRemoteRecords',
         'getAllSystemSubclusterMappings',
         'getAllVatRecords',
@@ -100,9 +103,12 @@ describe('kernel store', () => {
         'getNextRemoteId',
         'getNextVatId',
         'getObjectRefCount',
+        'getOcapURLIssuanceCount',
+        'getOcapURLObjects',
         'getOwner',
         'getPeerIncarnation',
         'getPendingMessage',
+        'getPinCount',
         'getPinnedObjects',
         'getPromisesByDecider',
         'getQueueLength',
@@ -140,7 +146,7 @@ describe('kernel store', () => {
         'isVatTerminated',
         'kernelRefExists',
         'krefToEref',
-        'krefsToExistingErefs',
+        'krefsToErefs',
         'makeVatStore',
         'markInitialized',
         'markVatAsTerminated',
@@ -148,13 +154,16 @@ describe('kernel store', () => {
         'nextTerminatedVatCleanup',
         'pinObject',
         'provideIncarnationId',
+        'recomputeRefCounts',
         'recordLastActiveTime',
         'releaseAllSavepoints',
+        'releaseOcapURLRetentions',
         'releaseSavepoint',
         'removeAnonymousKernelObject',
         'removeVatFromSubcluster',
         'reset',
         'resolveKernelPromise',
+        'retainForOcapURL',
         'retireKernelObjects',
         'revoke',
         'rollbackCrank',
@@ -167,6 +176,8 @@ describe('kernel store', () => {
         'setPeerIncarnation',
         'setPendingMessage',
         'setPromiseDecider',
+        'setReachableFlag',
+        'setRefCountAuditing',
         'setRelayEntries',
         'setRemoteHighestReceivedSeq',
         'setRemoteIdentityValue',
@@ -184,6 +195,7 @@ describe('kernel store', () => {
         'translateRefEtoK',
         'translateRefKtoE',
         'translateSyscallVtoK',
+        'undoOcapURLRetention',
         'unpinObject',
         'waitForCrank',
       ]);
@@ -206,31 +218,31 @@ describe('kernel store', () => {
       const ko2Owner = 'r23';
       expect(ks.initKernelObject(ko1Owner)).toBe('ko1');
 
-      // Check that the object is initialized with reachable=1, recognizable=1
-      const refCounts = ks.getObjectRefCount('ko1');
-      expect(refCounts.reachable).toBe(1);
-      expect(refCounts.recognizable).toBe(1);
+      expect(ks.getObjectRefCount('ko1')).toStrictEqual({
+        reachable: 0,
+        recognizable: 0,
+      });
 
       // Increment the reference count
       ks.incrementRefCount('ko1', 'test');
-      expect(ks.getObjectRefCount('ko1').reachable).toBe(2);
-      expect(ks.getObjectRefCount('ko1').recognizable).toBe(2);
+      expect(ks.getObjectRefCount('ko1')).toStrictEqual({
+        reachable: 1,
+        recognizable: 1,
+      });
 
       // Increment again
       ks.incrementRefCount('ko1', 'test');
-      expect(ks.getObjectRefCount('ko1').reachable).toBe(3);
-      expect(ks.getObjectRefCount('ko1').recognizable).toBe(3);
+      expect(ks.getObjectRefCount('ko1')).toStrictEqual({
+        reachable: 2,
+        recognizable: 2,
+      });
 
-      // Decrement
-      ks.decrementRefCount('ko1', 'tess');
-      expect(ks.getObjectRefCount('ko1').reachable).toBe(2);
-      expect(ks.getObjectRefCount('ko1').recognizable).toBe(2);
-
-      // Decrement twice more to reach 0
       ks.decrementRefCount('ko1', 'test');
       ks.decrementRefCount('ko1', 'test');
-      expect(ks.getObjectRefCount('ko1').reachable).toBe(0);
-      expect(ks.getObjectRefCount('ko1').recognizable).toBe(0);
+      expect(ks.getObjectRefCount('ko1')).toStrictEqual({
+        reachable: 0,
+        recognizable: 0,
+      });
 
       // Create another object
       expect(ks.initKernelObject(ko2Owner)).toBe('ko2');
@@ -355,6 +367,125 @@ describe('kernel store', () => {
       // Verify C-list entry existence
       expect(ks.hasCListEntry('r7', ko42)).toBe(true);
       expect(ks.hasCListEntry('v2', ko42)).toBe(false); // We forgot this one
+    });
+  });
+
+  describe('ocap URL retention', () => {
+    it('pins the target and records it', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+
+      ks.retainForOcapURL(kref);
+
+      expect(ks.isObjectPinned(kref)).toBe(true);
+      expect(ks.getOcapURLObjects()).toStrictEqual([kref]);
+    });
+
+    it('counts an issuance for each URL naming the same target, and pins it once', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+
+      ks.retainForOcapURL(kref);
+      ks.retainForOcapURL(kref);
+
+      expect(ks.getOcapURLObjects()).toStrictEqual([kref]);
+      expect(ks.getOcapURLIssuanceCount(kref)).toBe(2);
+      expect(ks.getPinCount(kref)).toBe(1);
+      expect(ks.getObjectRefCount(kref)).toStrictEqual({
+        reachable: 1,
+        recognizable: 1,
+      });
+    });
+
+    it('undoes one retention of a target that several URLs name', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+      ks.retainForOcapURL(kref);
+      ks.retainForOcapURL(kref);
+
+      ks.undoOcapURLRetention(kref);
+
+      expect(ks.getOcapURLIssuanceCount(kref)).toBe(1);
+      expect(ks.isObjectPinned(kref)).toBe(true);
+      expect(ks.getObjectRefCount(kref)).toStrictEqual({
+        reachable: 1,
+        recognizable: 1,
+      });
+    });
+
+    it('refuses to retain a kref the kernel has deleted', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+
+      expect(() => ks.retainForOcapURL('ko99')).toThrow(
+        'cannot issue an ocap URL for deleted kref "ko99"',
+      );
+      expect(ks.getOcapURLObjects()).toStrictEqual([]);
+    });
+
+    it('undoing the last retention clears the record entirely', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+      const otherKref = ks.initKernelObject('v1');
+      ks.retainForOcapURL(kref);
+      ks.retainForOcapURL(otherKref);
+
+      ks.undoOcapURLRetention(kref);
+      expect(ks.isObjectPinned(kref)).toBe(false);
+      expect(ks.getOcapURLObjects()).toStrictEqual([otherKref]);
+
+      ks.undoOcapURLRetention(otherKref);
+      expect(ks.getOcapURLObjects()).toStrictEqual([]);
+      expect(
+        mockKernelDatabase.kernelKVStore.get(`ocapURLObjects.${otherKref}`),
+      ).toBeUndefined();
+    });
+
+    it('undoing a retention that was never taken leaves the pin alone', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+      ks.pinObject(kref);
+
+      ks.undoOcapURLRetention(kref);
+
+      expect(ks.isObjectPinned(kref)).toBe(true);
+    });
+
+    it('releases every retention of a target at once', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+      ks.retainForOcapURL(kref);
+      ks.retainForOcapURL(kref);
+      ks.retainForOcapURL(kref);
+
+      ks.releaseOcapURLRetentions(kref);
+
+      expect(ks.getOcapURLObjects()).toStrictEqual([]);
+      expect(ks.isObjectPinned(kref)).toBe(false);
+      expect(ks.getObjectRefCount(kref)).toStrictEqual({
+        reachable: 0,
+        recognizable: 0,
+      });
+    });
+
+    it('releasing retentions of a target that has none leaves other pins alone', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+      ks.pinObject(kref);
+
+      ks.releaseOcapURLRetentions(kref);
+
+      expect(ks.isObjectPinned(kref)).toBe(true);
+    });
+
+    it('does not mistake the ocap URL cipher key for a retained object', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+      // `ocapURLKey` is a neighbour of the retention keys in key order, and
+      // holds the key the tokens are encrypted with rather than a kref.
+      mockKernelDatabase.kernelKVStore.set('ocapURLKey', 'some-cipher-key');
+      ks.retainForOcapURL(kref);
+
+      expect(ks.getOcapURLObjects()).toStrictEqual([kref]);
     });
   });
 

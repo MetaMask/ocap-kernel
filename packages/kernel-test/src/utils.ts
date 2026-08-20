@@ -11,8 +11,61 @@ import {
 } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
-import type { ClusterConfig, PlatformServices } from '@metamask/ocap-kernel';
-import { vi } from 'vitest';
+import type {
+  ClusterConfig,
+  OnRunLoopFailure,
+  PlatformServices,
+} from '@metamask/ocap-kernel';
+import { afterAll, afterEach, vi } from 'vitest';
+
+/**
+ * The first run loop death seen since it was last reported, held here rather
+ * than passed to a test because the crank that kills the loop is often one no
+ * test is awaiting — a garbage collection or reap crank, or one that lands
+ * after the last assertion. The hooks below are the only thing guaranteed to
+ * look, so they are registered for every file that imports this module.
+ */
+let runLoopFailure: Error | undefined;
+
+/**
+ * Fail the current test if a kernel's run loop has died since the last check.
+ */
+function assertRunLoopAlive(): void {
+  const failure = runLoopFailure;
+  runLoopFailure = undefined;
+  if (failure) {
+    throw failure;
+  }
+}
+
+afterEach(assertRunLoopAlive);
+afterAll(assertRunLoopAlive);
+
+/**
+ * Kernel options under which reference count drift fails the test run.
+ *
+ * Drift is invisible to ordinary assertions until something gets collected out
+ * from under a live holder, so the audit runs every crank. It reports by
+ * throwing, which kills the run loop — and the kernel hands run loop death to
+ * `onRunLoopFailure` rather than rethrowing it, deliberately, so that an
+ * embedder can decide what to do. Without a handler a violation therefore
+ * surfaces only if the killed crank happened to have a caller waiting on it.
+ *
+ * @returns Options to pass to `Kernel.make`.
+ */
+export function makeAuditedKernelOptions(): {
+  auditRefCounts: true;
+  onRunLoopFailure: OnRunLoopFailure;
+} {
+  return {
+    auditRefCounts: true,
+    // The first failure is the informative one: a dead loop cannot process
+    // anything, so whatever follows is downstream of it.
+    onRunLoopFailure: (failure: Error): void => {
+      runLoopFailure ??= failure;
+    },
+  };
+}
 
 /**
  * Construct a bundle path URL from a bundle name.
@@ -93,6 +146,7 @@ export async function makeKernel(
     resetStorage,
     logger,
     keySeed,
+    ...makeAuditedKernelOptions(),
   });
   return kernel;
 }

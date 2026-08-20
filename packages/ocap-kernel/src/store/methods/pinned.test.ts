@@ -8,15 +8,39 @@ vi.mock('./refcount.ts', () => ({
   getRefCountMethods: vi.fn(),
 }));
 
-describe('getPinMethods', () => {
-  const mockKv = {
-    get: vi.fn(),
-    set: vi.fn(),
-    delete: vi.fn(),
-  };
+type MockKv = {
+  get: (key: string) => string | undefined;
+  set: (key: string, value: string) => void;
+  delete: (key: string) => void;
+  getNextKey: (key: string) => string | undefined;
+};
 
+/**
+ * Make a key/value store over a map, enough of one for the pin methods: reads,
+ * writes, deletes, and the ordered key traversal `getPinnedObjects` iterates.
+ *
+ * @param entries - The entries the store starts out holding.
+ * @returns The store.
+ */
+function makeMockKv(entries: Record<string, string> = {}): MockKv {
+  const map = new Map(Object.entries(entries));
+  return {
+    get: (key) => map.get(key),
+    set: (key, value) => {
+      map.set(key, value);
+    },
+    delete: (key) => {
+      map.delete(key);
+    },
+    getNextKey: (key) =>
+      [...map.keys()].sort().find((candidate) => candidate > key),
+  };
+}
+
+describe('getPinMethods', () => {
   const mockIncrementRefCount = vi.fn();
   const mockDecrementRefCount = vi.fn();
+  let mockKv: MockKv;
   let methods: ReturnType<typeof getPinMethods>;
 
   beforeEach(() => {
@@ -27,72 +51,89 @@ describe('getPinMethods', () => {
         decrementRefCount: mockDecrementRefCount,
       },
     );
-    mockKv.get.mockImplementation((key) => {
-      if (key === 'pinnedObjects') {
-        return 'ko1,ko2,ko3';
-      }
-      return undefined;
+    mockKv = makeMockKv({
+      'pinned.ko1': '1',
+      'pinned.ko2': '1',
+      'pinned.ko3': '1',
     });
     // @ts-expect-error - We don't need to provide a full StoreContext for testing
     methods = getPinMethods({ kv: mockKv });
   });
 
   describe('pinObject', () => {
-    it('should pin an object by adding it to the pinned objects list', () => {
+    it('records a pin on the object and takes a reference', () => {
       methods.pinObject('ko4');
       expect(mockIncrementRefCount).toHaveBeenCalledWith('ko4', 'pin');
-      expect(mockKv.set).toHaveBeenCalledWith(
-        'pinnedObjects',
-        'ko1,ko2,ko3,ko4',
-      );
+      expect(mockKv.get('pinned.ko4')).toBe('1');
     });
 
-    it('should always pin and increment even if object is already pinned', () => {
+    it('pins and increments again for an object already pinned', () => {
       methods.pinObject('ko2');
       expect(mockIncrementRefCount).toHaveBeenCalledWith('ko2', 'pin');
-      expect(mockKv.set).toHaveBeenCalledWith(
-        'pinnedObjects',
-        'ko1,ko2,ko2,ko3',
-      );
+      expect(methods.getPinCount('ko2')).toBe(2);
+      expect(methods.getPinnedObjects()).toStrictEqual(['ko1', 'ko2', 'ko3']);
+    });
+
+    it('records no pin if taking the reference is refused', () => {
+      mockIncrementRefCount.mockImplementation(() => {
+        throw Error('deleted kref');
+      });
+      expect(() => methods.pinObject('ko4')).toThrow('deleted kref');
+      expect(methods.getPinCount('ko4')).toBe(0);
     });
   });
 
   describe('unpinObject', () => {
-    it('should unpin an object by removing it from the pinned objects list', () => {
+    it('drops the object from the pinned objects and releases its reference', () => {
       methods.unpinObject('ko2');
       expect(mockDecrementRefCount).toHaveBeenCalledWith('ko2', 'unpin');
-      expect(mockKv.set).toHaveBeenCalledWith('pinnedObjects', 'ko1,ko3');
+      expect(methods.getPinnedObjects()).toStrictEqual(['ko1', 'ko3']);
     });
 
-    it('should not modify the list or decrement refCount if object is not in the list', () => {
+    it('spends one pin of several, leaving the object pinned', () => {
+      methods.pinObject('ko2');
+
+      methods.unpinObject('ko2');
+
+      expect(mockDecrementRefCount).toHaveBeenCalledWith('ko2', 'unpin');
+      expect(methods.getPinCount('ko2')).toBe(1);
+      expect(methods.isObjectPinned('ko2')).toBe(true);
+    });
+
+    it('does not release a reference for an object that is not pinned', () => {
       methods.unpinObject('ko4');
       expect(mockDecrementRefCount).not.toHaveBeenCalled();
-      expect(mockKv.set).not.toHaveBeenCalled();
+      expect(methods.getPinCount('ko4')).toBe(0);
     });
   });
 
   describe('getPinnedObjects', () => {
-    it('should return all pinned objects', () => {
-      const pinnedObjects = methods.getPinnedObjects();
-      expect(pinnedObjects).toStrictEqual(['ko1', 'ko2', 'ko3']);
+    it('returns all pinned objects', () => {
+      expect(methods.getPinnedObjects()).toStrictEqual(['ko1', 'ko2', 'ko3']);
     });
 
-    it('should return an empty array if no objects are pinned', () => {
-      mockKv.get.mockReturnValue('');
-      const pinnedObjects = methods.getPinnedObjects();
-      expect(pinnedObjects).toStrictEqual([]);
+    it('returns an empty array if no objects are pinned', () => {
+      // @ts-expect-error - We don't need to provide a full StoreContext for testing
+      methods = getPinMethods({ kv: makeMockKv() });
+      expect(methods.getPinnedObjects()).toStrictEqual([]);
+    });
+
+    it('names an object once however many pins it holds', () => {
+      methods.pinObject('ko2');
+      methods.pinObject('ko2');
+
+      expect(methods.getPinnedObjects()).toStrictEqual(['ko1', 'ko2', 'ko3']);
+      expect(methods.getPinCount('ko2')).toBe(3);
     });
   });
 
   describe('isObjectPinned', () => {
-    it('should return true if the object is pinned', () => {
-      const isPinned = methods.isObjectPinned('ko2');
-      expect(isPinned).toBe(true);
+    it('returns true if the object is pinned', () => {
+      expect(methods.isObjectPinned('ko2')).toBe(true);
     });
 
-    it('should return false if the object is not pinned', () => {
-      const isPinned = methods.isObjectPinned('ko4');
-      expect(isPinned).toBe(false);
+    it('returns false if the object is not pinned', () => {
+      expect(methods.isObjectPinned('ko4')).toBe(false);
     });
   });
 });

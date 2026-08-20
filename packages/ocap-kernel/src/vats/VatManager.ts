@@ -128,6 +128,11 @@ export class VatManager {
       vatId,
       ROOT_OBJECT_VREF,
     );
+    // A root is addressable for as long as its vat lives, whether or not
+    // anyone currently imports it: the kernel's own API hands out root krefs
+    // and `getRootObject` resolves them through this c-list entry. Without a
+    // pin, GC would retire the entry the moment the last importer let go.
+    this.#kernelStore.pinObject(rootRef);
     this.#kernelStore.setVatConfig(vatId, vatConfig);
     return rootRef;
   }
@@ -185,6 +190,10 @@ export class VatManager {
       terminationError = new Error(`Vat termination: ${reason.body}`);
     } else if (terminating) {
       terminationError = new VatDeletedError(vatId);
+    }
+    if (terminating) {
+      // A restart keeps the pin: the same root comes back.
+      this.releaseVatRootPin(vatId);
     }
     await this.#platformServices
       .terminate(vatId, terminationError)
@@ -286,7 +295,26 @@ export class VatManager {
   }
 
   /**
-   * Pin a vat root.
+   * Release the pin `launchVat` took on a vat's root, so the root can be
+   * collected once its importers let go.
+   *
+   * For paths that end a vat's life. Tolerant of a root that is already gone,
+   * since a vat can be torn down after the kernel has lost track of it.
+   *
+   * @param vatId - The ID of the vat whose life is ending.
+   */
+  releaseVatRootPin(vatId: VatId): void {
+    const rootRef = this.#kernelStore.getRootObject(vatId);
+    if (rootRef) {
+      this.#kernelStore.unpinObject(rootRef);
+    }
+  }
+
+  /**
+   * Pin a vat root, on behalf of an embedder that wants to keep it addressable.
+   *
+   * Pins are counted, and `launchVat` already holds one for the vat's lifetime,
+   * so this adds to that rather than replacing it.
    *
    * @param vatId - The ID of the vat.
    * @returns The KRef of the vat root.
@@ -301,7 +329,13 @@ export class VatManager {
   }
 
   /**
-   * Unpin a vat root.
+   * Release one embedder pin on a vat root.
+   *
+   * Removes a single pin, and pins are fungible: this is only safe to call
+   * against a pin `pinVatRoot` took. Called without one, it spends the pin
+   * `launchVat` holds for the vat's lifetime, and the root becomes collectable
+   * while the vat is still running — silently, since `unpinObject` tolerates a
+   * count that has already reached zero.
    *
    * @param vatId - The ID of the vat.
    */

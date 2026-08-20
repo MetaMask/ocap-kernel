@@ -6,7 +6,11 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, it, expect, afterEach } from 'vitest';
 
-import { getBundleSpec, makeTestLogger } from './utils.ts';
+import {
+  getBundleSpec,
+  makeAuditedKernelOptions,
+  makeTestLogger,
+} from './utils.ts';
 
 function tempSocketPath(): string {
   return path.join(
@@ -79,6 +83,7 @@ async function makeIoKernel(
       resetStorage: true,
       logger,
       ioListenerFactory: makeIOListenerFactory(),
+      ...makeAuditedKernelOptions(),
     },
   );
 
