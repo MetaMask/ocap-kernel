@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>13/13</span>
+                <span class='fraction'>8/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>5/5</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>13/13</span>
+                <span class='fraction'>8/8</span>
             </div>
         
             
@@ -109,35 +109,10 @@
 <a name='L44'></a><a href='#L44'>44</a>
 <a name='L45'></a><a href='#L45'>45</a>
 <a name='L46'></a><a href='#L46'>46</a>
-<a name='L47'></a><a href='#L47'>47</a>
-<a name='L48'></a><a href='#L48'>48</a>
-<a name='L49'></a><a href='#L49'>49</a>
-<a name='L50'></a><a href='#L50'>50</a>
-<a name='L51'></a><a href='#L51'>51</a>
-<a name='L52'></a><a href='#L52'>52</a>
-<a name='L53'></a><a href='#L53'>53</a>
-<a name='L54'></a><a href='#L54'>54</a>
-<a name='L55'></a><a href='#L55'>55</a>
-<a name='L56'></a><a href='#L56'>56</a>
-<a name='L57'></a><a href='#L57'>57</a>
-<a name='L58'></a><a href='#L58'>58</a>
-<a name='L59'></a><a href='#L59'>59</a>
-<a name='L60'></a><a href='#L60'>60</a>
-<a name='L61'></a><a href='#L61'>61</a>
-<a name='L62'></a><a href='#L62'>62</a>
-<a name='L63'></a><a href='#L63'>63</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L47'></a><a href='#L47'>47</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">35x</span>
-<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -155,17 +130,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">35x</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -180,26 +153,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">35x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">19x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export type FetchCapability = typeof fetch;
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { makeGuardedFetch } from '@metamask/kernel-utils';
+import type { FetchGuard } from '@metamask/kernel-utils';
 &nbsp;
-type FetchCaveat = (...args: Parameters&lt;FetchCapability&gt;) =&gt; Promise&lt;void&gt;;
-&nbsp;
-/**
- * Resolve the target URL from a fetch input argument. Accepts the same input
- * shapes as `fetch` itself (string, URL, or Request).
- *
- * @param arg - The input to resolve.
- * @returns The resolved URL.
- */
-export const resolveUrl = (arg: Parameters&lt;typeof fetch&gt;[0]): URL =&gt;
-  new URL(arg instanceof Request ? arg.url : arg);
+export type FetchCapability = typeof fetch;
 &nbsp;
 /**
  * Build a caveat that rejects fetches whose hostname is not in
@@ -216,9 +175,8 @@ export const resolveUrl = (arg: Parameters&lt;typeof fetch&gt;[0]): URL =&gt;
  * @param allowedHosts - The allowed hostnames.
  * @returns A caveat that restricts fetch to the allowed hostnames.
  */
-export const makeHostCaveat = (allowedHosts: string[]): FetchCaveat =&gt; {
-  return harden(async (...args: Parameters&lt;typeof fetch&gt;) =&gt; {
-    const { hostname, protocol } = resolveUrl(args[0]);
+export const makeHostCaveat = (allowedHosts: string[]): FetchGuard =&gt; {
+  return harden(async ({ hostname, protocol }: URL) =&gt; {
     if (protocol === 'file:') {
       throw new Error(
         `fetch cannot target file:// URLs. Use the fs platform capability ` +
@@ -232,23 +190,17 @@ export const makeHostCaveat = (allowedHosts: string[]): FetchCaveat =&gt; {
 };
 &nbsp;
 /**
- * Wrap a fetch capability so a caveat runs before every call. The caveat may
- * throw to reject the request; a throw prevents the underlying fetch from
- * being invoked.
+ * Wrap a fetch capability so a caveat runs before every request it makes —
+ * see {@link makeGuardedFetch} — rejecting the fetch if the caveat throws.
  *
  * @param baseFetch - The fetch capability to wrap.
- * @param caveat - The caveat to apply before each call.
+ * @param caveat - The caveat to apply before each request.
  * @returns A fetch capability gated by the caveat.
  */
 export const makeCaveatedFetch = (
   baseFetch: FetchCapability,
-  caveat: FetchCaveat,
-): FetchCapability =&gt; {
-  return harden(async (...args: Parameters&lt;FetchCapability&gt;) =&gt; {
-    await caveat(...args);
-    return await baseFetch(...args);
-  });
-};
+  caveat: FetchGuard,
+): FetchCapability =&gt; makeGuardedFetch({ baseFetch, guard: caveat });
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -256,7 +208,7 @@ export const makeCaveatedFetch = (
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-11T15:50:37.804Z
+                at 2026-08-20T18:21:42.163Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
