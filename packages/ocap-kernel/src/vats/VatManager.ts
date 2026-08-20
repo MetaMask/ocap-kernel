@@ -8,6 +8,7 @@ import { stringify } from '@metamask/kernel-utils';
 import { Logger, splitLoggerStream } from '@metamask/logger';
 
 import type { KernelQueue } from '../KernelQueue.ts';
+import { makeKernelError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
   VatId,
@@ -264,6 +265,33 @@ export class VatManager {
   }
 
   /**
+   * Retire a persisted vat that is not running.
+   *
+   * A vat skipped at boot because its code could not be loaded (`#restoreVat`)
+   * has no worker to stop, so it never reaches `VatHandle.terminate` — which is
+   * where a running vat's records are discarded and the promises it was
+   * deciding are rejected. Neither has anyone else to do it: the deferred
+   * `cleanupTerminatedVat` states outright that its caller has already rejected
+   * those promises, and it walks keys prefixed `${vatId}.`, which never matches
+   * the `vatConfig.${vatId}` that decides whether the next boot restores this
+   * vat. Left to `markVatAsTerminated` alone, terminating such a vat neither
+   * retires it nor releases anything waiting on it.
+   *
+   * @param vatId - The ID of the vat.
+   * @param reason - The reason for the termination, if any.
+   */
+  #retirePersistedVat(vatId: VatId, reason?: CapData<KRef>): void {
+    const terminationError = reason
+      ? new Error(`Vat termination: ${reason.body}`)
+      : new VatDeletedError(vatId);
+    const failure = makeKernelError('VAT_TERMINATED', terminationError.message);
+    for (const kpid of this.#kernelStore.getPromisesByDecider(vatId)) {
+      this.#kernelQueue.resolvePromises(vatId, [[kpid, true, failure]]);
+    }
+    this.#kernelStore.deleteVat(vatId);
+  }
+
+  /**
    * Terminate a vat with extreme prejudice.
    *
    * Terminates a persisted vat that is not running as readily as one that is.
@@ -280,7 +308,9 @@ export class VatManager {
     await this.#kernelQueue.waitForCrank();
     if (this.hasVat(vatId)) {
       await this.stopVat(vatId, true, reason);
-    } else if (!this.#kernelStore.isVatActive(vatId)) {
+    } else if (this.#kernelStore.isVatActive(vatId)) {
+      this.#retirePersistedVat(vatId, reason);
+    } else {
       // Not running *and* not persisted: this vat is simply unknown, and
       // saying so beats silently retiring records that were never there.
       throw new VatNotFoundError(vatId);

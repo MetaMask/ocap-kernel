@@ -20,6 +20,7 @@ import type {
   RunQueueItemGCAction,
   CrankResult,
 } from './types.ts';
+import { isRemoteId, isVatId } from './types.ts';
 import { assert, Fail } from './utils/assert.ts';
 
 type MessageRoute = {
@@ -365,15 +366,22 @@ export class KernelRouter {
     endpointId: EndpointId,
     what: string,
   ): EndpointHandle | undefined {
+    // An id that names neither a vat nor a remote is not an endpoint that has
+    // gone away; it is corrupt state or a kernel bug, and GC actions pass
+    // `insistEndpointId` before they are ever queued. Let it through.
+    if (!isVatId(endpointId) && !isRemoteId(endpointId)) {
+      return this.#getEndpoint(endpointId);
+    }
     try {
       return this.#getEndpoint(endpointId);
     } catch (error) {
-      // Deliberately broad: `#getEndpoint` reports a missing vat and a missing
-      // remote as different error types, and neither is worth killing the
-      // kernel over. Logged with the error so a genuinely unexpected one is
-      // visible rather than silently swallowed.
-      this.#logger?.log(
-        `@@@@ skipped ${what} for endpoint ${endpointId}, which is not running:`,
+      // Deliberately broad over the rest: `#getEndpoint` reports a missing vat
+      // and a missing remote as different error types, and neither is worth
+      // killing the kernel over. Reported above the per-delivery trace channel,
+      // since a delivery dropped on the floor is not routine traffic — it is
+      // the only trace of a vat that has quietly stopped doing anything.
+      this.#logger?.warn(
+        `Skipped ${what} for endpoint ${endpointId}, which is not running:`,
         error,
       );
       return undefined;
@@ -411,6 +419,20 @@ export class KernelRouter {
       // no kpids to retire, already done
       return { didDelivery: endpointId };
     }
+    // Looked up before the translations below, not after: those import if
+    // needed, minting c-list entries with the reachable flag set and taking a
+    // reference on every slot. Doing that for an endpoint that will never be
+    // told writes rows only that endpoint could release, and it cannot. While
+    // an absent endpoint threw, the rollback undid them; now that it is skipped,
+    // the crank commits.
+    const endpoint = this.#getEndpointIfRunning(endpointId, `notify ${kpid}`);
+    if (!endpoint) {
+      // Still release the reference the notify itself holds
+      // (`KernelQueue.enqueueNotify`): an endpoint that is not there to be told
+      // is no reason to keep it forever.
+      this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
+      return { didDelivery: endpointId };
+    }
     const resolutions: VatOneResolution[] = [];
     for (const toResolve of targets) {
       const tPromise = this.#kernelStore.getKernelPromise(toResolve);
@@ -430,13 +452,7 @@ export class KernelRouter {
         this.#kernelStore.decrementRefCount(toResolve, 'deliver|notify|slot');
       }
     }
-    const endpoint = this.#getEndpointIfRunning(endpointId, `notify ${kpid}`);
-    // Skipping only the delivery, not the bookkeeping below: the notify holds a
-    // reference of its own (`KernelQueue.enqueueNotify`), and an endpoint that
-    // is not there to be told is no reason to keep it forever.
-    const crankResult = endpoint
-      ? await endpoint.deliverNotify(resolutions)
-      : { didDelivery: endpointId };
+    const crankResult = await endpoint.deliverNotify(resolutions);
     // Decrement reference count for processed 'notify' item
     this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
     return crankResult;
