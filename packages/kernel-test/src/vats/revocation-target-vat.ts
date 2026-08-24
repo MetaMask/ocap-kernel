@@ -44,7 +44,7 @@ export function buildRootObject(
       const issuerService = services.ocapURLIssuerService;
       const targetURL = await E(issuerService).issue(target);
       const bystanderURL = await E(issuerService).issue(bystander);
-      return { targetURL, bystanderURL };
+      return harden({ targetURL, bystanderURL });
     },
 
     getTarget() {
