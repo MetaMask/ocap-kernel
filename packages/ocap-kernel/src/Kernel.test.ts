@@ -2,6 +2,7 @@ import { VatNotFoundError } from '@metamask/kernel-errors';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import type { LogEntry } from '@metamask/logger';
 import { Logger } from '@metamask/logger';
 import type { DuplexStream } from '@metamask/streams';
 import type { Mocked, MockInstance } from 'vitest';
@@ -130,6 +131,42 @@ const makeSingleVatClusterConfig = (): ClusterConfig => ({
   },
 });
 
+const HEALTHY_BUNDLE = 'file:///bundles/present.bundle';
+const MISSING_BUNDLE = 'file:///bundles/gone.bundle';
+
+const makeBundleVatClusterConfig = (bundleSpec: string): ClusterConfig => ({
+  bootstrap: 'testVat',
+  vats: {
+    testVat: { bundleSpec },
+  },
+});
+
+/**
+ * Build a `launch` implementation standing in for a worker whose bundle fetch
+ * fails. `fetchBlob` hands back whatever `fs.readFile` rejected with, so the
+ * failure arrives as a Node errno object rather than a well-formed `Error`
+ * with a useful stack.
+ *
+ * @returns A `PlatformServices['launch']` implementation that rejects for the
+ * vat configured with `MISSING_BUNDLE` and succeeds for every other vat.
+ */
+const makeMissingBundleLaunch = () => {
+  return async (_vatId: VatId, vatConfig: VatConfig) => {
+    if ('bundleSpec' in vatConfig && vatConfig.bundleSpec === MISSING_BUNDLE) {
+      throw Object.assign(
+        new Error(
+          `ENOENT: no such file or directory, open '${MISSING_BUNDLE}'`,
+        ),
+        { code: 'ENOENT', errno: -2, syscall: 'open' },
+      );
+    }
+    return { end: vi.fn() } as unknown as DuplexStream<
+      JsonRpcMessage,
+      JsonRpcMessage
+    >;
+  };
+};
+
 const makeMockClusterConfig = (): ClusterConfig => ({
   bootstrap: 'alice',
   vats: {
@@ -246,6 +283,75 @@ describe('Kernel', () => {
       expect(launchWorkerMock).toHaveBeenCalledOnce();
       expect(makeVatHandleMock).toHaveBeenCalledOnce();
       expect(kernel2.getVatIds()).toStrictEqual(['v1']);
+    });
+
+    it('boots when a persisted vat is no longer restorable', async () => {
+      const db = makeMapKernelDatabase();
+      const kernel1 = await Kernel.make(mockPlatformServices, db);
+      // Two subclusters, one vat each. The unrestorable vat is deliberately
+      // in a *different* subcluster from the healthy one: under every
+      // lifecycle policy in play (including bootstrap-vat death cascading to
+      // its own subcluster, per #979), a failure in one subcluster leaves
+      // another subcluster's vats running. That keeps this test a statement
+      // about the defect rather than about a chosen remedy.
+      await kernel1.launchSubcluster(
+        makeBundleVatClusterConfig(HEALTHY_BUNDLE),
+      );
+      await kernel1.launchSubcluster(
+        makeBundleVatClusterConfig(MISSING_BUNDLE),
+      );
+      expect(kernel1.getVatIds()).toStrictEqual(['v1', 'v2']);
+
+      // The bundle behind v2 goes away between incarnations — rebuilt to a new
+      // path, pruned, or an absolute path that did not survive relocation.
+      // `fetchBlob` rejects with a bare Node errno object when that happens.
+      launchWorkerMock.mockImplementation(makeMissingBundleLaunch());
+
+      const kernel2 = await Kernel.make(mockPlatformServices, db);
+
+      // Booting at all is the claim: the rejection used to propagate out of
+      // `initializeAllVats`, so `Kernel.make` rejected and the daemon died
+      // during init. The healthy vat comes up and the unrestorable one does
+      // not; whether it should instead take its own subcluster down with it is
+      // #979's to decide.
+      expect(kernel2.getVatIds()).toStrictEqual(['v1']);
+    });
+
+    it('names the unrestorable vat and its bundle when booting past it', async () => {
+      const db = makeMapKernelDatabase();
+      // Capture through a transport rather than by spying on the logger's
+      // methods. `subLogger` builds a *fresh* `Logger` that shares its parent's
+      // transports, so a sub-logger's output never passes through the parent's
+      // methods — and every kernel component, the vat manager included, logs
+      // through one.
+      const entries: LogEntry[] = [];
+      const logger = new Logger({
+        tags: ['test'],
+        transports: [(entry) => entries.push(entry)],
+      });
+      const kernel1 = await Kernel.make(mockPlatformServices, db, { logger });
+      await kernel1.launchSubcluster(
+        makeBundleVatClusterConfig(HEALTHY_BUNDLE),
+      );
+      await kernel1.launchSubcluster(
+        makeBundleVatClusterConfig(MISSING_BUNDLE),
+      );
+
+      launchWorkerMock.mockImplementation(makeMissingBundleLaunch());
+      entries.length = 0;
+
+      await Kernel.make(mockPlatformServices, db, { logger });
+
+      // Skipping a persisted vat silently would trade an unbootable kernel for
+      // a kernel that is quietly missing a vat. One entry has to carry both the
+      // vat and its bundle — satisfying this by logging them from two unrelated
+      // places would tell an operator nothing.
+      const reported = entries.filter(
+        ({ level, message }) =>
+          level === 'error' && String(message).includes('v2'),
+      );
+      expect(reported).toHaveLength(1);
+      expect(String(reported[0]?.message)).toContain(MISSING_BUNDLE);
     });
   });
 
