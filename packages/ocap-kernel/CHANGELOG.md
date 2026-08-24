@@ -61,6 +61,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A `notify`, GC action, or `bringOutYourDead` addressed to an endpoint that is not running is skipped instead of killing the run loop ([#1027](https://github.com/MetaMask/ocap-kernel/pull/1027))
+  - These deliveries looked up their endpoint unguarded, so an endpoint named by persisted state but absent from the running kernel threw `VatNotFoundError` from inside the crank, which killed the run loop permanently. Because the crank was rolled back the item was restored to the queue, so the next boot dequeued it and died too. Reachable whenever ownership entries outlive their vat: `deleteVat` takes a terminated vat's config and subcluster membership, but its c-lists and reachable flags stay until `cleanupTerminatedVat` gets to it, one vat per crank
+  - Unlike a `send`, none of these has a caller to reject; `send` already tolerated a vanished endpoint by rejecting the caller with `ENDPOINT_UNREACHABLE`
+  - A skipped GC action still performs the kernel's own half — clearing the reachable flag, or tearing the c-list entry down — since that does not depend on the endpoint being there to be told. Skipping it would leave a dropped export flagged reachable, so the same action would be derived again on every sweep
+  - A skipped `notify` no longer translates the resolution first. Those translations import if needed, which would mint c-list entries and take references in an endpoint that will never be told and so can never release them
+  - An endpoint id that names neither a vat nor a remote still throws, since that is corrupt state rather than an endpoint that has gone away
 - A message delivered to a kernel-owned kref with no registered service now rejects the caller with `ENDPOINT_UNREACHABLE` instead of throwing, which escaped the crank and killed the run loop — turning one unreachable reference into a dead kernel ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
   - Reachable without any kernel bug: an anonymous kernel object hosts something that cannot outlive the process, such as an accepted socket connection, so a vat holding one across a restart or a message to one still queued from the previous incarnation lands here. That surviving reference is exactly what stops the init sweep deleting the object, so its `kernel` owner survives with it
   - Matches what `KernelRouter` already does for a delivery whose endpoint has vanished. A message sent with no result promise has nobody to report to, so it is logged instead
