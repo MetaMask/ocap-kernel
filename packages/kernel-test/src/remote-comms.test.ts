@@ -378,6 +378,73 @@ describe('Remote Communications (Integration Tests)', () => {
     expect(response).toContain('says hello back to');
   });
 
+  it('revokes a cross-kernel object held by a remote peer', async () => {
+    // step 1: kernel A exports a revocable target and an unrelated bystander
+    const { targetURL, bystanderURL } = (await runTestVats(kernel1, {
+      bootstrap: 'target',
+      forceReset: true,
+      services: ['ocapURLIssuerService'],
+      vats: {
+        target: {
+          bundleSpec: getBundleSpec('revocation-target-vat'),
+          parameters: { name: 'Target' },
+        },
+      },
+    })) as { targetURL: string; bystanderURL: string };
+
+    // Obtain the kernel-level KRef so we can later revoke it via the public API
+    const targetRootRef = kernelStore1.getRootObject('v1') as KRef;
+    const targetCapdata = await kernel1.queueMessage(
+      targetRootRef,
+      'getTarget',
+      [],
+    );
+    const targetKRef = targetCapdata.slots[0] as KRef;
+
+    // kernel B: set up a vat that can invoke objects via ocap URL redemption
+    const kernelStore2 = makeKernelStore(kernelDatabase2);
+    await runTestVats(kernel2, {
+      bootstrap: 'sender',
+      forceReset: true,
+      services: ['ocapURLRedemptionService'],
+      vats: {
+        sender: {
+          bundleSpec: getBundleSpec('remote-sender-vat'),
+          parameters: { name: 'Sender' },
+        },
+      },
+    });
+    const senderRootRef = kernelStore2.getRootObject('v1') as KRef;
+
+    // step 2: B can invoke the target before revocation
+    const beforeResult = await kernel2.queueMessage(
+      senderRootRef,
+      'sendMessage',
+      [targetURL, 'ping', []],
+    );
+    expect(kunser(beforeResult)).toContain('pong from Target target');
+
+    // step 3: revoke the target on A through the public API
+    kernel1.revoke(targetKRef);
+
+    // step 4: B's next invocation fails
+    await expect(
+      kernel2.queueMessage(senderRootRef, 'sendMessage', [
+        targetURL,
+        'ping',
+        [],
+      ]),
+    ).rejects.toThrow('OBJECT_REVOKED');
+
+    // step 5: the bystander object, and B's other references, are unaffected
+    const bystanderResult = await kernel2.queueMessage(
+      senderRootRef,
+      'sendMessage',
+      [bystanderURL, 'ping', []],
+    );
+    expect(kunser(bystanderResult)).toContain('pong from Target bystander');
+  });
+
   it('remote relationships should survive kernel restart', async () => {
     // This test needs file-based databases for persistence across stop/restart.
     // Stop the beforeEach kernels and replace them with file-backed ones.
