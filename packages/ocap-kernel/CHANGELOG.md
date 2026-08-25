@@ -61,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- A `notify`, GC action, or `bringOutYourDead` addressed to an endpoint that is not running is skipped instead of killing the run loop ([#1027](https://github.com/MetaMask/ocap-kernel/pull/1027))
+- A `notify`, GC action, or `bringOutYourDead` addressed to an endpoint that is not running is skipped instead of killing the run loop ([#1029](https://github.com/MetaMask/ocap-kernel/pull/1029))
   - These deliveries looked up their endpoint unguarded, so an endpoint named by persisted state but absent from the running kernel threw `VatNotFoundError` from inside the crank, which killed the run loop permanently. Because the crank was rolled back the item was restored to the queue, so the next boot dequeued it and died too. Reachable whenever ownership entries outlive their vat: `deleteVat` takes a terminated vat's config and subcluster membership, but its c-lists and reachable flags stay until `cleanupTerminatedVat` gets to it, one vat per crank
   - Unlike a `send`, none of these has a caller to reject; `send` already tolerated a vanished endpoint by rejecting the caller with `ENDPOINT_UNREACHABLE`
   - A skipped GC action still performs the kernel's own half — clearing the reachable flag, or tearing the c-list entry down — since that does not depend on the endpoint being there to be told. Skipping it would leave a dropped export flagged reachable, so the same action would be derived again on every sweep
