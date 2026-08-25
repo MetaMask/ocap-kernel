@@ -1300,6 +1300,70 @@ describe.sequential('Remote Communications E2E', () => {
     );
   });
 
+  describe('Revocation', () => {
+    it(
+      'blocks remote invocation after revocation and leaves other objects unaffected',
+      async () => {
+        await kernel1.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
+        await kernel2.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
+
+        // step 1: kernel A exports a revocable target and an unrelated bystander
+        const targetURL = await launchVatAndGetURL(
+          kernel1,
+          makeRemoteVatConfig('Target'),
+        );
+        const bystanderURL = await launchVatAndGetURL(
+          kernel1,
+          makeRemoteVatConfig('Bystander'),
+        );
+
+        // kernel B: a vat that can invoke remote objects via URL
+        await launchVatAndGetURL(kernel2, makeRemoteVatConfig('Sender'));
+        const senderRef = getVatRootRef(kernel2, kernelStore2, 'Sender');
+
+        // step 2: B can invoke the target before revocation
+        const beforeResult = await sendRemoteMessage(
+          kernel2,
+          senderRef,
+          targetURL,
+          'ping',
+          [],
+        );
+        expect(beforeResult).toBe('pong from Target');
+
+        // step 3: revoke the target on A through the public API
+        const targetKRef = getVatRootRef(kernel1, kernelStore1, 'Target');
+        kernel1.revoke(targetKRef);
+
+        // step 4: B's next invocation fails
+        await expect(
+          kernel2.queueMessage(senderRef, 'sendRemoteMessage', [
+            targetURL,
+            'ping',
+            [],
+          ]),
+        ).rejects.toThrow('OBJECT_REVOKED');
+
+        // step 5: the bystander and B's other references are unaffected
+        const bystanderResult = await sendRemoteMessage(
+          kernel2,
+          senderRef,
+          bystanderURL,
+          'ping',
+          [],
+        );
+        expect(bystanderResult).toBe('pong from Bystander');
+      },
+      NETWORK_TIMEOUT,
+    );
+  });
+
   describe('Distributed Garbage Collection', () => {
     it(
       'creates remote endpoint with clist entries after cross-kernel message',
