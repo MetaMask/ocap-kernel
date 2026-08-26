@@ -64,6 +64,7 @@ describe('KernelRouter', () => {
       krefsToErefs: vi.fn((_endpointId: string, krefs: string[]) =>
         krefs.map((kref: string) => `translated-${kref}`),
       ) as unknown as MockInstance,
+      hasCListEntry: vi.fn().mockReturnValue(true),
       clearReachableFlag: vi.fn(),
       deleteCListEntry: vi.fn(),
       forgetKref: vi.fn(),
@@ -917,6 +918,36 @@ describe('KernelRouter', () => {
           );
         },
       );
+
+      it('skips a GC action whose c-list entries went in the same crank', async () => {
+        // `processGCActionSet` selects an action only while the endpoint still
+        // has a c-list entry for its krefs, but the run loop then calls
+        // `nextTerminatedVatCleanup` before delivering it — and that takes the
+        // whole c-list of the vat it cleans. So the entries can be gone by the
+        // time this runs, and `krefsToErefs` reports an unmapped kref by
+        // throwing, which would leave the crank and kill the run loop just as
+        // the unguarded lookup used to.
+        (kernelStore.hasCListEntry as unknown as MockInstance).mockReturnValue(
+          false,
+        );
+        (
+          kernelStore.krefsToErefs as unknown as MockInstance
+        ).mockImplementation(() => {
+          throw new Error(`unmapped kref ko1 in ${endpointId} c-list`);
+        });
+
+        const result = await kernelRouter.deliver({
+          type: 'dropExports',
+          endpointId,
+          krefs: ['ko1'],
+        });
+
+        expect(result).toStrictEqual({ didDelivery: endpointId });
+        // The cleanup performed the kernel's half already; there is nothing
+        // left for this delivery to release.
+        expect(kernelStore.clearReachableFlag).not.toHaveBeenCalled();
+        expect(kernelStore.deleteCListEntry).not.toHaveBeenCalled();
+      });
 
       it('allocates nothing in the c-list of an endpoint it is skipping', async () => {
         await kernelRouter.deliver(makeLiveNotify());

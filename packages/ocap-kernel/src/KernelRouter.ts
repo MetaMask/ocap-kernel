@@ -482,7 +482,27 @@ export class KernelRouter {
       `@@@@ deliver ${endpointId} ${type} ${JSON.stringify(krefs)}`,
     );
     const endpoint = this.#getEndpointIfRunning(endpointId, type);
-    const erefs = this.#kernelStore.krefsToErefs(endpointId, krefs);
+    // `processGCActionSet` selects an action only while the endpoint still has
+    // a c-list entry for each of its krefs, but the run loop calls
+    // `nextTerminatedVatCleanup` between that selection and this delivery, and
+    // cleaning a vat takes its whole c-list. So an action can arrive after its
+    // entries are gone — and `krefsToErefs` reports an unmapped kref by
+    // throwing, which would leave the crank and kill the run loop just as the
+    // unguarded lookup did. The cleanup has already done the kernel's half in
+    // that case, so there is nothing left to do.
+    //
+    // Only an endpoint that is gone can be in this state: cleanup runs for a
+    // terminated vat, and a terminated vat has no handle. A running endpoint
+    // missing a c-list entry is a real disagreement, and still throws.
+    const toRelease = endpoint
+      ? krefs
+      : krefs.filter((kref) =>
+          this.#kernelStore.hasCListEntry(endpointId, kref),
+        );
+    if (toRelease.length === 0) {
+      return { didDelivery: endpointId };
+    }
+    const erefs = this.#kernelStore.krefsToErefs(endpointId, toRelease);
     // Telling an endpoint to let go is also the kernel letting go. Otherwise a
     // dropped export stays flagged reachable, so the same action gets derived
     // again, and retired entries outlive the objects they name.
@@ -491,7 +511,7 @@ export class KernelRouter {
     // so it runs even when the delivery is skipped — an endpoint that cannot
     // hear the action is the case where a re-derived action would repeat
     // forever.
-    krefs.forEach((kref, index) => {
+    toRelease.forEach((kref, index) => {
       if (type === 'dropExports') {
         this.#kernelStore.clearReachableFlag(endpointId, kref);
       } else {
