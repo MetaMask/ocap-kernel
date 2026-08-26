@@ -79,9 +79,10 @@ describe('Daemon Stack (JSON-RPC socket protocol)', { timeout: 30_000 }, () => {
   /**
    * Boot a kernel with an RPC socket server.
    *
+   * @param devMode - Whether to serve the dev-only RPC methods.
    * @returns The socket path.
    */
-  async function bootDaemonStack(): Promise<string> {
+  async function bootDaemonStack(devMode = false): Promise<string> {
     const socketPath = tempSocketPath();
 
     kernelDatabase = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
@@ -92,6 +93,7 @@ describe('Daemon Stack (JSON-RPC socket protocol)', { timeout: 30_000 }, () => {
       socketPath,
       kernel,
       kernelDatabase,
+      devMode,
     });
 
     return socketPath;
@@ -140,8 +142,8 @@ describe('Daemon Stack (JSON-RPC socket protocol)', { timeout: 30_000 }, () => {
     expect((response.error as { code: number }).code).toBe(-32601);
   });
 
-  it('executes DB query', async () => {
-    const socketPath = await bootDaemonStack();
+  it('executes DB query in dev mode', async () => {
+    const socketPath = await bootDaemonStack(true);
 
     const response = await sendJsonRpc(socketPath, 'executeDBQuery', {
       sql: 'SELECT key, value FROM kv LIMIT 5',
@@ -149,6 +151,17 @@ describe('Daemon Stack (JSON-RPC socket protocol)', { timeout: 30_000 }, () => {
 
     expect(response.error).toBeUndefined();
     expect(Array.isArray(response.result)).toBe(true);
+  });
+
+  it('refuses DB query against a default daemon', async () => {
+    const socketPath = await bootDaemonStack();
+
+    const response = await sendJsonRpc(socketPath, 'executeDBQuery', {
+      sql: 'SELECT key, value FROM kv LIMIT 5',
+    });
+
+    expect((response.error as { code: number }).code).toBe(-32601);
+    expect(response.result).toBeUndefined();
   });
 
   it('handles sequential requests on separate connections', async () => {
@@ -163,8 +176,8 @@ describe('Daemon Stack (JSON-RPC socket protocol)', { timeout: 30_000 }, () => {
     expect(response2.result).toBeDefined();
   });
 
-  it('terminates all vats', async () => {
-    const socketPath = await bootDaemonStack();
+  it('terminates all vats in dev mode', async () => {
+    const socketPath = await bootDaemonStack(true);
 
     const response = await sendJsonRpc(socketPath, 'terminateAllVats');
 

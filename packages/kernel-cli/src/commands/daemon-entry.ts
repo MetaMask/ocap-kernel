@@ -1,12 +1,15 @@
 import '@metamask/kernel-shims/endoify-node';
 import { makeKernel } from '@metamask/kernel-node-runtime';
-import { startDaemon } from '@metamask/kernel-node-runtime/daemon';
+import {
+  DEV_ONLY_METHODS,
+  startDaemon,
+} from '@metamask/kernel-node-runtime/daemon';
 import type { DaemonHandle } from '@metamask/kernel-node-runtime/daemon';
 import { stringify } from '@metamask/kernel-utils';
 import type { LogEntry } from '@metamask/logger';
 import { Logger } from '@metamask/logger';
 import { appendFileSync, rmSync } from 'node:fs';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
@@ -91,7 +94,19 @@ main().catch((error) => {
  * Main daemon entry point. Starts the daemon process and keeps it running.
  */
 async function main(): Promise<void> {
-  await mkdir(ocapDir, { recursive: true });
+  // 0o700 so no other local user can enter the directory and reach the
+  // socket or the database inside it. `mode` applies only to directories
+  // mkdir creates, so the chmod is what brings an $OCAP_HOME from before
+  // this was enforced up to the same footing.
+  await mkdir(ocapDir, { recursive: true, mode: 0o700 });
+  await chmod(ocapDir, 0o700);
+
+  const devMode = resolveDevMode();
+  if (devMode) {
+    logger.warn(
+      `Dev mode enabled (OCAP_DEV_MODE=true): ${DEV_ONLY_METHODS.join(', ')} are served on the control socket.`,
+    );
+  }
 
   const socketPath =
     process.env.OCAP_SOCKET_PATH ?? join(ocapDir, 'daemon.sock');
@@ -150,6 +165,7 @@ async function main(): Promise<void> {
       kernel,
       kernelDatabase,
       onShutdown: async () => shutdown('RPC shutdown'),
+      devMode,
     });
   } catch (error) {
     await cleanUpFailedStartup({
@@ -190,6 +206,27 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => {
     shutdown('SIGINT').catch(() => (process.exitCode = 1));
   });
+}
+
+/**
+ * Resolve whether to serve the dev-only RPC methods.
+ *
+ * Deliberately exact-match: a daemon that served arbitrary SQL because
+ * someone wrote `OCAP_DEV_MODE=1` would be a nasty surprise. A set-but-
+ * unrecognized value is warned about rather than ignored, since silently
+ * treating it as "off" is the other way to surprise someone.
+ *
+ * @returns Whether dev mode is enabled.
+ */
+function resolveDevMode(): boolean {
+  const raw = process.env.OCAP_DEV_MODE;
+  if (raw === undefined || raw === 'true') {
+    return raw === 'true';
+  }
+  logger.warn(
+    `OCAP_DEV_MODE is set to '${raw}', which is not 'true'; dev-only methods stay disabled.`,
+  );
+  return false;
 }
 
 /**

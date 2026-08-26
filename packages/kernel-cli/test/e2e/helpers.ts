@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { chmod, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,11 +51,21 @@ export type TestDaemon = {
 /**
  * Spawn a real daemon process in a temporary directory.
  *
+ * @param options - Spawn options.
+ * @param options.devMode - Start the daemon with `OCAP_DEV_MODE=true`, so it
+ * serves the dev-only RPC methods.
  * @returns The OCAP home dir, socket path, and cleanup function.
  */
-export async function spawnTestDaemon(): Promise<TestDaemon> {
+export async function spawnTestDaemon({
+  devMode = false,
+}: { devMode?: boolean } = {}): Promise<TestDaemon> {
   const ocapHome = await mkdtemp(join(tmpdir(), 'ocap-e2e-'));
   const socketPath = join(ocapHome, 'daemon.sock');
+
+  // `mkdtemp` already returns 0700; loosen it so the daemon's chmod has
+  // something to actually tighten, which is the case a fresh directory
+  // can't exercise.
+  await chmod(ocapHome, 0o755);
 
   const packageRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
   const entryPath = join(packageRoot, 'dist/commands/daemon-entry.mjs');
@@ -67,6 +77,7 @@ export async function spawnTestDaemon(): Promise<TestDaemon> {
       ...process.env,
       OCAP_HOME: ocapHome,
       OCAP_SOCKET_PATH: socketPath,
+      ...(devMode ? { OCAP_DEV_MODE: 'true' } : {}),
     },
   });
   const { pid } = child;
