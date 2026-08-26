@@ -77,7 +77,9 @@ export async function spawnTestDaemon({
       ...process.env,
       OCAP_HOME: ocapHome,
       OCAP_SOCKET_PATH: socketPath,
-      ...(devMode ? { OCAP_DEV_MODE: 'true' } : {}),
+      // Pinned off rather than omitted, or an ambient `OCAP_DEV_MODE=true`
+      // would make the refusal assertions vacuous.
+      OCAP_DEV_MODE: devMode ? 'true' : undefined,
     },
   });
   const { pid } = child;
