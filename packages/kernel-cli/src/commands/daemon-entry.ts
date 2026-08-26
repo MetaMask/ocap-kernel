@@ -17,6 +17,7 @@ import {
   logBestEffort,
   makeDaemonRunLoopWiring,
 } from './run-loop-failure.ts';
+import { resolveDevMode } from '../dev-mode.ts';
 import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive } from '../utils.ts';
 
@@ -101,7 +102,10 @@ async function main(): Promise<void> {
   await mkdir(ocapDir, { recursive: true, mode: 0o700 });
   await chmod(ocapDir, 0o700);
 
-  const devMode = resolveDevMode();
+  const devMode = resolveDevMode({
+    env: process.env,
+    warn: (message) => logger.warn(message),
+  });
   if (devMode) {
     logger.warn(
       `Dev mode enabled (OCAP_DEV_MODE=true): ${DEV_ONLY_METHODS.join(', ')} are served on the control socket.`,
@@ -206,27 +210,6 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => {
     shutdown('SIGINT').catch(() => (process.exitCode = 1));
   });
-}
-
-/**
- * Resolve whether to serve the dev-only RPC methods.
- *
- * Deliberately exact-match: a daemon that served arbitrary SQL because
- * someone wrote `OCAP_DEV_MODE=1` would be a nasty surprise. A set-but-
- * unrecognized value is warned about rather than ignored, since silently
- * treating it as "off" is the other way to surprise someone.
- *
- * @returns Whether dev mode is enabled.
- */
-function resolveDevMode(): boolean {
-  const raw = process.env.OCAP_DEV_MODE;
-  if (raw === undefined || raw === 'true') {
-    return raw === 'true';
-  }
-  logger.warn(
-    `OCAP_DEV_MODE is set to '${raw}', which is not 'true'; dev-only methods stay disabled.`,
-  );
-  return false;
 }
 
 /**
