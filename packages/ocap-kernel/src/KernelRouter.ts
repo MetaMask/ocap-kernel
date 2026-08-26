@@ -361,13 +361,15 @@ export class KernelRouter {
    * Look up an endpoint for a housekeeping delivery — a notify, a GC action, or
    * a reap — tolerating one that is not running.
    *
-   * An endpoint can be named by persisted state without being live. Nothing
-   * purges the reap queue when a vat dies, and unlike a GC action — which
-   * `shouldProcessAction` filters on whether the endpoint still has a c-list
-   * entry — a reap is handed back with no liveness check at all, so a reap
-   * scheduled before a vat was terminated arrives after it. A terminated vat's
-   * c-lists also outlive it until `cleanupTerminatedVat` gets to it, one vat
-   * per crank, and the kernel goes on addressing it in the meantime.
+   * An endpoint can be named by persisted state without being live, and a reap
+   * reaches that state most easily because nothing filters it: a GC action is
+   * dropped once the endpoint has no c-list entry and a notify short-circuits
+   * on the same check, but a reap carries no kref and is handed back with no
+   * liveness check at all. Nothing purges the reap queue either, so one a peer
+   * asked for survives a shutdown — and the next incarnation starts this loop
+   * inside `Kernel.make`, before `initRemoteComms` restores any remote to
+   * deliver it to. A terminated vat's c-lists likewise outlive it until
+   * `cleanupTerminatedVat` gets to it, one vat per crank.
    *
    * Unlike a `send`, these deliveries have no caller to reject: nobody is
    * waiting on a `dropExport`. Throwing here instead escapes the crank and
