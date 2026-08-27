@@ -29,7 +29,7 @@ When asked to create a pull request, follow these steps:
    - If this is a **stacked PR**, run `git diff <parent-branch>...HEAD` to scope the diff to only this branch's changes.
    - Otherwise, run `git diff main...HEAD`.
 
-5. Run the prose pass over the comments in that diff: Skill tool with skill="prose-pass". It runs here, before review, so that anything it changes is reviewed in Phase 2. If it changes files, re-run the checks (`lint-build-test`), commit with the message "docs: Trim comments", and push before continuing.
+5. Run the prose pass over the comments in that diff: Skill tool with skill="prose-pass". It runs here, before review, so that anything it changes is reviewed in Phase 2. If it changes files, run the checks (`lint-build-test`), commit with the message "docs: Trim comments", push, and re-run step 4 so the review sees the trimmed diff.
 
 ## Phase 2: Automated PR review (parallel subagents)
 

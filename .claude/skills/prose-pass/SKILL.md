@@ -10,8 +10,8 @@ or touched, not every comment in the files it happens to open.
 Run it **before** presenting work, not after someone asks for it. When done,
 return control to the calling workflow rather than stopping to present.
 
-Invoked for changelog entries alone (from `update-changelogs`, or the `pr`
-changelog phase), run the Changelogs section only.
+Invoked with `args="changelogs"` (from `update-changelogs`, or the `pr` changelog
+phase), run the Changelogs section only and skip the rest.
 
 ## The bar
 
@@ -107,9 +107,10 @@ the pointer.
 ## JSDoc
 
 This repo lints JSDoc: `jsdoc/require-jsdoc` is an error on functions, methods,
-and classes in source (off under `**/test/**` and `*.test.ts`), and
-`jsdoc/require-description` an error everywhere. **Do not delete a required block
-or its description** — make the prose minimal instead. Keep the `- ` before each
+and classes, and `jsdoc/require-description` an error everywhere. Tests and some
+JS and config globs are exempt — check `eslint.config.mjs` rather than assuming.
+**Do not delete a required block or its description** — make the prose minimal
+instead. Keep the `- ` before each
 `@param` description, and the sentence casing and terminal period the `jsdoc/*`
 rules require:
 
@@ -130,11 +131,9 @@ State the change and its why once, then stop. See
 [`docs/contributing/updating-changelogs.md`](../../../docs/contributing/updating-changelogs.md)
 for format and categories; this section is only about length.
 
-Default to **one line per user-visible change**. A sub-bullet is for a
-consumer-facing detail that doesn't fit the line, not for the story behind the
-change.
+Default to **one line per user-visible change**.
 
-Ask of every line: **does a consumer do something differently because of it?**
+Ask of every line: **Would a consumer notice this change, care about it, or need to act differently because of it?**
 If not, cut it. That test is what rules out describing how the fix works
 internally, which mechanism was chosen over which alternative, what was
 verified, or a "known gap" / follow-up bullet.
