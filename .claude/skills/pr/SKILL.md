@@ -25,8 +25,11 @@ When asked to create a pull request, follow these steps:
 3. Run `git log main..HEAD --oneline` to see the commit history.
 
 4. Get the diff for the review:
+
    - If this is a **stacked PR**, run `git diff <parent-branch>...HEAD` to scope the diff to only this branch's changes.
    - Otherwise, run `git diff main...HEAD`.
+
+5. Run the prose pass over the comments in that diff: Skill tool with skill="prose-pass". It runs here, before review, so that anything it changes is reviewed in Phase 2. If it changes files, re-run the checks (`lint-build-test`), commit with the message "docs: Trim comments", and push before continuing.
 
 ## Phase 2: Automated PR review (parallel subagents)
 
@@ -109,9 +112,7 @@ Otherwise, after all launched subagents complete:
 
 ## Phase 4: Create the PR
 
-1. Draft the PR body, then run the prose pass over it and over the comments in
-   the diff: Skill tool with skill="prose-pass". Apply its cuts before creating
-   the PR; if it cuts comments, commit and push those changes first.
+1. Draft the PR body, then run the prose pass over the body: Skill tool with skill="prose-pass". The comments were already swept in Phase 1; this pass is for the body only.
 
 2. Run `gh pr create` to create a pull request. The PR body should include:
 
@@ -136,7 +137,7 @@ Read the instructions in [`docs/contributing/updating-changelogs.md`](../../../d
 - **Combine like changes.** If multiple commits contribute to a single logical change within one package, write one changelog entry — not one per commit.
 - **Split disparate changes.** If one commit touches unrelated concerns in a single package, write separate entries.
 - **Link the PR.** Use the PR number from Phase 4 in each entry (e.g. `([#123](https://github.com/.../pull/123))`).
-- **Keep entries short.** Run the prose pass over the drafted entries: Skill tool with skill="prose-pass".
+- **Keep entries short.** Run the prose pass over the drafted entries, for changelogs only: Skill tool with skill="prose-pass", args="changelogs".
 
 Commit the changelog updates to the current branch with the message "docs: Update changelogs" and push.
 

@@ -27,6 +27,3 @@ be updated. This is enforced by CI. When updating changelogs, keep the following
 
 If your PR does not contain any consumer-facing changes, add the label `no-changelog`, and the
 changelog validation CI job will be skipped.
-
-For how long an entry should be, and the same standard applied to code comments and PR
-bodies, see [`.claude/skills/prose-pass/SKILL.md`](../../.claude/skills/prose-pass/SKILL.md).
