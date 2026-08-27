@@ -27,17 +27,33 @@ form that carries it.
 Every judgment here is about **information content, never about style**. No
 phrasing is banned; nothing survives on phrasing either.
 
-Deleting a comment is cheap to undo — one line restored on request. A rename, an
-extracted function, or a dropped JSDoc block is not: hold those to the same bar,
-but verify the result still lints and passes its tests.
+Deleting a comment is cheap to undo — one line restored on request. A trivial
+rename nearly so. Anything larger is not, and is out of scope for this pass; a
+dropped JSDoc block can also break lint, so verify the result still lints.
 
-## Prefer a code change to a comment
+## Prefer a trivial rename to a comment
 
-If a comment is necessary only because the surrounding identifier or structure
-is unclear, **fix the identifier or the structure and delete the comment.** A
-comment explaining what a name means is a rename waiting to happen; a comment
-labeling a stretch of a long function is an extracted function waiting to
-happen.
+If a comment exists only because an identifier is vague, and a **trivial rename**
+removes the need for it, rename and delete the comment. Trivial means a local, a
+parameter, or a private field that this diff already touches, renamed within the
+one file — nothing exported, nothing that ripples across call sites.
+
+Stop there. **Do not introduce structural refactors to eliminate prose**, even
+when the result would clearly read better:
+
+```ts
+// Check whether the remote peer restarted.
+if (currentId !== previousId) {
+```
+
+A `remotePeerRestarted()` helper would carry that sentence in its name, but
+extracting it is a behavior-adjacent change with its own review surface. Keep the
+comment, leave the structure alone, and propose the refactor separately if it is
+worth doing.
+
+This pass runs before every commit and PR, so it has to be predictable: its diff
+is comments removed, occasionally one identifier renamed — never a refactor
+nobody asked for.
 
 ## AI smell openers
 
@@ -153,9 +169,9 @@ repeats a rationale that is already in a code comment.
 2. Delete any whose information is in the identifier, the next line, or the test
    title. If it lives in another file, delete it here too — unless this site is
    genuinely hard to follow without it.
-3. For each survivor, ask whether a rename or an extracted function removes the
-   need for it. If so, make that change instead, then re-run lint and the
-   affected tests.
+3. For each survivor, ask whether a trivial rename removes the need for it. If
+   so, rename and delete the comment, then re-run lint. Do not restructure code
+   to remove a comment.
 4. Re-read what is left asking **"is this obvious?"** — this is the pass that
    gets skipped.
 5. Apply the Changelogs and PR bodies sections to those artifacts.

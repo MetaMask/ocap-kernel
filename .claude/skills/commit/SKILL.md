@@ -20,7 +20,7 @@ When asked to commit code, follow these steps:
 
 2. Run the prose pass over the diff: Skill tool with skill="prose-pass". Apply its cuts before staging anything. **Do not skip this**, however small the diff.
 
-3. Unless invoked with `force`, lint, build, and test the code (`lint-build-test`). This runs after the prose pass because that pass may rename identifiers or extract functions. Stop if any checks fail.
+3. Unless invoked with `force`, lint, build, and test the code (`lint-build-test`). This runs after the prose pass because that pass may rename an identifier or drop a comment lint requires. Stop if any checks fail.
 
 4. If you are on the `main` branch, create a new feature branch using `git branch` and switch to it.
 
