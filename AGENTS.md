@@ -20,6 +20,8 @@ Development workflows:
 
 General conventions:
 
+- Comments, changelog entries, and PR bodies must state only the non-obvious "why";
+  run the `prose-pass` skill over them before presenting, committing, or opening a PR
 - Use `@metamask/superstruct` for runtime type checking and to define object types
 - kebab-case for package and file names (`@ocap/test-utils`, `kernel-worker.js`, `vat.js`)
 - If a function has more than two arguments or could be expected to grow thereto,
