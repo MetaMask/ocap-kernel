@@ -1,12 +1,15 @@
 import '@metamask/kernel-shims/endoify-node';
 import { makeKernel } from '@metamask/kernel-node-runtime';
-import { startDaemon } from '@metamask/kernel-node-runtime/daemon';
+import {
+  DEV_ONLY_METHODS,
+  startDaemon,
+} from '@metamask/kernel-node-runtime/daemon';
 import type { DaemonHandle } from '@metamask/kernel-node-runtime/daemon';
 import { stringify } from '@metamask/kernel-utils';
 import type { LogEntry } from '@metamask/logger';
 import { Logger } from '@metamask/logger';
 import { appendFileSync, rmSync } from 'node:fs';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
@@ -14,6 +17,7 @@ import {
   logBestEffort,
   makeDaemonRunLoopWiring,
 } from './run-loop-failure.ts';
+import { resolveDevMode } from '../dev-mode.ts';
 import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive } from '../utils.ts';
 
@@ -91,7 +95,22 @@ main().catch((error) => {
  * Main daemon entry point. Starts the daemon process and keeps it running.
  */
 async function main(): Promise<void> {
-  await mkdir(ocapDir, { recursive: true });
+  // 0o700 so no other local user can enter the directory and reach the
+  // socket or the database inside it. `mode` applies only to directories
+  // mkdir creates, so the chmod is what brings an $OCAP_HOME from before
+  // this was enforced up to the same footing.
+  await mkdir(ocapDir, { recursive: true, mode: 0o700 });
+  await chmod(ocapDir, 0o700);
+
+  const devMode = resolveDevMode({
+    env: process.env,
+    warn: (message) => logger.warn(message),
+  });
+  if (devMode) {
+    logger.warn(
+      `Dev mode enabled (OCAP_DEV_MODE=true): ${DEV_ONLY_METHODS.join(', ')} are served on the control socket.`,
+    );
+  }
 
   const socketPath =
     process.env.OCAP_SOCKET_PATH ?? join(ocapDir, 'daemon.sock');
@@ -150,6 +169,7 @@ async function main(): Promise<void> {
       kernel,
       kernelDatabase,
       onShutdown: async () => shutdown('RPC shutdown'),
+      devMode,
     });
   } catch (error) {
     await cleanUpFailedStartup({

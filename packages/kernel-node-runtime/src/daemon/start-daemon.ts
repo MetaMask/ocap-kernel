@@ -15,6 +15,11 @@ export type StartDaemonOptions = {
   kernelDatabase: KernelDatabase;
   /** Optional callback invoked when a `shutdown` RPC is received. */
   onShutdown?: () => Promise<void>;
+  /**
+   * When true, also serve the dev-only methods on the control socket.
+   * See `DEV_ONLY_METHODS` for the list and the reasoning.
+   */
+  devMode?: boolean;
 };
 
 /**
@@ -38,13 +43,14 @@ export type DaemonHandle = {
 export async function startDaemon(
   options: StartDaemonOptions,
 ): Promise<DaemonHandle> {
-  const { socketPath, kernel, kernelDatabase, onShutdown } = options;
+  const { socketPath, kernel, kernelDatabase, onShutdown, devMode } = options;
 
   const rpcServer = await startRpcSocketServer({
     socketPath,
     kernel,
     kernelDatabase,
     onShutdown,
+    devMode: devMode ?? false,
   });
 
   const close = async (): Promise<void> => {

@@ -147,12 +147,15 @@ jobs:
         node-version: [24.x]
         package:
           [
+            '@metamask/kernel-cli',
             '@metamask/kernel-node-runtime',
             '@ocap/extension',
             '@ocap/omnium-gatherum',
             '@ocap/evm-wallet-experiment',
           ]
         include:
+          - package: '@metamask/kernel-cli'
+            directory: kernel-cli
           - package: '@metamask/kernel-node-runtime'
             directory: kernel-node-runtime
           - package: '@ocap/extension'

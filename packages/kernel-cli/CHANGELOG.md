@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING:** `executeDBQuery`, `clearState`, and `terminateAllVats` are no longer served on the daemon control socket unless the daemon is started with `OCAP_DEV_MODE=true` ([#1034](https://github.com/MetaMask/ocap-kernel/pull/1034))
+  - `executeDBQuery` runs caller-supplied SQL against kernel state; it has no place in a deployed configuration. In default mode its handler is not registered at all, rather than being refused by name.
+  - The refusal names the flag, so a caller who hits it is told which daemon to restart and how.
+- `$OCAP_HOME` is created `0700` and the daemon socket `0600`, instead of inheriting the ambient umask. The directory mode is reapplied on every start, so an `$OCAP_HOME` created before this change is brought forward rather than keeping its old permissions ([#1034](https://github.com/MetaMask/ocap-kernel/pull/1034))
 - The daemon log filters entries below a minimum severity, defaulting to `info`, so high-volume `debug` output (refcount churn and similar) no longer dominates `daemon.log`; set `$OCAP_DAEMON_LOG_LEVEL` to `debug` to record everything again ([#1008](https://github.com/MetaMask/ocap-kernel/pull/1008))
 - Relay state files (`relay.pid`, `relay.addr`) now live in their own directory (default `~/.libp2p-relay`, overridable via `$LIBP2P_RELAY_HOME`) instead of under `$OCAP_HOME`, so one libp2p relay can serve daemons with different OCAP_HOMEs ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 
