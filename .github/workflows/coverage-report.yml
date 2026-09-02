@@ -20,15 +20,26 @@ jobs:
           path: coverage/
 
       - name: Fetch baseline coverage from GitHub Pages
+        id: baseline
+        env:
+          REPOSITORY: ${{ github.repository }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
+          url="https://${REPOSITORY_OWNER}.github.io/${REPOSITORY#*/}/coverage/coverage-summary.json"
+
           mkdir -p coverage-base
-          curl -fsSL https://metamask.github.io/ocap-kernel/coverage/coverage-summary.json \
-            -o coverage-base/coverage-summary.json || { echo "No baseline coverage found"; exit 1; }
+          if curl -fsSL "$url" -o coverage-base/coverage-summary.json; then
+            echo "path=coverage-base/coverage-summary.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No baseline coverage found at $url; reporting without trends."
+            echo "path=" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Post coverage report
         uses: davelosert/vitest-coverage-report-action@5b6122e3a819a3be7b27fc961b7faafb3bf00e4d
         with:
           json-summary-path: coverage/coverage-summary.json
           json-final-path: coverage/coverage-final.json
-          json-summary-compare-path: coverage-base/coverage-summary.json
+          # An empty path disables trend comparison.
+          json-summary-compare-path: ${{ steps.baseline.outputs.path }}
           file-coverage-mode: changes
