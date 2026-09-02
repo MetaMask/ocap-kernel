@@ -176,13 +176,6 @@ module.exports = defineConfig({
           // Published packages must not have side effects.
           expectWorkspaceField(workspace, 'sideEffects', false);
 
-          // All published packages must have the same "publish:preview" script.
-          expectWorkspaceField(
-            workspace,
-            'scripts.publish:preview',
-            'yarn npm publish --tag preview',
-          );
-
           // All non-root package must have valid "changelog:update" and
           // "changelog:validate" scripts.
           expectCorrectWorkspaceChangelogScripts(workspace);
