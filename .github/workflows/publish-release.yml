@@ -6,7 +6,7 @@ on:
       NPM_TOKEN:
         required: true
       SLACK_WEBHOOK_URL:
-        required: true
+        required: false
 
 jobs:
   publish-release:
