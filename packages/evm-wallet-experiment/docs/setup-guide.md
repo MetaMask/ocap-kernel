@@ -28,7 +28,7 @@ This guide walks through setting up the OCAP evm-wallet on two devices:
 - The `ocap-kernel` monorepo cloned and built
 
 ```bash
-git clone https://github.com/MetaMask/ocap-kernel.git
+git clone https://github.com/Consensys-Incorporated/ocap-kernel.git
 ```
 
 - OpenClaw installed on the VPS (for the agent integration)

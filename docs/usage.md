@@ -474,7 +474,7 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
 
 For more detailed information about the technology underlying the OCAP Kernel:
 
-- [Notes On The Design Of An Ocap Kernel](https://github.com/MetaMask/ocap-kernel/wiki/Notes-On-The-Design-Of-An-Ocap-Kernel)
+- [Notes On The Design Of An Ocap Kernel](https://github.com/Consensys-Incorporated/ocap-kernel/wiki/Notes-On-The-Design-Of-An-Ocap-Kernel)
 - [Endo Documentation](https://github.com/endojs/endo/blob/master/README.md)
 - [SES (Secure ECMAScript)](https://github.com/endojs/endo/tree/master/packages/ses)
 - [Endo Marshal](https://github.com/endojs/endo/tree/master/packages/marshal)
