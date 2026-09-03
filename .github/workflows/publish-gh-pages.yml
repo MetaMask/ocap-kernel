@@ -4,7 +4,9 @@ on:
   workflow_call:
     inputs:
       destination_dir:
-        description: 'Subdirectory of the site to publish into'
+        description:
+          'Subdirectory of the site to publish into; the deployment replaces the
+          entire site'
         required: true
         type: string
       artifact_name:
@@ -19,8 +21,6 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    # Deploying from an artifact rather than pushing to `gh-pages` keeps
-    # `contents` out of this job entirely.
     permissions:
       pages: write
       id-token: write

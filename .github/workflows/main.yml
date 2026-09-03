@@ -179,6 +179,8 @@ jobs:
     with:
       destination_dir: coverage
       artifact_name: coverage
+    # A called workflow's jobs cannot request more than the caller grants, and
+    # an enumerated block sets every unlisted scope to `none`.
     permissions:
       pages: write
       id-token: write
