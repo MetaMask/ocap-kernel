@@ -66,9 +66,8 @@ describe('endowments', () => {
     ]);
   });
 
-  // Regression test for a CWE-367 escape: a vat handed `fetch` an input that
-  // named an allowlisted host when the caveat read it and a forbidden host
-  // when `fetch` read it again.
+  // CWE-367: the caveat reads an allowlisted host, then `fetch` reads a
+  // forbidden one.
   it('confines a vat that resolves a fetch input differently on each read', async () => {
     const vatId: VatId = 'v1';
     const v1Root: KRef = 'ko4';
