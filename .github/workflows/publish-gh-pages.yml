@@ -3,39 +3,39 @@ name: Publish to GitHub Pages
 on:
   workflow_call:
     inputs:
-      publish_dir:
-        description: 'Directory to publish'
-        required: true
-        type: string
       destination_dir:
-        description: 'Destination directory on gh-pages branch'
+        description: 'Subdirectory of the site to publish into'
         required: true
         type: string
       artifact_name:
         description: 'Name of artifact to download'
         required: true
         type: string
-    secrets:
-      PUBLISH_DOCS_TOKEN:
-        required: true
 
 jobs:
   publish:
     name: Publish to GitHub Pages
     runs-on: ubuntu-latest
-    environment: github-pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    # Deploying from an artifact rather than pushing to `gh-pages` keeps
+    # `contents` out of this job entirely.
     permissions:
-      contents: write
+      pages: write
+      id-token: write
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.artifact_name }}
-          path: ${{ inputs.publish_dir }}
+          path: _site/${{ inputs.destination_dir }}
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e
-        with:
-          personal_token: ${{ secrets.PUBLISH_DOCS_TOKEN }}
-          publish_dir: ${{ inputs.publish_dir }}
-          destination_dir: ${{ inputs.destination_dir }}
+        id: deployment
+        uses: actions/deploy-pages@v5
