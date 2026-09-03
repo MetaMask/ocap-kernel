@@ -66,8 +66,7 @@ describe('endowments', () => {
     ]);
   });
 
-  // CWE-367: the caveat reads an allowlisted host, then `fetch` reads a
-  // forbidden one.
+  // CWE-367 regression. Both probes live in the endowment-fetch vat bundle.
   it('confines a vat that resolves a fetch input differently on each read', async () => {
     const vatId: VatId = 'v1';
     const v1Root: KRef = 'ko4';
