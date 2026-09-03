@@ -3,13 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "description": "OpenClaw plugin for requesting and using MetaMask wallet capabilities via the OCAP kernel daemon",
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/agentmask#readme",
+  "homepage": "https://github.com/Consensys-Incorporated/ocap-kernel/tree/main/packages/agentmask#readme",
   "bugs": {
-    "url": "https://github.com/MetaMask/ocap-kernel/issues"
+    "url": "https://github.com/Consensys-Incorporated/ocap-kernel/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/MetaMask/ocap-kernel.git"
+    "url": "https://github.com/Consensys-Incorporated/ocap-kernel.git"
   },
   "type": "module",
   "exports": {

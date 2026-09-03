@@ -3,13 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "description": "Ocap kernel vat implementing the service matcher from service-discovery-types",
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/service-matcher#readme",
+  "homepage": "https://github.com/Consensys-Incorporated/ocap-kernel/tree/main/packages/service-matcher#readme",
   "bugs": {
-    "url": "https://github.com/MetaMask/ocap-kernel/issues"
+    "url": "https://github.com/Consensys-Incorporated/ocap-kernel/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/MetaMask/ocap-kernel.git"
+    "url": "https://github.com/Consensys-Incorporated/ocap-kernel.git"
   },
   "type": "module",
   "exports": {

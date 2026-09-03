@@ -117,8 +117,7 @@ module.exports = defineConfig({
           );
         }
 
-        // All non-root packages must specify a Git repository within the
-        // MetaMask GitHub organization.
+        // All non-root packages must specify this monorepo's Git repository.
         expectWorkspaceField(workspace, 'repository.type', 'git');
         expectWorkspaceField(
           workspace,
