@@ -5,7 +5,7 @@
   "description": "For running Ocap Kernel experiments in an extension environment",
   "repository": {
     "type": "git",
-    "url": "https://github.com/MetaMask/ocap-kernel.git"
+    "url": "https://github.com/Consensys-Incorporated/ocap-kernel.git"
   },
   "type": "module",
   "files": [

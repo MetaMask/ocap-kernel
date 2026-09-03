@@ -30,4 +30,4 @@ yarn test:e2e:local
 
 ## Contributing
 
-This package is part of the ocap-kernel monorepo. For contributing guidelines, see the [main repository README](https://github.com/MetaMask/ocap-kernel#readme).
+This package is part of the ocap-kernel monorepo. For contributing guidelines, see the [main repository README](https://github.com/Consensys-Incorporated/ocap-kernel#readme).

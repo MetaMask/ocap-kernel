@@ -3,13 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "description": "noun: a miscellaneous collection (as of things or persons)",
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/omnium-gatherum#readme",
+  "homepage": "https://github.com/Consensys-Incorporated/ocap-kernel/tree/main/packages/omnium-gatherum#readme",
   "bugs": {
-    "url": "https://github.com/MetaMask/ocap-kernel/issues"
+    "url": "https://github.com/Consensys-Incorporated/ocap-kernel/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/MetaMask/ocap-kernel.git"
+    "url": "https://github.com/Consensys-Incorporated/ocap-kernel.git"
   },
   "type": "module",
   "files": [

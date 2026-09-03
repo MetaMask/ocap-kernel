@@ -6,10 +6,10 @@ import { makeKernelStore } from '../index.ts';
 
 /**
  * Regressions for the asymmetry described in
- * https://github.com/MetaMask/ocap-kernel/issues/1006: creating an import
- * c-list entry changed no refcount while tearing one down decremented both,
- * and `initKernelObject` compensated by minting every object at (1, 1). That
- * constant came out right for exactly one importer, which is why nothing
+ * https://github.com/Consensys-Incorporated/ocap-kernel/issues/1006: creating
+ * an import c-list entry changed no refcount while tearing one down decremented
+ * both, and `initKernelObject` compensated by minting every object at (1, 1).
+ * That constant came out right for exactly one importer, which is why nothing
  * noticed.
  */
 describe('c-list reference accounting', () => {

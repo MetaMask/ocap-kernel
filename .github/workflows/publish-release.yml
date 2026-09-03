@@ -5,8 +5,6 @@ on:
     secrets:
       NPM_TOKEN:
         required: true
-      SLACK_WEBHOOK_URL:
-        required: false
 
 jobs:
   publish-release:
@@ -34,6 +32,11 @@ jobs:
 
   publish-npm-dry-run:
     name: Dry run publish to NPM
+    # Deliberately no `id-token`: this job runs before the `npm-publish`
+    # approval gate, and an OIDC token is exchangeable at npm for a publish
+    # credential. Without one the action packs instead of publishing.
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     needs: publish-release
     steps:
@@ -48,13 +51,15 @@ jobs:
           name: publish-release-artifacts-${{ github.sha }}
       - name: Dry run publish to NPM
         uses: MetaMask/action-npm-publish@v6
-        with:
-          slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          subteam: S042S7RE4AE # @metamask-npm-publishers
 
   publish-npm:
     name: Publish to NPM
     environment: npm-publish
+    # For packages that already exist on npm, `action-npm-publish` unsets the
+    # auth token and publishes via OIDC, degrading to `yarn pack` without one.
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     needs: publish-npm-dry-run
     steps:

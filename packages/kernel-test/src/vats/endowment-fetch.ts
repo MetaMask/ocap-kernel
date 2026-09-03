@@ -43,8 +43,8 @@ export async function buildRootObject(vatPowers: TestPowers) {
         throw error;
       }
     },
-    // The CWE-367 escape from #7557: an input that names the allowed host on
-    // the caveat's read and a forbidden one on fetch's.
+    // The CWE-367 escape: an input that names the allowed host on the
+    // caveat's read and a forbidden one on fetch's.
     fetchWithTwoFacedUrl: async (decoyUrl: string, targetUrl: string) => {
       let reads = 0;
       const twoFaced = {

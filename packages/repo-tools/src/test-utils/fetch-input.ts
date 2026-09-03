@@ -1,8 +1,7 @@
 /**
- * The CWE-367 primitive from MetaMask/MetaMask-planning#7557: an input whose
- * stringifier names one host when an allowlist reads it and another when
- * `fetch` does. Pass the same value twice for a stringifier that is merely
- * unusual rather than hostile.
+ * A CWE-367 primitive: an input whose stringifier names one host when an
+ * allowlist reads it and another when `fetch` does. Pass the same value twice
+ * for a stringifier that is merely unusual rather than hostile.
  *
  * @param first - Reported on the first read.
  * @param rest - Reported on every read thereafter.

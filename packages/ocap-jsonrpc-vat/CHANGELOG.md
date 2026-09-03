@@ -17,4 +17,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Each connection is served concurrently with its own bridge, and so its own `@@j<n>` table: a name minted on one connection does not resolve on another, both connections mint names from their own counter, and a peer that stalls without hanging up does not stop new peers being accepted
   - Session state is in-memory only and resets on socket disconnect
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/
+[Unreleased]: https://github.com/Consensys-Incorporated/ocap-kernel/
