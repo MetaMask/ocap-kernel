@@ -69,7 +69,10 @@ describe('VatManager', () => {
         })(),
       ),
       getVatSubcluster: vi.fn().mockReturnValue('s1'),
+      isVatActive: vi.fn().mockReturnValue(true),
       markVatAsTerminated: vi.fn(),
+      deleteVat: vi.fn(),
+      getPromisesByDecider: vi.fn().mockReturnValue([]),
       getRootObject: vi.fn().mockReturnValue('ko1'),
       pinObject: vi.fn(),
       unpinObject: vi.fn(),
@@ -80,6 +83,7 @@ describe('VatManager', () => {
 
     mockKernelQueue = {
       waitForCrank: vi.fn().mockResolvedValue(undefined),
+      resolvePromises: vi.fn(),
     } as unknown as Mocked<KernelQueue>;
 
     mockLogger = new Logger('test');
@@ -344,6 +348,95 @@ describe('VatManager', () => {
         'v1',
         expect.objectContaining({ message: 'Vat termination: Custom reason' }),
       );
+    });
+
+    describe('a vat that is persisted but not running', () => {
+      // `restartVat` stops the vat and then runs it again. A relaunch that
+      // fails — the bundle has moved since the vat was launched, the worker
+      // will not spawn — leaves the vat gone from the running map with its
+      // record, its vat store and its root pin all still in place. Nothing
+      // else retires one, so `terminateVat` has to.
+      const leaveVatPersistedButNotRunning = async (): Promise<void> => {
+        await vatManager.runVat('v1', createMockVatConfig());
+        mockPlatformServices.launch.mockRejectedValueOnce(
+          new Error('ENOENT: no such file or directory'),
+        );
+        await expect(vatManager.restartVat('v1')).rejects.toThrow('ENOENT');
+        expect(vatManager.hasVat('v1')).toBe(false);
+      };
+
+      it('can be terminated after a failed restart', async () => {
+        await leaveVatPersistedButNotRunning();
+
+        // Went through `stopVat` → `getVat` and threw, so a vat in this state
+        // could not be retired at all, and `terminateSubcluster` — which walks
+        // persisted membership — rejected part way through on reaching one.
+        expect(await vatManager.terminateVat('v1')).toBeUndefined();
+        expect(mockKernelStore.markVatAsTerminated).toHaveBeenCalledWith('v1');
+      });
+
+      it('discards its persisted record', async () => {
+        await leaveVatPersistedButNotRunning();
+
+        await vatManager.terminateVat('v1');
+
+        // Marking it terminated is not enough. The cleanup that schedules walks
+        // keys prefixed `${vatId}.`, which never matches `vatConfig.${vatId}`;
+        // only `deleteVat` takes that, along with the vat's own store and its
+        // subcluster membership. Left behind, the record restores the vat at
+        // the next boot whose code is reachable.
+        expect(mockKernelStore.deleteVat).toHaveBeenCalledWith('v1');
+      });
+
+      it('rejects the promises it was deciding', async () => {
+        mockKernelStore.getPromisesByDecider.mockReturnValue(['kp1']);
+        await leaveVatPersistedButNotRunning();
+
+        await vatManager.terminateVat('v1');
+
+        // `cleanupTerminatedVat` deletes these promises' c-list entries and
+        // drops the decider's refcount on the stated understanding that its
+        // caller has already rejected them. Nothing else can: a promise left
+        // unresolved with a decider that no longer exists hangs its waiters for
+        // good.
+        expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('v1', [
+          ['kp1', true, expect.anything()],
+        ]);
+      });
+
+      it('carries the termination reason into those rejections', async () => {
+        mockKernelStore.getPromisesByDecider.mockReturnValue(['kp1']);
+        await leaveVatPersistedButNotRunning();
+
+        await vatManager.terminateVat('v1', {
+          body: 'Custom reason',
+          slots: [],
+        });
+
+        const [, resolutions] = mockKernelQueue.resolvePromises.mock
+          .calls[0] as [string, [string, boolean, { body: string }][]];
+        expect(resolutions[0]?.[2]?.body).toContain('Custom reason');
+      });
+
+      it('releases the pin its root was launched with', async () => {
+        await leaveVatPersistedButNotRunning();
+
+        await vatManager.terminateVat('v1');
+
+        // `launchVat` pins the root for the vat's lifetime and `stopVat`
+        // releases it when terminating. A vat retired without going through
+        // `stopVat` would leave its root pinned, and so uncollectable, forever.
+        expect(mockKernelStore.unpinObject).toHaveBeenCalledWith('ko1');
+      });
+
+      it('throws for a vat that is neither running nor persisted', async () => {
+        mockKernelStore.isVatActive.mockReturnValue(false);
+
+        await expect(vatManager.terminateVat('v9')).rejects.toThrow(
+          VatNotFoundError,
+        );
+        expect(mockKernelStore.markVatAsTerminated).not.toHaveBeenCalled();
+      });
     });
   });
 
