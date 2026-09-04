@@ -1531,5 +1531,87 @@ describe.sequential('Remote Communications E2E', () => {
       },
       NETWORK_TIMEOUT,
     );
+
+    it(
+      'schedules a persisted reap from an unsolicited peer BOYD, over real libp2p',
+      async () => {
+        // The transport-layer half of the "one message bricks a kernel" claim:
+        // that a peer the victim has never granted anything reaches
+        // `handleRemoteMessage` at all. The kernel-store and kernel-test layers
+        // are covered elsewhere (`store/methods/gc.test.ts`, and the
+        // `is not bricked by a peer asking it to bring out its dead` integration
+        // test); here nothing is stubbed — two real kernels over a real relay,
+        // and no ocap URL is ever issued or redeemed successfully, so the victim
+        // grants the attacker nothing and holds no prior relationship with it.
+        //
+        // `bringOutYourDead` needs no authority beyond being able to reach the
+        // victim: an inbound message auto-creates the remote it came from
+        // (`RemoteManager.remoteFor`) and schedules a reap against it, in the
+        // persisted reap queue. This test proves that reap lands from a stranger;
+        // that a persisted reap survives shutdown to brick the next boot is what
+        // the kernel-test integration test then pins.
+        const victim = kernel1;
+        const attacker = kernel2;
+        await victim.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
+        await attacker.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
+        const { peerId1: victimPeerId } = await getPeerIds(victim, attacker);
+
+        // A local vat on the attacker, purely to give its run loop something to
+        // crank so the scheduled BOYD is flushed to the wire.
+        await launchVatAndGetURL(attacker, makeRemoteVatConfig('Mallory'));
+        const malloryRef = getVatRootRef(attacker, kernelStore2, 'Mallory');
+
+        // A well-formed ocap URL naming the victim, with a fabricated object id
+        // that cannot decrypt (base58btc of 32 zero bytes). Redeeming it fails —
+        // but `remoteFor` establishes the attacker's handle to the victim before
+        // the redemption is even sent, and the message itself makes the victim
+        // auto-create its own remote for the attacker. No object is exported
+        // either way, so the failure is swallowed: the point is the side effect.
+        const fabricatedOid = 'z11111111111111111111111111111111';
+        const fabricatedURL = `ocap:${fabricatedOid}@${victimPeerId},${testRelays[0]}`;
+        await attacker.redeemOcapURL(fabricatedURL).catch(() => undefined);
+
+        // Let both run loops drain and park before the BOYD is sent, so the
+        // victim's loop cannot eat its own reap: a reap does not wake a parked
+        // loop, and nothing else touches the victim after this point.
+        await waitUntilQuiescent();
+
+        // The attack, in one message: reap the attacker's remotes (one BOYD to
+        // the victim) and crank the attacker so it is delivered.
+        attacker.reapRemotes();
+        for (let i = 0; i < 3; i++) {
+          await attacker.queueMessage(malloryRef, 'ping', []);
+          await waitUntilQuiescent(100);
+        }
+
+        // Read the reap queue from disk after shutting the victim down, so we
+        // see what the victim's own store committed rather than this test's
+        // stale cache — and prove the reap survives the shutdown that carries it
+        // into the next incarnation. `afterEach`'s second `stop()` is harmless:
+        // `stopWithTimeout` swallows the already-closed error.
+        await victim.stop();
+        const victimDb = await makeSQLKernelDatabase({
+          dbFilename: dbFilename1,
+        });
+        const reapQueue = JSON.parse(
+          victimDb.kernelKVStore.get('reapQueue') ?? '[]',
+        );
+        victimDb.close();
+
+        // The victim scheduled a reap for a peer it never granted anything to,
+        // against a remote (`r…`) rather than a local vat.
+        expect(reapQueue).not.toStrictEqual([]);
+        expect(
+          reapQueue.every((endpointId: string) => endpointId.startsWith('r')),
+        ).toBe(true);
+      },
+      NETWORK_TIMEOUT,
+    );
   });
 });
