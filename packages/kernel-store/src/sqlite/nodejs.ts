@@ -298,8 +298,11 @@ export async function makeSQLKernelDatabase({
       db._spStack.length = 0;
       try {
         rollbackIfNeeded();
-      } catch {
-        // The rollback failure below is the one worth reporting.
+      } catch (abortError) {
+        logger?.error(
+          'failed to discard transaction after rollback',
+          abortError,
+        );
       }
       throw error;
     }
@@ -321,7 +324,22 @@ export async function makeSQLKernelDatabase({
       throw new Error(`No such savepoint: ${name}`);
     }
     const query = SQL_QUERIES.RELEASE_SAVEPOINT.replace('%NAME%', name);
-    db.exec(query);
+    try {
+      db.exec(query);
+    } catch (error) {
+      // The hazard `rollbackSavepoint` guards against, by the other door, and
+      // there is no committing this transaction now.
+      db._spStack.length = 0;
+      try {
+        rollbackIfNeeded();
+      } catch (abortError) {
+        logger?.error(
+          'failed to discard transaction after release',
+          abortError,
+        );
+      }
+      throw error;
+    }
     db._spStack.splice(idx);
     if (db._spStack.length === 0) {
       commitIfNeeded();

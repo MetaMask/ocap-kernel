@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { RemoteHandle } from './RemoteHandle.ts';
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
+import { withFailingSavepointRelease } from '../../../test/savepoint-stack.ts';
 import type { KernelQueue } from '../../KernelQueue.ts';
 import type { KernelStore } from '../../store/index.ts';
 import { parseRef } from '../../store/utils/parse-ref.ts';
@@ -218,6 +219,25 @@ describe('RemoteHandle', () => {
         type: 'bringOutYourDead',
         endpointId: remote.remoteId,
       });
+    });
+
+    it('reports the release failure rather than a missing savepoint', async () => {
+      const failing = withFailingSavepointRelease(mockKernelStore);
+      const { releaseFailure, rollbackSavepoint } = failing;
+      mockKernelStore = failing.kernelStore;
+      const remote = makeRemote();
+
+      const delivery = JSON.stringify({
+        seq: 1,
+        method: 'deliver',
+        params: ['bringOutYourDead'],
+      });
+
+      await expect(remote.handleRemoteMessage(delivery)).rejects.toBe(
+        releaseFailure,
+      );
+      // Still attempted: abandoning the rollback is not a way to pass this.
+      expect(rollbackSavepoint).toHaveBeenCalledWith('receive_r0_1');
     });
 
     // A dead run loop will never deliver the message, and `handleRemoteMessage`

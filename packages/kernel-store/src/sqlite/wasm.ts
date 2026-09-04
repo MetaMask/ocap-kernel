@@ -199,9 +199,25 @@ export async function makeSQLKernelDatabase({
    */
   function commitIfNeeded(): void {
     if (db._inTx && db._spStack.length === 0) {
-      sqlCommitTransaction.step();
-      sqlCommitTransaction.reset();
+      // Cleared first, for the reason `rollbackIfNeeded` gives.
       db._inTx = false;
+      try {
+        sqlCommitTransaction.step();
+        sqlCommitTransaction.reset();
+      } catch (error) {
+        // A failed COMMIT can leave the transaction open. Stepped directly
+        // because `_inTx` above already made `rollbackIfNeeded` a no-op.
+        try {
+          sqlAbortTransaction.step();
+          sqlAbortTransaction.reset();
+        } catch (abortError) {
+          logger?.error(
+            'failed to discard transaction after commit',
+            abortError,
+          );
+        }
+        throw error;
+      }
     }
   }
 
@@ -210,10 +226,13 @@ export async function makeSQLKernelDatabase({
    */
   function rollbackIfNeeded(): void {
     if (db._inTx) {
-      sqlAbortTransaction.step();
-      sqlAbortTransaction.reset();
+      // Cleared before the abort, which can throw: left true, `beginIfNeeded` is
+      // a no-op forever after and writes autocommit one statement at a time (see
+      // `createSavepoint`).
       db._inTx = false;
       db._spStack.length = 0;
+      sqlAbortTransaction.step();
+      sqlAbortTransaction.reset();
     }
   }
 
@@ -380,8 +399,11 @@ export async function makeSQLKernelDatabase({
       db._spStack.length = 0;
       try {
         rollbackIfNeeded();
-      } catch {
-        // The rollback failure below is the one worth reporting.
+      } catch (abortError) {
+        logger?.error(
+          'failed to discard transaction after rollback',
+          abortError,
+        );
       }
       throw error;
     }
@@ -403,7 +425,22 @@ export async function makeSQLKernelDatabase({
       throw new Error(`No such savepoint: ${name}`);
     }
     const query = SQL_QUERIES.RELEASE_SAVEPOINT.replace('%NAME%', name);
-    db.exec(query);
+    try {
+      db.exec(query);
+    } catch (error) {
+      // The hazard `rollbackSavepoint` guards against, by the other door, and
+      // there is no committing this transaction now.
+      db._spStack.length = 0;
+      try {
+        rollbackIfNeeded();
+      } catch (abortError) {
+        logger?.error(
+          'failed to discard transaction after release',
+          abortError,
+        );
+      }
+      throw error;
+    }
     db._spStack.splice(idx);
     if (db._spStack.length === 0) {
       commitIfNeeded();

@@ -32,9 +32,6 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
   function createCrankSavepoint(name: string): void {
     ctx.inCrank || Fail`createCrankSavepoint outside of crank`;
     const ordinal = ctx.savepoints.length;
-    // Record the name only once the database has the savepoint. Recording it
-    // first would leave `endCrank` trying to release a savepoint that was never
-    // created, and that error would replace whatever really went wrong.
     kdb.createSavepoint(`t${ordinal}`);
     ctx.savepoints.push(name);
   }
@@ -51,21 +48,13 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
       if (ctx.savepoints[ordinal] === savepoint) {
         try {
           kdb.rollbackSavepoint(`t${ordinal}`);
-        } finally {
-          // Forget the savepoint even if the rollback failed. Leaving it listed
-          // would have `endCrank`'s release commit the crank we just abandoned —
-          // the half-finished state this rollback exists to discard. A failed
-          // rollback discards the whole transaction instead (see
-          // `rollbackSavepoint`), which for a crank is the same boundary.
           ctx.savepoints.length = ordinal;
+        } catch (error) {
+          ctx.savepoints.length = 0;
+          revertStateBeneathRollback(error);
+          throw error;
         }
-        // The rollback reverted DB state but in-memory caches are stale.
-        // Recreate the run queue so its cached head/tail are re-read from DB.
-        ctx.refreshRunQueue();
-        // Invalidate the run queue length cache so it's recalculated from
-        // the database on next access, since the rollback may have restored
-        // dequeued items.
-        ctx.runQueueLengthCache = -1;
+        revertStateBeneathRollback();
         return;
       }
     }
@@ -73,12 +62,40 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
   }
 
   /**
+   * Revert what a database rollback cannot reach: the in-memory caches built
+   * over the abandoned crank's writes.
+   *
+   * @param rollbackError - The error the rollback threw, if it threw.
+   */
+  function revertStateBeneathRollback(rollbackError?: unknown): void {
+    try {
+      ctx.refreshRunQueue();
+      ctx.runQueueLengthCache = -1;
+      ctx.refreshCachedValues();
+      // Clearing all of them is correct only while a rollback discards the whole
+      // delivery, which is all any caller asks for.
+      ctx.maybeFreeKrefs.clear();
+    } catch (revertError) {
+      if (rollbackError === undefined) {
+        throw revertError;
+      }
+      throw new Error(
+        `Crank rollback failed and its caches could not be reverted: ${String(revertError)}`,
+        { cause: rollbackError },
+      );
+    }
+  }
+
+  /**
    * Release all savepoints.
    */
   function releaseAllSavepoints(): void {
     if (ctx.savepoints.length > 0) {
-      kdb.releaseSavepoint('t0');
-      ctx.savepoints.length = 0;
+      try {
+        kdb.releaseSavepoint('t0');
+      } finally {
+        ctx.savepoints.length = 0;
+      }
     }
   }
 

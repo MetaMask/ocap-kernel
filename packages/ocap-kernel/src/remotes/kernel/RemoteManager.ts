@@ -261,7 +261,12 @@ export class RemoteManager {
       this.#kernelStore.setPeerIncarnation(peerId, observedIncarnation);
       this.#kernelStore.releaseSavepoint(savepoint);
     } catch (error) {
-      this.#kernelStore.rollbackSavepoint(savepoint);
+      try {
+        this.#kernelStore.rollbackSavepoint(savepoint);
+      } catch (rollbackError) {
+        // Same reasoning as `RemoteHandle.handleRemoteMessage`.
+        this.#logger?.error(`Rollback of ${savepoint} failed`, rollbackError);
+      }
       throw error;
     }
 

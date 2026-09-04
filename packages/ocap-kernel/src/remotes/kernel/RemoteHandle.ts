@@ -1032,7 +1032,16 @@ export class RemoteHandle implements EndpointHandle {
       this.#kernelStore.releaseSavepoint(savepointName);
     } catch (error) {
       // Rollback on any error - in-memory state unchanged since we didn't update it yet
-      this.#kernelStore.rollbackSavepoint(savepointName);
+      try {
+        this.#kernelStore.rollbackSavepoint(savepointName);
+      } catch (rollbackError) {
+        // A failed RELEASE above discards the whole savepoint stack, so this
+        // rollback would report a savepoint already gone over the real error.
+        this.#logger.error(
+          `${this.#peerId.slice(0, 8)}:: rollback of ${savepointName} failed`,
+          rollbackError,
+        );
+      }
       throw error;
     }
 
