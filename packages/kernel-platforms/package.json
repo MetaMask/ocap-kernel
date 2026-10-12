@@ -71,7 +71,7 @@
     "@metamask/eslint-config": "^15.0.1",
     "@metamask/eslint-config-nodejs": "^15.0.1",
     "@metamask/eslint-config-typescript": "^15.0.1",
-    "@metamask/utils": "^11.12.1",
+    "@metamask/utils": "^12.0.0",
     "@ocap/repo-tools": "workspace:^",
     "@ts-bridge/cli": "^0.6.3",
     "@ts-bridge/shims": "^0.1.1",
@@ -103,7 +103,7 @@
   },
   "dependencies": {
     "@endo/exo": "^1.7.0",
-    "@endo/patterns": "^1.9.1",
+    "@endo/patterns": "^2.1.0",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/superstruct": "^3.4.1",
     "ses": "^2.3.0"
