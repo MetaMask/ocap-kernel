@@ -423,7 +423,7 @@ completes, and a response's `url` is empty. The vat must
 request the `URL`, `Request`, `Headers`, and `Response` globals, and `crypto` to
 check an `integrity`.
 
-This is additive: the `fetch` global and `network.allowedHosts` remain. Its
+It is the only way a vat reaches the network; there is no `fetch` global. Its
 requests are made with a `fetch` the vat supervisor tears down with the vat.
 
 ## Limits

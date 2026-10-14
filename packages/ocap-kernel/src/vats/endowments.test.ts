@@ -55,7 +55,6 @@ describe('createDefaultEndowments', () => {
       'clearInterval',
       'clearTimeout',
       'crypto',
-      'fetch',
       'setInterval',
       'setTimeout',
     ]);

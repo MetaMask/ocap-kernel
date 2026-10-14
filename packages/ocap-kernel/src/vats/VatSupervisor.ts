@@ -31,8 +31,6 @@ import {
 import { loadBundle } from './bundle-loader.ts';
 import { createDefaultEndowments, VatEndowmentsStruct } from './endowments.ts';
 import type { AllowedGlobalName, MakeAllowedGlobals } from './endowments.ts';
-import { makeCaveatedFetch, makeHostCaveat } from './network-caveat.ts';
-import type { FetchCapability } from './network-caveat.ts';
 import { makeGCAndFinalize } from '../garbage-collection/gc-finalize.ts';
 import { makeDummyMeterControl } from '../liveslots/meter-control.ts';
 import { makeSupervisorSyscall } from '../liveslots/syscall.ts';
@@ -376,8 +374,7 @@ export class VatSupervisor {
       meterControl: makeDummyMeterControl(),
     });
 
-    const { bundleSpec, parameters, platformConfig, globals, network } =
-      vatConfig;
+    const { bundleSpec, parameters, platformConfig, globals } = vatConfig;
 
     // If the kernel specified a restricted set of allowed global names,
     // filter the full allowlist down to only those names.
@@ -401,24 +398,6 @@ export class VatSupervisor {
           );
         }
       }
-    }
-
-    // Post-wrap the Snaps-produced `fetch` with a per-vat host allowlist.
-    // The factory itself takes no allowlist, so restriction is applied here
-    // where `VatConfig.network.allowedHosts` is in scope. Requesting `fetch`
-    // without an allowlist is rejected — there is no implicit-allow-all
-    // pathway.
-    if (hasProperty(requestedGlobals, 'fetch')) {
-      const allowedHosts = network?.allowedHosts;
-      if (!allowedHosts) {
-        throw new Error(
-          `Vat "${this.id}" requested "fetch" but no network.allowedHosts was specified`,
-        );
-      }
-      requestedGlobals.fetch = makeCaveatedFetch(
-        requestedGlobals.fetch as FetchCapability,
-        makeHostCaveat([...allowedHosts]),
-      );
     }
 
     const workerEndowments = {
