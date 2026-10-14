@@ -1,6 +1,7 @@
 import { E } from '@endo/eventual-send';
 import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
+import { makeFetch } from '@metamask/kernel-platforms';
 import type { HttpMethods, HttpOptions } from '@metamask/kernel-platforms';
 import { join, narrow, pathUnder } from '@metamask/kernel-utils';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
@@ -223,6 +224,20 @@ export function buildRootObject() {
           options,
         );
         return `${status}:${body}`;
+      });
+    },
+
+    // `prefix` narrows `http` by path before `makeFetch` wraps it, so a
+    // redirect out of the prefix shows the adapter's hops pass the narrowing.
+    probeAdaptedFetch: async (url: string, prefix: string[]) => {
+      const scoped = await narrow<HttpMethods>({
+        name: 'ScopedHttp',
+        base: http,
+        delta: { request: [undefined, pathUnder(prefix)] },
+      });
+      return probe(async () => {
+        const response = await makeFetch(scoped)(url);
+        return `${response.status}:${response.redirected}:${await response.text()}`;
       });
     },
 

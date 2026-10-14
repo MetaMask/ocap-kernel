@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   assertPlainLabels,
   compileHttpDelta,
+  fromUrl,
   makeHttpBase,
   makeHttpSpecification,
   makeRequest,
@@ -99,6 +100,46 @@ describe('toUrl', () => {
     expect(() => toUrl({ host: ['com', 'example'], path: [], port })).toThrow(
       'invalid port',
     );
+  });
+});
+
+describe('fromUrl', () => {
+  it.each([
+    { host: ['com', 'example', 'api'], path: ['v1', 'users'] },
+    {
+      host: ['localhost'],
+      path: [''],
+      options: { protocol: 'http', port: 8080 },
+    },
+    {
+      host: ['com', 'example'],
+      path: ['models', 'x:gen@v1;a=b,c+d', 'a b?#'],
+      options: { protocol: 'https', query: [['a', '1 2']] },
+    },
+  ] as const)('inverts toUrl for $host', ({ host, path, options }) => {
+    const parts = {
+      host: [...host],
+      path: [...path],
+      options: { protocol: 'https', ...options },
+    };
+    expect(
+      fromUrl(
+        toUrl({
+          host: parts.host,
+          path: parts.path,
+          ...(parts.options as Parameters<typeof toUrl>[0]),
+        }),
+      ),
+    ).toStrictEqual(parts);
+  });
+
+  it.each([
+    ['ftp://example.com/', 'unsupported protocol ftp:'],
+    ['http://[::1]/', 'IPv6 hosts are unsupported: [::1]'],
+    ['https://u:p@example.com/', 'credentials in the URL are unsupported'],
+    ['https://example.com/a%zz', 'malformed path segment a%zz'],
+  ])('refuses %s', (href, message) => {
+    expect(() => fromUrl(new URL(href))).toThrow(message);
   });
 });
 

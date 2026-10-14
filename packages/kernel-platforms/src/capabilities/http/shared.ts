@@ -129,13 +129,65 @@ export const toUrl = ({
 };
 
 /**
- * Collect response headers into a record, joining repeated names the way
- * `Headers.get` does.
+ * Decode a path segment, as a `TypeError` if it is malformed.
  *
- * @param headers - The response's headers
+ * @param segment - The segment, percent-encoded
+ * @returns The segment, decoded
+ */
+const decodeSegment = (segment: string): string => {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    throw new TypeError(`malformed path segment ${segment}`);
+  }
+};
+
+/**
+ * Split a URL into the parts a request names it by; the inverse of
+ * {@link toUrl}.
+ *
+ * @param url - The URL
+ * @returns The host's labels, the path's segments, and the options that
+ * locate it
+ */
+export const fromUrl = (
+  url: URL,
+): {
+  host: HostSegments;
+  path: PathSegments;
+  options: Pick<HttpOptions, 'protocol' | 'port' | 'query'>;
+} => {
+  const protocol = url.protocol.slice(0, -1);
+  if (protocol !== 'http' && protocol !== 'https') {
+    throw new TypeError(`unsupported protocol ${url.protocol}`);
+  }
+  // Labels cannot spell an IPv6 literal.
+  if (url.hostname.startsWith('[')) {
+    throw new TypeError(`IPv6 hosts are unsupported: ${url.hostname}`);
+  }
+  if (url.username !== '' || url.password !== '') {
+    throw new TypeError('credentials in the URL are unsupported');
+  }
+  const query = [...url.searchParams.entries()];
+  return {
+    host: url.hostname.split('.').reverse(),
+    path: url.pathname.slice(1).split('/').map(decodeSegment),
+    options: {
+      protocol,
+      ...(url.port !== '' && { port: Number(url.port) }),
+      ...(query.length > 0 && { query }),
+    },
+  };
+};
+
+/**
+ * Collect headers into a record, joining repeated names the way `Headers.get`
+ * does.
+ *
+ * @param headers - The headers
  * @returns The headers by lowercase name
  */
-const toHeaderRecord = (headers: Headers): Record<string, string> => {
+export const toHeaderRecord = (headers: Headers): Record<string, string> => {
   // A `Map` rather than assignment, which a header named `__proto__` would
   // turn into a prototype change.
   const joined = new Map<string, string>();

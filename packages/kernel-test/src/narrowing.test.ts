@@ -17,10 +17,12 @@ const V1_ROOT: KRef = 'ko4';
  * Launch the narrowing vat.
  *
  * @param platformConfig - Platform capabilities to grant the vat, if any.
+ * @param globals - Globals to grant the vat, if any.
  * @returns The running kernel.
  */
 const launchNarrowingVat = async (
   platformConfig?: VatConfig['platformConfig'],
+  globals?: VatConfig['globals'],
 ): Promise<Kernel> => {
   const { logger } = makeTestLogger();
   const database = await makeSQLKernelDatabase({});
@@ -29,6 +31,7 @@ const launchNarrowingVat = async (
     bundleSpec: getBundleSpec('narrowing-vat'),
     parameters: {},
     ...(platformConfig && { platformConfig }),
+    ...(globals && { globals }),
   };
   await kernel.launchSubcluster({ bootstrap: 'main', vats: { main: vat } });
   await waitUntilQuiescent();
@@ -341,5 +344,27 @@ describe('narrowing', () => {
         options,
       ]),
     ).toMatch(/^rejected:/u);
+  });
+
+  it.each([
+    ['follows a redirect through makeFetch', [], 'ok:200:true:hello'],
+    [
+      'checks each redirect hop against the narrowing',
+      ['redirect'],
+      /^rejected:In "request" method of \(ScopedHttp\)/u,
+    ],
+  ])('%s', async (_, prefix, expected) => {
+    const { port } = await serveLocally();
+    const kernel = await launchNarrowingVat(localHttp, [
+      'URL',
+      'Request',
+      'Headers',
+      'Response',
+    ]);
+    const result = await probe(kernel, 'probeAdaptedFetch', [
+      `http://localhost:${port}/redirect`,
+      prefix,
+    ]);
+    expect(result).toMatch(expected);
   });
 });

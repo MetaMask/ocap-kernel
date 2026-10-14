@@ -413,6 +413,16 @@ Redirects are returned rather than followed. A narrowing is visible only at the
 call, so the shared base following a `Location` would check the hop against no
 holder's bound; the holder re-requests through its own capability instead.
 
+Vat code calls it through `makeFetch(http)`, also from
+`@metamask/kernel-platforms`, which names hosts as `api.example.com` again. It
+is `makeGuardedFetch` from `@metamask/kernel-utils` over a transport that makes
+one request through `http`: the guarded fetch walks redirects a hop at a time,
+and each hop is a call on `http`, so the narrowing is the guard. Bodies are
+strings, aborting a `signal` rejects the `fetch` though a request already sent
+completes, and a response's `url` is empty. The vat must
+request the `URL`, `Request`, `Headers`, and `Response` globals, and `crypto` to
+check an `integrity`.
+
 This is additive: the `fetch` global and `network.allowedHosts` remain.
 
 ## Limits
