@@ -61,6 +61,11 @@ describe('createDefaultEndowments', () => {
     ]);
   });
 
+  it('returns the network fetch for the http capability', () => {
+    const endowments = createDefaultEndowments({ logger: makeLogger() });
+    expect(typeof endowments.fetch).toBe('function');
+  });
+
   it('does not leak teardownFunction into globals', () => {
     const { globals } = createDefaultEndowments({ logger: makeLogger() });
     expect(Object.keys(globals)).not.toContain('teardownFunction');
@@ -246,12 +251,11 @@ describe('createDefaultEndowments', () => {
         })) as typeof fetch,
     );
 
-    const { globals, teardown } = createDefaultEndowments({
+    const { fetch: fetchFn, teardown } = createDefaultEndowments({
       logger: makeLogger(),
     });
-    const fetchFn = globals.fetch as typeof fetch;
 
-    const inFlight = fetchFn('https://example.test/slow');
+    const inFlight = fetchFn!('https://example.test/slow');
     // Suppress unhandled-rejection noise — the Snaps factory drops this
     // promise on teardown (neither resolves nor rejects it).
     inFlight.catch(() => undefined);

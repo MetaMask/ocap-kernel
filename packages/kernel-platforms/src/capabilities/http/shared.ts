@@ -306,6 +306,11 @@ export type HttpPlatformOptions = {
   makeBaseFetch: () => typeof fetch;
 };
 
+export type HttpCapabilityOptions = {
+  // A host supplies its own, e.g. one it can abort when a vat terminates.
+  fetch?: typeof fetch;
+};
+
 /**
  * Build the unrestricted http exo that every configured capability narrows.
  *
@@ -327,16 +332,21 @@ export const makeHttpBase = (baseFetch: typeof fetch): HttpCapability =>
  */
 const makeNarrowingFactory =
   (platform: HttpPlatformOptions) =>
-  async (config: HttpConfig): Promise<HttpCapability> =>
-    narrow<Partial<HttpMethods>>({
+  async (
+    config: HttpConfig,
+    options?: HttpCapabilityOptions,
+  ): Promise<HttpCapability> => {
+    return narrow<Partial<HttpMethods>>({
       name: 'Http',
-      base: makeHttpBase(platform.makeBaseFetch()),
+      base: makeHttpBase(options?.fetch ?? platform.makeBaseFetch()),
       delta: compileHttpDelta(config),
     });
+  };
 
 export type HttpSpecification = CapabilitySpecification<
   typeof httpConfigStruct,
-  Promise<HttpCapability>
+  Promise<HttpCapability>,
+  HttpCapabilityOptions
 >;
 
 /**

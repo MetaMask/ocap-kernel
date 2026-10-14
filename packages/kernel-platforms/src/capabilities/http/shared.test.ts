@@ -16,6 +16,13 @@ import {
 } from './shared.ts';
 import type { HttpCapability } from './types.ts';
 
+// The narrowed capability is covered in `@ocap/kernel-test`; here `narrow`
+// passes the base through, so a request reaches whichever `fetch` it wraps.
+vi.mock('@metamask/kernel-utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@metamask/kernel-utils')>()),
+  narrow: vi.fn(async ({ base }: { base: unknown }) => base),
+}));
+
 const makeBaseFetch = (response: Response = new Response('ok')) =>
   vi.fn<typeof fetch>().mockResolvedValue(response);
 
@@ -328,6 +335,27 @@ describe('makeHttpBase', () => {
 describe('makeHttpSpecification', () => {
   const specification = makeHttpSpecification({
     makeBaseFetch: () => makeBaseFetch(),
+  });
+
+  it.each([
+    { name: "the platform's fetch by default", supplied: false },
+    { name: 'a fetch the options supply', supplied: true },
+  ])('requests through $name', async ({ supplied }) => {
+    const platformFetch = makeBaseFetch();
+    const suppliedFetch = makeBaseFetch();
+    const capability = (await makeHttpSpecification({
+      makeBaseFetch: () => platformFetch,
+    }).capabilityFactory(
+      { hosts: ['example.com'] },
+      supplied ? { fetch: suppliedFetch } : undefined,
+    )) as Required<HttpCapability>;
+    await capability.request(['com', 'example'], [], {});
+    expect({
+      platform: platformFetch.mock.calls.length,
+      supplied: suppliedFetch.mock.calls.length,
+    }).toStrictEqual(
+      supplied ? { platform: 0, supplied: 1 } : { platform: 1, supplied: 0 },
+    );
   });
 
   it.each([

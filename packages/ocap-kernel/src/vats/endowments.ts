@@ -3,6 +3,7 @@ import { buildCommonEndowments } from '@metamask/snaps-execution-environments/en
 import type { NotifyFunction } from '@metamask/snaps-execution-environments/endowments';
 import {
   enums,
+  exactOptional,
   func,
   object,
   record,
@@ -96,6 +97,8 @@ const ALLOWED_GLOBAL_NAMES_SET: ReadonlySet<string> = new Set(
  *
  * - `globals`: a hardened record of endowments keyed by global name. Safe to
  *   spread into a Compartment's initial bindings.
+ * - `fetch`: what the vat's `http` capability makes requests with, if a vat
+ *   is granted one.
  * - `teardown`: releases resources held by stateful factories (e.g. pending
  *   timers, open network connections). Callable multiple times — the factory
  *   contract (per `EndowmentFactoryResult` in `snaps-execution-environments`)
@@ -105,6 +108,7 @@ const ALLOWED_GLOBAL_NAMES_SET: ReadonlySet<string> = new Set(
  */
 export type VatEndowments = {
   globals: Record<string, unknown>;
+  fetch?: typeof fetch;
   teardown: () => Promise<void>;
 };
 
@@ -122,6 +126,7 @@ export type VatEndowments = {
  */
 export const VatEndowmentsStruct = object({
   globals: record(string(), unknown()),
+  fetch: exactOptional(func()),
   teardown: func(),
 });
 
@@ -194,7 +199,8 @@ const makeLoggerNotify = (logger: Logger): NotifyFunction => {
  *
  * The `fetch` produced here is NOT host-restricted. `VatSupervisor` wraps
  * it with a `makeHostCaveat` before handing it to a Compartment, reading
- * the allowlist from the vat's own `VatConfig.network.allowedHosts`.
+ * the allowlist from the vat's own `VatConfig.network.allowedHosts`. It is
+ * also returned apart from the globals, for the vat's `http` capability.
  *
  * The aggregate `teardown` uses `Promise.allSettled` so one failing factory
  * does not silently mask failures in others; all rejections are surfaced as
@@ -210,6 +216,7 @@ export function createDefaultEndowments({
   const notify = makeLoggerNotify(logger);
   const globals: Record<string, unknown> = {};
   const teardowns: (() => Promise<void> | void)[] = [];
+  let networkFetch: typeof fetch | undefined;
 
   for (const { names, factory } of buildCommonEndowments()) {
     if (!names.some((name) => ALLOWED_GLOBAL_NAMES_SET.has(name))) {
@@ -226,6 +233,9 @@ export function createDefaultEndowments({
       );
     }
     const { teardownFunction, ...values } = result;
+    if (names.includes('fetch')) {
+      networkFetch = values.fetch as typeof fetch;
+    }
     for (const [key, value] of Object.entries(values)) {
       if (ALLOWED_GLOBAL_NAMES_SET.has(key)) {
         globals[key] = value;
@@ -238,6 +248,7 @@ export function createDefaultEndowments({
 
   return harden({
     globals,
+    ...(networkFetch && { fetch: networkFetch }),
     teardown: async () => {
       const results = await Promise.allSettled(
         teardowns.map(async (fn) => fn()),

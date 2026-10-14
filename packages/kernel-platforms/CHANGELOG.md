@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Config is `{ hosts: ['example.com'] }`. Each entry admits the host and its subdomains, and names no port
   - A path segment may not be `.` or `..`, or contain `/` or `\`
   - Redirects are returned rather than followed; in a browser, which hides a redirect's target, the request fails instead
+  - The capability factory takes an optional `fetch` to make requests with
   - Its types are exported as `HttpCapability`, `HttpMethods`, and `HttpOptions`
 - Add `makeFetch(http)`, a `fetch` that sends each request through an `http` capability, following redirects through it too ([#1163](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1163))
   - It supports string bodies only, and answers with an empty `url`. Aborting a `signal` rejects the `fetch`, though a request already sent completes

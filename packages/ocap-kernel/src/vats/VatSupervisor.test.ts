@@ -390,6 +390,68 @@ describe('VatSupervisor', () => {
       );
     });
 
+    const endowmentsFetch = (() => undefined) as unknown as typeof fetch;
+    const suppliedFetch = (() => undefined) as unknown as typeof fetch;
+    const fsOptions = { makeReadFile: () => undefined };
+
+    it.each([
+      {
+        name: "builds http on the endowments' fetch",
+        fetch: endowmentsFetch,
+        platformOptions: {},
+        expected: { http: { fetch: endowmentsFetch } },
+      },
+      {
+        name: 'builds http on a fetch platformOptions supply',
+        fetch: endowmentsFetch,
+        platformOptions: { http: { fetch: suppliedFetch } },
+        expected: { http: { fetch: suppliedFetch } },
+      },
+      {
+        name: 'keeps the other platformOptions',
+        fetch: endowmentsFetch,
+        platformOptions: { fs: fsOptions },
+        expected: { fs: fsOptions, http: { fetch: endowmentsFetch } },
+      },
+      {
+        name: 'passes platformOptions through when the endowments have no fetch',
+        fetch: undefined,
+        platformOptions: { fs: fsOptions },
+        expected: { fs: fsOptions },
+      },
+    ])('$name', async ({ fetch: vatFetch, platformOptions, expected }) => {
+      const mockFetchBlob: FetchBlob = vi.fn().mockResolvedValue({
+        ok: true,
+        text: vi.fn().mockResolvedValue(''),
+      });
+      const makePlatform = vi.fn().mockResolvedValue({});
+      const platformConfig = {
+        http: { hosts: ['example.test'] },
+      };
+      const { stream } = await makeVatSupervisor({
+        makePlatform,
+        platformOptions,
+        makeAllowedGlobals: () => ({
+          ...makeVatEndowments({}),
+          ...(vatFetch && { fetch: vatFetch }),
+        }),
+        fetchBlob: mockFetchBlob,
+      });
+
+      await stream.receiveInput({
+        id: 'test-init',
+        method: 'initVat',
+        params: {
+          vatConfig: { bundleSpec: 'test.bundle', platformConfig },
+          state: [],
+        },
+        jsonrpc: '2.0',
+      });
+      await delay(50);
+
+      expect(makePlatform).toHaveBeenCalledWith(platformConfig, expected);
+    });
+
     it('rejects an unknown global at the initVat RPC boundary', async () => {
       // VatConfig.globals is now typed as AllowedGlobalName[] and validated by
       // AllowedGlobalNameStruct at the RPC boundary, so an unknown name is

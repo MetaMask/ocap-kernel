@@ -120,6 +120,9 @@ export class VatSupervisor {
    */
   readonly #endowmentsTeardown: () => Promise<void>;
 
+  /** What the vat's `http` capability makes requests with, if granted one. */
+  readonly #endowmentsFetch: typeof fetch | undefined;
+
   /**
    * Promise of the in-flight termination, or `null` if not yet started.
    * Concurrent callers share this promise so they all await the same
@@ -179,6 +182,7 @@ export class VatSupervisor {
     // Defense in depth: custom `MakeAllowedGlobals` factories may skip hardening.
     this.#allowedGlobals = harden(endowments.globals);
     this.#endowmentsTeardown = endowments.teardown;
+    this.#endowmentsFetch = endowments.fetch;
 
     this.#rpcClient = new RpcClient(
       vatSyscallMethodSpecs,
@@ -423,8 +427,19 @@ export class VatSupervisor {
       ...requestedGlobals,
     };
 
+    // `http` makes requests with the endowments' `fetch`, so that teardown
+    // aborts them; options the supervisor was given take precedence.
+    const platformOptions = this.#endowmentsFetch
+      ? {
+          ...this.#platformOptions,
+          http: {
+            fetch: this.#endowmentsFetch,
+            ...(this.#platformOptions.http as object | undefined),
+          },
+        }
+      : this.#platformOptions;
     const platformEndowments = platformConfig
-      ? await this.#makePlatform(platformConfig, this.#platformOptions)
+      ? await this.#makePlatform(platformConfig, platformOptions)
       : {};
 
     const fetched = await this.#fetchBlob(bundleSpec);
