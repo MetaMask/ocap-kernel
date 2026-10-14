@@ -4411,6 +4411,7 @@ __metadata:
     "@metamask/eslint-config-typescript": "npm:^15.0.1"
     "@metamask/kernel-cli": "workspace:^"
     "@metamask/kernel-node-runtime": "workspace:^"
+    "@metamask/kernel-platforms": "workspace:^"
     "@metamask/kernel-shims": "workspace:^"
     "@metamask/kernel-store": "workspace:^"
     "@metamask/kernel-utils": "workspace:^"

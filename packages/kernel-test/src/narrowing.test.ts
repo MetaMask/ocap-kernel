@@ -3,9 +3,11 @@ import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { kunser } from '@metamask/ocap-kernel';
 import type { Kernel, KRef, VatConfig } from '@metamask/ocap-kernel';
 import { mkdir, mkdtemp, realpath, symlink, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, onTestFinished } from 'vitest';
 
 import { getBundleSpec, makeKernel, makeTestLogger } from './utils.ts';
 
@@ -82,6 +84,31 @@ const makeTempTree = async (): Promise<{
     size: contents.length,
   };
 };
+
+/**
+ * Serve two resources and a redirect on localhost until the current test ends.
+ *
+ * @returns The options that address the server.
+ */
+const serveLocally = async (): Promise<{ protocol: 'http'; port: number }> => {
+  const server = createServer((request, response) => {
+    if (request.url === '/redirect') {
+      response.writeHead(302, { location: '/inner/hello' }).end();
+      return;
+    }
+    const body = { '/inner/hello': 'hello', '/sibling': 'sibling' }[
+      request.url ?? ''
+    ];
+    response.writeHead(body ? 200 : 404).end(body ?? '');
+  });
+  await new Promise<void>((resolve) => server.listen(0, 'localhost', resolve));
+  onTestFinished(() => {
+    server.close();
+  });
+  return { protocol: 'http', port: (server.address() as AddressInfo).port };
+};
+
+const localHttp = { http: { hosts: ['localhost'] } };
 
 describe('narrowing', () => {
   it('narrows a vat-local exo', async () => {
@@ -255,5 +282,64 @@ describe('narrowing', () => {
     expect(
       await probe(kernel, 'probeFsNarrowed', [inner, throughLink]),
     ).toMatch(/^rejected:.*not canonical/u);
+  });
+
+  it('receives http as an exo', async () => {
+    const options = await serveLocally();
+    const kernel = await launchNarrowingVat(localHttp);
+    expect(
+      await probe(kernel, 'probeHttp', [
+        ['localhost'],
+        ['inner', 'hello'],
+        options,
+      ]),
+    ).toBe('ok:200:hello');
+  });
+
+  it('scopes http by config', async () => {
+    const options = await serveLocally();
+    const kernel = await launchNarrowingVat(localHttp);
+    expect(
+      await probe(kernel, 'probeHttp', [['com', 'example'], [], options]),
+    ).toMatch(/^rejected:In "request" method of \(Http\)/u);
+  });
+
+  it('rejects a dot inside a label the config pattern admits', async () => {
+    const options = await serveLocally();
+    const kernel = await launchNarrowingVat(localHttp);
+    expect(
+      await probe(kernel, 'probeHttp', [
+        ['localhost', 'evil.test'],
+        [],
+        options,
+      ]),
+    ).toMatch(/^rejected:.*invalid label/u);
+  });
+
+  it('returns a redirect rather than following it', async () => {
+    const options = await serveLocally();
+    const kernel = await launchNarrowingVat(localHttp);
+    expect(
+      await probe(kernel, 'probeHttp', [['localhost'], ['redirect'], options]),
+    ).toBe('ok:302:');
+  });
+
+  it('narrows the config-scoped http further by path', async () => {
+    const options = await serveLocally();
+    const kernel = await launchNarrowingVat(localHttp);
+    expect(
+      await probe(kernel, 'probeHttpNarrowed', [
+        ['inner'],
+        ['inner', 'hello'],
+        options,
+      ]),
+    ).toBe('ok:200:hello');
+    expect(
+      await probe(kernel, 'probeHttpNarrowed', [
+        ['inner'],
+        ['sibling'],
+        options,
+      ]),
+    ).toMatch(/^rejected:/u);
   });
 });
