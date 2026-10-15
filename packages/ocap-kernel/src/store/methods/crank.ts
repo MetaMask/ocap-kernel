@@ -125,10 +125,11 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
     try {
       kdb.releaseSavepoint('t0');
     } catch (error) {
-      // The store has discarded the crank's writes and its savepoints. If the
-      // abort doing that failed, the reload still sees those writes, and the
-      // caches stay ahead of the store once a later write's retry succeeds. A
-      // `t0` left listed would make `reset` throw before restoring its keys.
+      // The store has discarded the crank's writes and its savepoints, unless
+      // `t0` is nested in a savepoint taken outside the run loop. If the abort
+      // doing that failed, this reload still sees those writes, and the store
+      // refuses every write until it is reopened. A `t0` left listed would make
+      // `reset` throw before restoring its keys.
       ctx.savepoints.length = 0;
       revertStateBeneathRollback(outermost, error);
       throw error;

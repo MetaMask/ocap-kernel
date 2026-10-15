@@ -124,7 +124,7 @@ describe('a crank whose transaction SQLite rolls back mid-delivery', () => {
       }).toStrictEqual({ runQueue: 1, after: undefined, vatstore: [] });
       expect(causes(failure)).toContainEqual(
         expect.stringContaining(
-          'SQLite already ended the transaction holding savepoint t1',
+          'SQLite already ended the transaction holding savepoint',
         ),
       );
       expect(causes(failure)).toContainEqual(

@@ -36,7 +36,7 @@ export type TransactionMethods = {
  * @param options.begin - Runs the driver's prepared `BEGIN TRANSACTION`.
  * @param options.commit - Runs the driver's prepared `COMMIT TRANSACTION`.
  * @param options.abort - Runs the driver's prepared `ROLLBACK TRANSACTION`.
- * @param options.logger - A logger.
+ * @param options.logger - The logger for a discard whose abort fails.
  * @returns The transaction and savepoint methods.
  */
 export function makeTransactionMethods({
@@ -58,17 +58,12 @@ export function makeTransactionMethods({
   let lossCause: unknown;
 
   /**
-   * Refuse to touch a transaction an earlier abort could not end. A savepoint
-   * created inside one is released into it, committing the crank that abort was
-   * discarding, and a COMMIT makes those writes durable outright.
-   *
-   * @throws If the transaction is still there afterwards.
+   * Refuse every write once an abort has failed. While the transaction is open,
+   * a write would join the work that abort was discarding. Once it ends, the
+   * caller may still hold values it read from inside it, so only reopening the
+   * database lifts the refusal.
    */
   function assertNotAbandoned(): void {
-    if (!txAbandoned) {
-      return;
-    }
-    discardTransaction('abandonment');
     if (txAbandoned) {
       throw new Error(
         'transaction cannot be ended; refusing further writes on this connection',
@@ -90,7 +85,7 @@ export function makeTransactionMethods({
   /**
    * Refuse a write into a transaction an abort could not end, or into one
    * SQLite has rolled back, where it would commit alone while the work around it
-   * is gone. The first lasts until the transaction ends; rolling back or
+   * is gone. The first lasts until the database is reopened; rolling back or
    * releasing a savepoint ends the second.
    *
    * @throws If either holds.
@@ -127,9 +122,7 @@ export function makeTransactionMethods({
           db.inTransaction &&
           db._spStack.length === 0
         ) {
-          // As better-sqlite3's `db.transaction` leaves one when its ROLLBACK
-          // fails. An abandoned one has just failed an abort, which the next
-          // write retries.
+          // An abandoned one has just failed its abort.
           discardTransaction('write');
         }
         throw error;
@@ -208,8 +201,6 @@ export function makeTransactionMethods({
    */
   function rollbackIfNeeded(): void {
     if (!db.inTransaction) {
-      // SQLite ending it is the only way out of an abort that keeps failing.
-      txAbandoned = false;
       return;
     }
     try {
@@ -299,7 +290,10 @@ export function makeTransactionMethods({
     try {
       db.exec(SQL_QUERIES.RELEASE_SAVEPOINT.replace('%NAME%', name));
     } catch (error) {
-      discardTransaction('release');
+      // A nested one's transaction still has owners below it to end it.
+      if (idx === 0) {
+        discardTransaction('release');
+      }
       throw error;
     }
     db._spStack.splice(idx);

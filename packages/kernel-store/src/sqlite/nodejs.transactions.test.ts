@@ -31,8 +31,14 @@ describe('the Node driver on real SQLite', () => {
     expect(() =>
       kdb.makeVatStore('v1').updateKVData([['after', 'value']], []),
     ).toThrow('refusing writes');
+    expect(() => kdb.clear()).toThrow('refusing writes');
     expect(() => kdb.rollbackSavepoint('t1')).toThrow(
-      'SQLite already ended the transaction holding savepoint t1',
+      expect.objectContaining({
+        message: 'SQLite already ended the transaction holding savepoint t1',
+        cause: expect.objectContaining({
+          message: 'database or disk is full',
+        }),
+      }),
     );
 
     kdb.createSavepoint('t0');
@@ -53,25 +59,6 @@ describe('the Node driver on real SQLite', () => {
       next: 'crank',
     });
     reopened.close();
-  });
-
-  it('tells a release that SQLite already rolled its crank back', async () => {
-    const kdb = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
-    kdb.createSavepoint('t0');
-    kdb.executeQuery('PRAGMA max_page_count = 1');
-    expect(() => kdb.kernelKVStore.set('big', 'x'.repeat(100_000))).toThrow(
-      'database or disk is full',
-    );
-    kdb.executeQuery('PRAGMA max_page_count = 1073741823');
-
-    expect(() => kdb.releaseSavepoint('t0')).toThrow(
-      expect.objectContaining({
-        message: 'SQLite already ended the transaction holding savepoint t0',
-        cause: expect.objectContaining({
-          message: 'database or disk is full',
-        }),
-      }),
-    );
   });
 
   it('discards a crank whose COMMIT another connection blocks', async () => {

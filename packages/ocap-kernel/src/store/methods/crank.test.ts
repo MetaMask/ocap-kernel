@@ -263,44 +263,6 @@ describe('crank methods', () => {
       expect(context.savepoints).toStrictEqual([]);
     });
 
-    it('goes back to the outermost savepoint when the release fails', () => {
-      context.inCrank = true;
-      context.maybeFreeKrefs.add('ko1');
-      crankMethods.createCrankSavepoint('crank');
-      context.maybeFreeKrefs.add('ko2');
-      crankMethods.createCrankSavepoint('delivery');
-      vi.mocked(kdb.releaseSavepoint).mockImplementationOnce(() => {
-        throw new Error('database is gone');
-      });
-
-      expect(() => crankMethods.releaseAllSavepoints()).toThrow(
-        'database is gone',
-      );
-
-      expect([...context.maybeFreeKrefs]).toStrictEqual(['ko1']);
-      expect(context.savepoints).toStrictEqual([]);
-      expect(context.refreshCachedValues).toHaveBeenCalled();
-      expect(context.refreshRunQueue).toHaveBeenCalled();
-    });
-
-    it('keeps the release failure as the cause when the revert fails too', () => {
-      context.inCrank = true;
-      crankMethods.createCrankSavepoint('crank');
-      vi.mocked(kdb.releaseSavepoint).mockImplementationOnce(() => {
-        throw new Error('database is gone');
-      });
-      vi.mocked(context.refreshCachedValues).mockImplementationOnce(() => {
-        throw new Error('caches are gone');
-      });
-
-      expect(() => crankMethods.releaseAllSavepoints()).toThrow(
-        expect.objectContaining({
-          message: expect.stringContaining('caches are gone'),
-          cause: expect.objectContaining({ message: 'database is gone' }),
-        }),
-      );
-    });
-
     it('should not call releaseSavepoint if no savepoints exist', () => {
       context.inCrank = true;
       crankMethods.endCrank();
@@ -348,6 +310,45 @@ describe('crank methods', () => {
       context.inCrank = true;
       crankMethods.releaseAllSavepoints();
       expect(kdb.releaseSavepoint).not.toHaveBeenCalled();
+    });
+
+    it('goes back to the outermost savepoint when the release fails', () => {
+      context.inCrank = true;
+      context.maybeFreeKrefs.add('ko1');
+      crankMethods.createCrankSavepoint('crank');
+      context.maybeFreeKrefs.add('ko2');
+      crankMethods.createCrankSavepoint('delivery');
+      vi.mocked(kdb.releaseSavepoint).mockImplementationOnce(() => {
+        throw new Error('database is gone');
+      });
+
+      expect(() => crankMethods.releaseAllSavepoints()).toThrow(
+        'database is gone',
+      );
+
+      expect([...context.maybeFreeKrefs]).toStrictEqual(['ko1']);
+      expect(context.savepoints).toStrictEqual([]);
+      expect(context.refreshCachedValues).toHaveBeenCalled();
+      expect(context.refreshRunQueue).toHaveBeenCalled();
+    });
+
+    it('keeps the release failure as the cause when the revert fails too', () => {
+      context.inCrank = true;
+      crankMethods.createCrankSavepoint('crank');
+      vi.mocked(kdb.releaseSavepoint).mockImplementationOnce(() => {
+        throw new Error('database is gone');
+      });
+      vi.mocked(context.refreshCachedValues).mockImplementationOnce(() => {
+        throw new Error('caches are gone');
+      });
+
+      expect(() => crankMethods.releaseAllSavepoints()).toThrow(
+        expect.objectContaining({
+          message: expect.stringContaining('caches are gone'),
+          cause: expect.objectContaining({ message: 'database is gone' }),
+        }),
+      );
+      expect(context.savepoints).toStrictEqual([]);
     });
   });
 

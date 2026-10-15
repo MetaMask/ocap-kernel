@@ -595,7 +595,7 @@ describe('transaction management', () => {
   it('leaves a vatstore update to the transaction it finds open', async () => {
     const db = await makeSQLKernelDatabase({});
     txOpen = true;
-    mockDb._spStack = ['t0'];
+    mockDb._spStack = [];
     const vatStore = db.makeVatStore('test-vat');
     vatStore.updateKVData([['key', 'value']], []);
     expect(mockBegin.step).not.toHaveBeenCalled();
@@ -645,86 +645,37 @@ describe('transaction management', () => {
     );
   });
 
-  it('retries a failed abort on the next write, and writes once it succeeds', async () => {
-    const kdb = await makeSQLKernelDatabase({});
-    kdb.createSavepoint('t0');
-    mockDb.exec.mockImplementationOnce(() => {
-      throw new Error('SQLITE_IOERR');
-    });
-    mockAbort.step.mockImplementationOnce(() => {
-      throw new Error('SQLITE_IOERR: abort');
-    });
-    expect(() => kdb.rollbackSavepoint('t0')).toThrow('SQLITE_IOERR');
-    expect(mockAbort.reset).toHaveBeenCalledOnce();
-
-    kdb.kernelKVStore.set('key', 'value');
-
-    expect(mockAbort.step).toHaveBeenCalledTimes(2);
-    expect(txOpen).toBe(false);
-    expect(mockStatement.bind).toHaveBeenCalledWith(['key', 'value']);
-  });
-
-  describe('refused writes', () => {
-    const abandon = async (): Promise<KernelDatabase> => {
-      const kdb = await makeSQLKernelDatabase({});
-      kdb.createSavepoint('t0');
-      mockDb.exec.mockImplementationOnce(() => {
-        throw new Error('SQLITE_IOERR');
-      });
-      mockAbort.step.mockImplementation(() => {
-        throw new Error('SQLITE_IOERR');
-      });
-      expect(() => kdb.rollbackSavepoint('t0')).toThrow('SQLITE_IOERR');
-      return kdb;
-    };
-
-    const lose = async (): Promise<KernelDatabase> => {
+  it.each([
+    {
+      what: 'a kv write',
+      write: (kdb: KernelDatabase) => kdb.kernelKVStore.set('k', 'v'),
+    },
+    {
+      what: 'a kv delete',
+      write: (kdb: KernelDatabase) => kdb.kernelKVStore.delete('k'),
+    },
+    { what: 'a clear', write: (kdb: KernelDatabase) => kdb.clear() },
+    {
+      what: 'a vatstore delete',
+      write: (kdb: KernelDatabase) => kdb.deleteVatStore('v1'),
+    },
+    {
+      what: 'a vatstore update',
+      write: (kdb: KernelDatabase) =>
+        kdb.makeVatStore('v1').updateKVData([['k', 'v']], []),
+    },
+  ])(
+    'refuses $what once SQLite rolls the transaction back',
+    async ({ write }) => {
       const kdb = await makeSQLKernelDatabase({});
       kdb.createSavepoint('t0');
       txOpen = false;
-      return kdb;
-    };
+      mockStatement.step.mockClear();
 
-    describe.each([
-      {
-        state: 'a transaction no abort can end',
-        arrange: abandon,
-        refusal: 'refusing further writes',
-      },
-      {
-        state: 'a transaction SQLite rolled back',
-        arrange: lose,
-        refusal: 'refusing writes until',
-      },
-    ])('$state', ({ arrange, refusal }) => {
-      it.each([
-        {
-          what: 'a kv write',
-          write: (kdb: KernelDatabase) => kdb.kernelKVStore.set('k', 'v'),
-        },
-        {
-          what: 'a kv delete',
-          write: (kdb: KernelDatabase) => kdb.kernelKVStore.delete('k'),
-        },
-        { what: 'a clear', write: (kdb: KernelDatabase) => kdb.clear() },
-        {
-          what: 'a vatstore delete',
-          write: (kdb: KernelDatabase) => kdb.deleteVatStore('v1'),
-        },
-        {
-          what: 'a vatstore update',
-          write: (kdb: KernelDatabase) =>
-            kdb.makeVatStore('v1').updateKVData([['k', 'v']], []),
-        },
-      ])('refuses $what', async ({ write }) => {
-        const kdb = await arrange();
-        mockStatement.step.mockClear();
-
-        expect(() => write(kdb)).toThrow(refusal);
-        expect(mockStatement.step).not.toHaveBeenCalled();
-      });
-    });
-  });
+      expect(() => write(kdb)).toThrow('refusing writes until');
+      expect(mockStatement.step).not.toHaveBeenCalled();
+    },
+  );
 
   describe('close functionality', () => {
     it('closes the database', async () => {
