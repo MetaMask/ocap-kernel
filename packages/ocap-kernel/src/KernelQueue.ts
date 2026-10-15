@@ -11,7 +11,6 @@ import type {
   KRef,
   KernelMessage,
   KernelOneResolution,
-  RemoteId,
   RunLoopStatus,
   RunQueueItem,
   RunQueueItemNotify,
@@ -79,13 +78,7 @@ export class KernelQueue {
   /** Thunk to signal run queue transition from empty to non-empty */
   #wakeUpTheRunQueue: (() => void) | null;
 
-  /**
-   * Remotes whose GC actions are skipped until the run loop next wakes from an
-   * empty queue. A remote that cannot take a GC delivery aborts the crank, which
-   * restores the action, and GC actions are selected ahead of the run queue, so
-   * retrying every crank would starve the kernel.
-   */
-  readonly #remotesHeldBack: Set<EndpointId> = new Set();
+  #isOffline: (endpointId: EndpointId) => boolean = () => false;
 
   /**
    * Whether the run loop's catch may still roll this crank's delivery back.
@@ -134,13 +127,20 @@ export class KernelQueue {
    * dead — see {@link getRunLoopStatus}.
    *
    * @param deliver - A function that delivers an item to the kernel.
+   * @param options - Options bag.
+   * @param options.isOffline - Whether an endpoint cannot take a GC delivery
+   * now.
    * @returns A promise that rejects with the `Error` that killed the run loop.
    */
   async run(
     deliver: (item: RunQueueItem) => Promise<CrankResult | undefined>,
+    {
+      isOffline = () => false,
+    }: { isOffline?: (endpointId: EndpointId) => boolean } = {},
   ): Promise<never> {
     this.#runLoopState.state === 'idle' || Fail`run loop already started`;
     this.#runLoopState = { state: 'running' };
+    this.#isOffline = isOffline;
     try {
       return await this.#runLoop(deliver);
     } catch (error) {
@@ -224,7 +224,6 @@ export class KernelQueue {
         }
         if (wakeUpPromise) {
           await wakeUpPromise;
-          this.#remotesHeldBack.clear();
         }
       }
       // Outside the `finally`, so a crank that threw never reaches it: the
@@ -354,7 +353,7 @@ export class KernelQueue {
    */
   #getNextRunQueueItem(): RunQueueItem | undefined {
     const gcAction = processGCActionSet(this.#kernelStore, {
-      isHeldBack: (endpointId) => this.#remotesHeldBack.has(endpointId),
+      isOffline: this.#isOffline,
     });
     if (gcAction) {
       return gcAction;
@@ -479,13 +478,15 @@ export class KernelQueue {
   }
 
   /**
-   * Skip a remote's GC actions until the run loop next wakes from an empty
-   * queue.
-   *
-   * @param remoteId - The remote to hold back.
+   * Wake a run loop parked on an empty queue, for GC actions it skipped while
+   * their endpoint was offline.
    */
-  holdBackRemoteGC(remoteId: RemoteId): void {
-    this.#remotesHeldBack.add(remoteId);
+  recheckGCActions(): void {
+    const wakeUpTheRunQueue = this.#wakeUpTheRunQueue;
+    if (wakeUpTheRunQueue) {
+      this.#wakeUpTheRunQueue = null;
+      wakeUpTheRunQueue();
+    }
   }
 
   /**

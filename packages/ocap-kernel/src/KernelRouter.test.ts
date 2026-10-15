@@ -85,7 +85,6 @@ describe('KernelRouter', () => {
     // Mock KernelQueue
     kernelQueue = {
       resolvePromises: vi.fn(),
-      holdBackRemoteGC: vi.fn(),
     } as unknown as KernelQueue;
 
     const mockInvokeKernelService = vi.fn();
@@ -1051,61 +1050,35 @@ describe('KernelRouter', () => {
       });
 
       it.each(['dropExports', 'retireExports', 'retireImports'] as const)(
-        'keeps a %s addressed to it instead of releasing it unheard',
+        'keeps a %s addressed to it loud',
         async (type) => {
-          const result = await kernelRouter.deliver({
-            type,
-            endpointId: remoteId,
-            krefs: ['ko1'],
-          });
-
-          expect(result).toStrictEqual({ abort: true });
-          expect(kernelStore.clearReachableFlag).not.toHaveBeenCalled();
-          expect(kernelStore.deleteCListEntry).not.toHaveBeenCalled();
+          await expect(
+            kernelRouter.deliver({
+              type,
+              endpointId: remoteId,
+              krefs: ['ko1'],
+            }),
+          ).rejects.toThrow('Remote not found');
         },
       );
-
-      it('holds its GC actions back so they leave the front of the queue', async () => {
-        await kernelRouter.deliver({
-          type: 'retireImports',
-          endpointId: remoteId,
-          krefs: ['ko1'],
-        });
-
-        expect(kernelQueue.holdBackRemoteGC).toHaveBeenCalledWith(remoteId);
-      });
     });
 
-    describe('a GC delivery the endpoint refuses', () => {
-      const remoteId = 'r1' as EndpointId;
-
-      beforeEach(() => {
+    it.each(['v1', 'r1'] as EndpointId[])(
+      'rethrows a GC delivery that %s fails',
+      async (endpointId) => {
         (
           endpointHandle.deliverRetireImports as unknown as MockInstance
-        ).mockRejectedValue(new Error('send queue full'));
-      });
+        ).mockRejectedValue(new Error('disk I/O error'));
 
-      it('aborts the crank and holds the remote back', async () => {
-        const result = await kernelRouter.deliver({
-          type: 'retireImports',
-          endpointId: remoteId,
-          krefs: ['ko1'],
-        });
-
-        expect(result).toStrictEqual({ abort: true });
-        expect(kernelQueue.holdBackRemoteGC).toHaveBeenCalledWith(remoteId);
-      });
-
-      it('rethrows for a vat that still has its handle', async () => {
         await expect(
           kernelRouter.deliver({
             type: 'retireImports',
-            endpointId: 'v1',
+            endpointId,
             krefs: ['ko1'],
           }),
-        ).rejects.toThrow('send queue full');
-      });
-    });
+        ).rejects.toThrow('disk I/O error');
+      },
+    );
 
     describe('a vat lost while a delivery is in flight', () => {
       const endpointId = 'v2' as EndpointId;

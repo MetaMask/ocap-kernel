@@ -116,15 +116,16 @@ function filterActionsForProcessing(
  *
  * @param storage - The kernel storage.
  * @param options - Options bag.
- * @param options.isHeldBack - Whether to leave an endpoint's actions in the set
- * unexamined, since examining an action spends it.
+ * @param options.isOffline - Whether an endpoint cannot take a GC delivery
+ * now. Its actions are left in the set unexamined, since examining one spends
+ * it.
  * @returns The next action to process, or undefined if there are no actions to process.
  */
 export function processGCActionSet(
   storage: KernelStore,
   {
-    isHeldBack = () => false,
-  }: { isHeldBack?: (endpointId: EndpointId) => boolean } = {},
+    isOffline = () => false,
+  }: { isOffline?: (endpointId: EndpointId) => boolean } = {},
 ): RunQueueItem | undefined {
   const allActionsSet = storage.getGCActions();
   let actionSetUpdated = false;
@@ -138,7 +139,7 @@ export function processGCActionSet(
   for (const action of allActionsSet) {
     const { endpointId, type } = parseAction(action);
 
-    if (isHeldBack(endpointId)) {
+    if (isOffline(endpointId)) {
       continue;
     }
 

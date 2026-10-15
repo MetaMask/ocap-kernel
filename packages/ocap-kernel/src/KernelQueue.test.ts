@@ -8,7 +8,7 @@ import * as gc from './garbage-collection/garbage-collection.ts';
 import { KernelQueue } from './KernelQueue.ts';
 import type { KernelStore } from './store/index.ts';
 import * as types from './types.ts';
-import type { KRef, KernelMessage, RemoteId, RunQueueItem } from './types.ts';
+import type { KRef, KernelMessage, RunQueueItem } from './types.ts';
 
 vi.mock('./garbage-collection/garbage-collection.ts', () => ({
   processGCActionSet: vi.fn().mockReturnValue(null),
@@ -1641,38 +1641,48 @@ describe('KernelQueue', () => {
     });
   });
 
-  describe("holding a remote's GC actions back", () => {
-    it('skips them until the run loop has nothing else to do', async () => {
-      const heldBack: boolean[] = [];
-      (gc.processGCActionSet as unknown as MockInstance).mockImplementation(
-        (
-          _store: KernelStore,
-          { isHeldBack }: { isHeldBack: (id: string) => boolean },
-        ) => {
-          heldBack.push(isHeldBack('r1'));
-          if (heldBack.length === 3) {
-            throw new Error(STOP_RUN_LOOP);
-          }
-          return null;
+  describe('GC actions for an offline endpoint', () => {
+    it("leaves which endpoints to skip to run's isOffline", async () => {
+      const isOffline = vi.fn();
+      (gc.processGCActionSet as unknown as MockInstance).mockImplementationOnce(
+        () => {
+          throw new Error(STOP_RUN_LOOP);
         },
       );
-      // One crank of ordinary work before the queue empties, so that clearing
-      // after every crank and clearing only after a park differ.
-      (kernelStore.runQueueLength as unknown as MockInstance)
-        .mockReturnValueOnce(1)
-        .mockReturnValue(0);
-      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
-        type: 'send',
-        target: 'ko1',
-        message: {} as KernelMessage,
+
+      await expect(kernelQueue.run(vi.fn(), { isOffline })).rejects.toThrow(
+        STOP_RUN_LOOP,
+      );
+
+      expect(gc.processGCActionSet).toHaveBeenCalledWith(kernelStore, {
+        isOffline,
       });
-      kernelQueue.holdBackRemoteGC('r1' as RemoteId);
+    });
 
-      // Crank 1 delivers; crank 2 finds nothing and parks, and the mocked wake
-      // resolves at once, so crank 3 is the first one after the park.
-      await expect(kernelQueue.run(vi.fn())).rejects.toThrow(STOP_RUN_LOOP);
+    it('wakes a parked run loop to look at them again', async () => {
+      let wake!: () => void;
+      const parked = new Promise<void>((resolve) => {
+        wake = resolve;
+      });
+      (makePromiseKit as unknown as MockInstance).mockReturnValueOnce({
+        promise: parked,
+        resolve: wake,
+        reject: vi.fn(),
+      });
+      (gc.processGCActionSet as unknown as MockInstance)
+        .mockReturnValueOnce(null)
+        .mockImplementationOnce(() => {
+          throw new Error(STOP_RUN_LOOP);
+        });
 
-      expect(heldBack).toStrictEqual([true, true, false]);
+      const running = kernelQueue.run(vi.fn());
+      await vi.waitFor(() =>
+        expect(gc.processGCActionSet).toHaveBeenCalledOnce(),
+      );
+      kernelQueue.recheckGCActions();
+
+      await expect(running).rejects.toThrow(STOP_RUN_LOOP);
+      expect(gc.processGCActionSet).toHaveBeenCalledTimes(2);
     });
   });
 

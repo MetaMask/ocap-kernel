@@ -1,63 +1,80 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
+import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import { makeKernelStore } from './store/index.ts';
-import type { EndpointHandle, RunQueueItem } from './types.ts';
-import { makeGCAction } from './types.ts';
+import type { EndpointHandle, KernelMessage, RunQueueItem } from './types.ts';
+import { isRemoteId, makeGCAction } from './types.ts';
 
 const STOP_RUN_LOOP = 'test: stop run loop';
 
-/**
- * Against a real store, because the claim rests on `rollbackCrank` reverting the
- * cached `gcActions` set as well as the row, which a mocked store cannot show.
- */
-describe('a GC action a remote refused', () => {
-  it('is still there after the crank that could not deliver it', async () => {
-    const kdb = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
-    const kernelStore = makeKernelStore(kdb);
+const message: KernelMessage = {
+  methargs: { body: '', slots: [] },
+  result: null,
+};
 
+describe('a GC action for a remote that is offline', () => {
+  it('waits while other work runs, and goes out once the remote is back', async () => {
+    const kernelStore = makeKernelStore(
+      await makeSQLKernelDatabase({ dbFilename: ':memory:' }),
+    );
     kernelStore.initEndpoint('v1');
     kernelStore.initEndpoint('r1');
     const kref = kernelStore.initKernelObject('v1');
     kernelStore.addCListEntry('r1', kref, 'ro-1');
-    const action = makeGCAction('r1', 'retireImport', kref);
-    kernelStore.addGCActions([action]);
-    // Work for the second crank to stop the loop on; with an empty queue it
-    // would park instead.
-    kernelStore.enqueueRun({
-      type: 'send',
-      target: kref,
-      message: { methargs: { body: '', slots: [] }, result: null },
-    } as unknown as RunQueueItem);
+    kernelStore.addGCActions([makeGCAction('r1', 'retireImport', kref)]);
 
-    const kernelQueue = new KernelQueue(kernelStore, async () => undefined);
-    const endpoint = {
-      deliverRetireImports: vi
-        .fn()
-        .mockRejectedValue(new Error('send queue full')),
+    let online = false;
+    const remote = {
+      deliverRetireImports: vi.fn().mockResolvedValue({ didDelivery: 'r1' }),
     } as unknown as EndpointHandle;
+    const kernelQueue = new KernelQueue(kernelStore, async () => undefined);
     const kernelRouter = new KernelRouter({
       kernelStore,
       kernelQueue,
-      getEndpoint: () => endpoint,
+      getEndpoint: (endpointId) => {
+        if (!online) {
+          throw new Error(`Remote not found: ${endpointId}`);
+        }
+        return remote;
+      },
       invokeKernelService: () => undefined,
       restartVat: async () => undefined,
       terminateVat: async () => undefined,
     });
 
-    await expect(
-      kernelQueue.run(async (item: RunQueueItem) => {
-        if (item.type === 'send') {
+    let sends = 0;
+    const running = kernelQueue.run(
+      async (item: RunQueueItem) => {
+        if (item.type !== 'send') {
+          return kernelRouter.deliver(item);
+        }
+        sends += 1;
+        if (sends === 2) {
           throw new Error(STOP_RUN_LOOP);
         }
-        return kernelRouter.deliver(item);
-      }),
-    ).rejects.toThrow(STOP_RUN_LOOP);
+        return undefined;
+      },
+      { isOffline: (endpointId) => isRemoteId(endpointId) && !online },
+    );
+    kernelQueue.enqueueSend(kref, message);
+    await waitUntilQuiescent();
 
-    expect(endpoint.deliverRetireImports).toHaveBeenCalledOnce();
-    expect([...kernelStore.getGCActions()]).toStrictEqual([action]);
+    expect(sends).toBe(1);
+    expect(remote.deliverRetireImports).not.toHaveBeenCalled();
     expect(kernelStore.hasCListEntry('r1', kref)).toBe(true);
+
+    online = true;
+    kernelQueue.recheckGCActions();
+    await waitUntilQuiescent();
+
+    expect(remote.deliverRetireImports).toHaveBeenCalledWith(['ro-1']);
+    expect([...kernelStore.getGCActions()]).toStrictEqual([]);
+    expect(kernelStore.hasCListEntry('r1', kref)).toBe(false);
+
+    kernelQueue.enqueueSend(kref, message);
+    await expect(running).rejects.toThrow(STOP_RUN_LOOP);
   });
 });

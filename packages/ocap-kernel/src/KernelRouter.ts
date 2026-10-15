@@ -22,7 +22,6 @@ import type {
   RunQueueItemGCAction,
   CrankResult,
   GCRunQueueType,
-  RemoteId,
   VatId,
 } from './types.ts';
 import { isRemoteId, isVatId } from './types.ts';
@@ -562,15 +561,8 @@ export class KernelRouter {
     this.#logger?.log(
       `@@@@ deliver ${endpointId} ${type} ${JSON.stringify(krefs)}`,
     );
-    const remote = isRemoteId(endpointId) ? endpointId : undefined;
-    // Not discarded: `#keepForLater` gives a remote's action back.
-    const endpoint = this.#lookupEndpoint(endpointId, type, {
-      discardable: Boolean(remote),
-    });
-    if (!endpoint && remote) {
-      return this.#keepForLater(remote, type);
-    }
-    // Only a skipped vat gets here without a handle; a remote returns above. One
+    const endpoint = this.#lookupEndpoint(endpointId, type);
+    // Only a skipped vat gets here without a handle; a remote throws above. One
     // the store does not call terminated has been cleaned up whole, possibly
     // by `nextTerminatedVatCleanup` earlier in this crank, or is still
     // persisted. That one keeps its c-list as the vat last saw it, since a
@@ -603,39 +595,9 @@ export class KernelRouter {
     if (!endpoint) {
       return { didDelivery: endpointId };
     }
-    try {
-      return await this.#deliverUnlessLost(endpointId, async () =>
-        endpoint[GC_DELIVERY[type]](erefs),
-      );
-    } catch (error) {
-      // A vat lost during the delivery comes back from `#deliverUnlessLost` as
-      // a result, so a vat's throw here is a kernel fault.
-      if (!remote) {
-        throw error;
-      }
-      // Committing would keep the kernel's half without the peer's, and the
-      // peer's next message naming one of these erefs would mint a second kref
-      // for the same object.
-      this.#logger?.warn(
-        `Remote ${endpointId} refused ${type}; keeping the action:`,
-        error,
-      );
-      return this.#keepForLater(remote, type);
-    }
-  }
-
-  /**
-   * Abort the crank, which restores the GC action and the kernel's half of it,
-   * and hold the remote's GC actions back.
-   *
-   * @param remoteId - The remote that could not be told.
-   * @param type - The GC action being kept.
-   * @returns The crank outcome.
-   */
-  #keepForLater(remoteId: RemoteId, type: GCRunQueueType): CrankResult {
-    this.#kernelQueue.holdBackRemoteGC(remoteId);
-    this.#logger?.log(`@@@@ holding ${type} for ${remoteId}`);
-    return { abort: true };
+    return await this.#deliverUnlessLost(endpointId, async () =>
+      endpoint[GC_DELIVERY[type]](erefs),
+    );
   }
 
   /**

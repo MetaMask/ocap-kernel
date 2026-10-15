@@ -12,7 +12,7 @@ describe('garbage-collection', () => {
       kernelStore = makeKernelStore(makeMapKernelDatabase());
     });
 
-    describe('an endpoint held back', () => {
+    describe('an endpoint offline', () => {
       function givenAnActionEach(): Record<string, string> {
         const krefs: Record<string, string> = {};
         for (const endpointId of ['r1', 'v1']) {
@@ -32,7 +32,7 @@ describe('garbage-collection', () => {
         const krefs = givenAnActionEach();
 
         const result = processGCActionSet(kernelStore, {
-          isHeldBack: (endpointId) => endpointId === 'r1',
+          isOffline: (endpointId) => endpointId === 'r1',
         });
 
         expect(result).toStrictEqual({
@@ -44,12 +44,12 @@ describe('garbage-collection', () => {
 
       it('leaves its actions in the durable set', () => {
         const krefs = givenAnActionEach();
-        const isHeldBack = (endpointId: string): boolean => endpointId === 'r1';
+        const isOffline = (endpointId: string): boolean => endpointId === 'r1';
 
         // Twice, because the first call is what spends `v1`'s action: an action
         // merely examined is deleted from the set whether or not it is chosen.
-        processGCActionSet(kernelStore, { isHeldBack });
-        const result = processGCActionSet(kernelStore, { isHeldBack });
+        processGCActionSet(kernelStore, { isOffline });
+        const result = processGCActionSet(kernelStore, { isOffline });
 
         expect(result).toBeUndefined();
         expect([...kernelStore.getGCActions()]).toStrictEqual([
@@ -57,11 +57,11 @@ describe('garbage-collection', () => {
         ]);
       });
 
-      it('gets its turn once nothing holds it back', () => {
+      it('gets its turn once it is back', () => {
         const krefs = givenAnActionEach();
 
         processGCActionSet(kernelStore, {
-          isHeldBack: (endpointId) => endpointId === 'r1',
+          isOffline: (endpointId) => endpointId === 'r1',
         });
         const result = processGCActionSet(kernelStore);
 
