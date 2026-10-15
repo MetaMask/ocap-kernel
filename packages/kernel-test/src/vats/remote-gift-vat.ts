@@ -25,6 +25,9 @@ export function buildRootObject(
   logger.log(`buildRootObject "${name}"`);
 
   let redeemerService: unknown;
+  // Kept so that the gift is the only object between the kernels that can be
+  // collected.
+  const importers = new Set<unknown>();
 
   return makeDefaultExo('remoteGiftRoot', {
     bootstrap(
@@ -45,6 +48,7 @@ export function buildRootObject(
      */
     async giveGift(remoteURL: string, id: string) {
       const importer = await E(redeemerService).redeem(remoteURL);
+      importers.add(importer);
       const gift = makeDefaultExo('gift', {
         getValue() {
           return id;
