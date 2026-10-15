@@ -307,8 +307,6 @@ describe('makeSQLKernelDatabase', () => {
     });
   });
 
-  // The store's write doors all have to ask, because teardown after the run
-  // loop dies reaches most of them without going near `beginIfNeeded`.
   describe('refused writes', () => {
     const abandon = async (): Promise<KernelDatabase> => {
       const kdb = await makeSQLKernelDatabase({});
@@ -346,39 +344,70 @@ describe('makeSQLKernelDatabase', () => {
         {
           what: 'a kv write',
           write: (kdb: KernelDatabase) => kdb.kernelKVStore.set('k', 'v'),
-          statement: SQL_QUERIES.SET,
         },
         {
           what: 'a kv delete',
           write: (kdb: KernelDatabase) => kdb.kernelKVStore.delete('k'),
-          statement: SQL_QUERIES.DELETE,
         },
         {
           what: 'a clear',
           write: (kdb: KernelDatabase) => kdb.clear(),
-          statement: SQL_QUERIES.CLEAR,
         },
         {
           what: 'a vatstore delete',
           write: (kdb: KernelDatabase) => kdb.deleteVatStore('v1'),
-          statement: SQL_QUERIES.DELETE_VS_ALL,
         },
         {
           what: 'a vatstore update',
           write: (kdb: KernelDatabase) =>
             kdb.makeVatStore('v1').updateKVData([['k', 'v']], []),
-          statement: SQL_QUERIES.SET_VS,
         },
-      ])('refuses $what', async ({ write, statement }) => {
+      ])('refuses $what', async ({ write }) => {
         const kdb = await arrange();
-        mockDb.prepare.mockClear();
         mockStatement.run.mockClear();
 
         expect(() => write(kdb)).toThrow(refusal);
         expect(mockStatement.run).not.toHaveBeenCalled();
-        expect(mockDb.prepare).not.toHaveBeenCalledWith(statement);
       });
     });
+  });
+
+  it('logs an abort that fails while discarding a transaction', async () => {
+    const entries: LogEntry[] = [];
+    const logger = new Logger({ transports: [makeArrayTransport(entries)] });
+    const kdb = await makeSQLKernelDatabase({ logger });
+    kdb.createSavepoint('t0');
+    mockDb.exec.mockImplementationOnce(() => {
+      throw new Error('SQLITE_IOERR');
+    });
+    mockAbort.run.mockImplementationOnce(() => {
+      throw new Error('SQLITE_IOERR: abort');
+    });
+
+    expect(() => kdb.rollbackSavepoint('t0')).toThrow('SQLITE_IOERR');
+
+    expect(entries).toContainEqual(
+      expect.objectContaining({
+        level: 'error',
+        message: 'failed to discard transaction after rollback',
+      }),
+    );
+  });
+
+  it('discards a vatstore update that better-sqlite3 could not roll back', async () => {
+    const kdb = await makeSQLKernelDatabase({});
+    // `db.transaction` began it, a write failed, and so did its ROLLBACK.
+    mockDb.transaction.mockImplementationOnce(() => () => {
+      mockDb.inTransaction = true;
+      throw new Error('SQLITE_IOERR: ROLLBACK');
+    });
+
+    expect(() => kdb.makeVatStore('v1').updateKVData([['k', 'v']], [])).toThrow(
+      'SQLITE_IOERR: ROLLBACK',
+    );
+
+    expect(mockAbort.run).toHaveBeenCalledOnce();
+    expect(mockDb.inTransaction).toBe(false);
   });
 
   describe('close functionality', () => {

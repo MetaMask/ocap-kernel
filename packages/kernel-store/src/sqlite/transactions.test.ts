@@ -8,15 +8,14 @@ const { BEGIN_TRANSACTION, COMMIT_TRANSACTION, ABORT_TRANSACTION } =
   SQL_QUERIES;
 
 /**
- * A database that answers `inTransaction` the way SQLite does: a statement that
- * throws changes nothing, one that succeeds opens or closes the transaction,
- * and `endTransactionBehindOurBack` is SQLite ending one itself after
- * `SQLITE_FULL`. A mock that cannot model recovery can only ever model a wedged
- * connection, which is the state under test.
+ * A fake database whose `inTransaction` follows the BEGIN, COMMIT and ROLLBACK
+ * that succeed; a statement that throws changes nothing. `failOnce` fails a
+ * statement once, so a test can show a refusal ending as well as starting, and
+ * `endTransactionBehindOurBack` stands in for SQLite rolling back on its own
+ * after `SQLITE_FULL`.
  *
- * @returns The fake database, the methods built over it, and the levers a test
- * needs: `issued` in order, and `failOnce` to make the next run of one
- * statement throw.
+ * @returns The fake database, its spies and levers, the methods built over it,
+ * and `write`, a guarded write that does nothing.
  */
 const makeFakeDriver = () => {
   let inTransaction = false;
@@ -50,6 +49,7 @@ const makeFakeDriver = () => {
   const commit = vi.fn(() => run(COMMIT_TRANSACTION));
   const abort = vi.fn(() => run(ABORT_TRANSACTION));
   const logger = { error: vi.fn() } as unknown as Logger;
+  const methods = makeTransactionMethods({ db, begin, commit, abort, logger });
 
   return {
     db,
@@ -65,7 +65,8 @@ const makeFakeDriver = () => {
     keepTransactionOpenPastTheAbort: () => {
       abortLeavesItOpen = true;
     },
-    ...makeTransactionMethods({ db, begin, commit, abort, logger }),
+    ...methods,
+    write: methods.guardWrite(() => undefined),
   };
 };
 
@@ -107,8 +108,6 @@ describe('makeTransactionMethods', () => {
     const { db, issued, createSavepoint } = makeFakeDriver();
 
     expect(() => createSavepoint(name)).toThrow('Invalid identifier');
-    // A transaction opened for a name that is then refused has no savepoint to
-    // reach it through, so nothing would ever end it.
     expect(issued).toStrictEqual([]);
     expect(db.inTransaction).toBe(false);
   });
@@ -231,7 +230,7 @@ describe('makeTransactionMethods', () => {
     it.each([
       {
         what: 'a write',
-        write: (driver: FakeDriver) => driver.assertWritable(),
+        write: (driver: FakeDriver) => driver.write(),
       },
       {
         what: 'a transaction',
@@ -284,7 +283,7 @@ describe('makeTransactionMethods', () => {
 
         expect(() => driver[method]('t9')).toThrow('No such savepoint: t9');
         expect(driver.db._spStack).toStrictEqual(['t0', 't1']);
-        expect(() => driver.assertWritable()).toThrow('refusing writes');
+        expect(driver.write).toThrow('refusing writes');
       },
     );
 
@@ -298,9 +297,7 @@ describe('makeTransactionMethods', () => {
       });
 
       expect(write).toThrow(full);
-      expect(() => driver.assertWritable()).toThrow(
-        expect.objectContaining({ cause: full }),
-      );
+      expect(driver.write).toThrow(expect.objectContaining({ cause: full }));
       expect(() => driver.rollbackSavepoint('t0')).toThrow(
         expect.objectContaining({
           message: 'SQLite already ended the transaction holding savepoint t0',
@@ -310,7 +307,40 @@ describe('makeTransactionMethods', () => {
 
       driver.createSavepoint('t0');
       driver.endTransactionBehindOurBack();
-      expect(() => driver.assertWritable()).toThrow(
+      expect(driver.write).toThrow(
+        expect.objectContaining({ cause: undefined }),
+      );
+    });
+
+    it('keeps the failed write as the cause however many writes it refuses after', () => {
+      const driver = makeFakeDriver();
+      driver.createSavepoint('t0');
+      const full = new Error('SQLITE_FULL');
+      const write = driver.guardWrite(() => {
+        driver.endTransactionBehindOurBack();
+        throw full;
+      });
+      expect(write).toThrow(full);
+
+      expect(driver.write).toThrow(expect.objectContaining({ cause: full }));
+      expect(driver.write).toThrow(expect.objectContaining({ cause: full }));
+      expect(() => driver.rollbackSavepoint('t0')).toThrow(
+        expect.objectContaining({ cause: full }),
+      );
+    });
+
+    it('does not blame the loss on a write that failed while the transaction was live', () => {
+      const driver = makeFakeDriver();
+      driver.createSavepoint('t0');
+      const constraint = new Error('SQLITE_CONSTRAINT');
+      const write = driver.guardWrite(() => {
+        throw constraint;
+      });
+      expect(write).toThrow(constraint);
+
+      driver.endTransactionBehindOurBack();
+
+      expect(driver.write).toThrow(
         expect.objectContaining({ cause: undefined }),
       );
     });
@@ -333,23 +363,17 @@ describe('makeTransactionMethods', () => {
     expect(commit).not.toHaveBeenCalled();
   });
 
-  it.each([
-    { method: 'commitIfNeeded', mock: 'commit' },
-    { method: 'rollbackIfNeeded', mock: 'abort' },
-  ] as const)(
-    '$method does nothing outside a transaction',
-    ({ method, mock }) => {
-      const methods = makeFakeDriver();
+  it('commitIfNeeded does nothing outside a transaction', () => {
+    const { commit, commitIfNeeded } = makeFakeDriver();
 
-      methods[method]();
+    commitIfNeeded();
 
-      expect(methods[mock]).not.toHaveBeenCalled();
-    },
-  );
+    expect(commit).not.toHaveBeenCalled();
+  });
 
   describe('a transaction an abort could not end', () => {
     /**
-     * Wedge the connection the way a full disk does: the crank's rollback
+     * Wedge the connection the way an I/O error can: the crank's rollback
      * fails, and so does the abort meant to discard the transaction instead.
      *
      * @returns The driver, mid-crank, with the transaction abandoned.
@@ -362,8 +386,6 @@ describe('makeTransactionMethods', () => {
       driver.failOnce.add(ABORT_TRANSACTION);
 
       expect(() => driver.rollbackSavepoint('t1')).toThrow('SQLITE_IOERR');
-      // The savepoint stack now says "nothing to commit or abort" while SQLite
-      // still holds t0, t1 and the transaction.
       expect(driver.db._spStack).toStrictEqual([]);
       expect(driver.db.inTransaction).toBe(true);
       driver.issued.length = 0;
@@ -407,18 +429,33 @@ describe('makeTransactionMethods', () => {
       },
     );
 
-    // SQLite ending the transaction is the only way out of an abort that keeps
-    // failing. Refusing writes past that point would refuse them forever.
     it('writes again once SQLite has ended it', () => {
-      const { issued, endTransactionBehindOurBack, assertWritable } = abandon();
+      const { issued, endTransactionBehindOurBack, write } = abandon();
       endTransactionBehindOurBack();
 
-      expect(() => assertWritable()).not.toThrow();
+      expect(write).not.toThrow();
       expect(issued).toStrictEqual([]);
     });
 
-    // An abort that returns without ending the transaction leaves one that is
-    // still not ours to commit, and reports nothing for the catch to notice.
+    it('does not commit it', () => {
+      const driver = abandon();
+      driver.failOnce.add(ABORT_TRANSACTION);
+
+      expect(() => driver.commitIfNeeded()).toThrow('refusing further writes');
+      expect(driver.issued).toStrictEqual([ABORT_TRANSACTION]);
+    });
+
+    it('logs the abort that fails again on the retry', () => {
+      const driver = abandon();
+      driver.failOnce.add(ABORT_TRANSACTION);
+
+      expect(driver.write).toThrow('refusing further writes');
+      expect(driver.logger.error).toHaveBeenLastCalledWith(
+        'failed to discard transaction after abandonment',
+        expect.any(Error),
+      );
+    });
+
     it('stays abandoned when the abort returns but the transaction does not end', () => {
       const {
         db,
@@ -507,8 +544,6 @@ describe('makeTransactionMethods', () => {
 
     expect(() => releaseSavepoint('t1')).toThrow('SQLITE_IOERR');
 
-    // `t0` is still on SQLite's stack, so leaving it here would hand the crank
-    // a rollback target inside a transaction nothing owns.
     expect(issued).toStrictEqual(['RELEASE SAVEPOINT t1', ABORT_TRANSACTION]);
     expect(db.inTransaction).toBe(false);
     expect(db._spStack).toStrictEqual([]);
@@ -519,8 +554,6 @@ describe('makeTransactionMethods', () => {
       makeFakeDriver();
     createSavepoint('t0');
     issued.length = 0;
-    // endCrank: the RELEASE succeeds, the COMMIT it triggers does not. The
-    // savepoint stack is already spliced empty, so nothing else would end it.
     failOnce.add(COMMIT_TRANSACTION);
 
     expect(() => releaseSavepoint('t0')).toThrow('SQLITE_IOERR');
@@ -548,6 +581,56 @@ describe('makeTransactionMethods', () => {
     expect(db._spStack).toStrictEqual([]);
   });
 
+  describe('a write that leaves the transaction it began open', () => {
+    const failWrite = (driver: FakeDriver) =>
+      driver.guardWrite(() => {
+        driver.begin();
+        throw new Error('SQLITE_IOERR: write');
+      });
+
+    it('discards it', () => {
+      const driver = makeFakeDriver();
+
+      expect(failWrite(driver)).toThrow('SQLITE_IOERR: write');
+
+      expect(driver.issued).toStrictEqual([
+        BEGIN_TRANSACTION,
+        ABORT_TRANSACTION,
+      ]);
+      expect(driver.db.inTransaction).toBe(false);
+    });
+
+    it('refuses writes if the abort fails too', () => {
+      const driver = makeFakeDriver();
+      driver.failOnce.add(ABORT_TRANSACTION);
+
+      expect(failWrite(driver)).toThrow('SQLITE_IOERR: write');
+
+      expect(driver.logger.error).toHaveBeenCalledWith(
+        'failed to discard transaction after write',
+        expect.objectContaining({
+          message: `SQLITE_IOERR: ${ABORT_TRANSACTION}`,
+        }),
+      );
+      driver.failOnce.add(ABORT_TRANSACTION);
+      expect(driver.write).toThrow('refusing further writes');
+    });
+
+    it('leaves one a savepoint holds to its owner', () => {
+      const driver = makeFakeDriver();
+      driver.createSavepoint('t0');
+      driver.issued.length = 0;
+      const write = driver.guardWrite(() => {
+        throw new Error('SQLITE_CONSTRAINT');
+      });
+
+      expect(write).toThrow('SQLITE_CONSTRAINT');
+
+      expect(driver.issued).toStrictEqual([]);
+      expect(driver.db.inTransaction).toBe(true);
+    });
+  });
+
   it('leaves a transaction it found open for its owner to discard', () => {
     const { db, issued, failOnce, createSavepoint } = makeFakeDriver();
     createSavepoint('t0');
@@ -556,8 +639,6 @@ describe('makeTransactionMethods', () => {
 
     expect(() => createSavepoint('t1')).toThrow('SQLITE_IOERR');
 
-    // Discarding here would abort the crank behind its back; it still has `t0`
-    // to reach its own rollback through.
     expect(issued).toStrictEqual(['SAVEPOINT t1']);
     expect(db.inTransaction).toBe(true);
     expect(db._spStack).toStrictEqual(['t0']);

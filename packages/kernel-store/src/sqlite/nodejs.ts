@@ -168,8 +168,6 @@ export async function makeSQLKernelDatabase({
     sqlKVClearVS.run();
   }
 
-  const clear = guardWrite(db.transaction(kvClear));
-
   /**
    * Execute an arbitrary query and return the results.
    *
@@ -242,7 +240,7 @@ export async function makeSQLKernelDatabase({
   return {
     kernelKVStore: kvStore,
     executeQuery: kvExecuteQuery,
-    clear,
+    clear: guardWrite(db.transaction(kvClear)),
     makeVatStore,
     deleteVatStore: guardWrite(deleteVatStore),
     createSavepoint,

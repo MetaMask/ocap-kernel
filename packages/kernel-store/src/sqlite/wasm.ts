@@ -222,7 +222,6 @@ export async function makeSQLKernelDatabase({
     guardWrite,
     beginIfNeeded,
     commitIfNeeded,
-    rollbackIfNeeded,
     createSavepoint,
     rollbackSavepoint,
     releaseSavepoint,
@@ -244,26 +243,6 @@ export async function makeSQLKernelDatabase({
   const sqlVatstoreSet = db.prepare(SQL_QUERIES.SET_VS);
   const sqlVatstoreDelete = db.prepare(SQL_QUERIES.DELETE_VS);
   const sqlVatstoreDeleteAll = db.prepare(SQL_QUERIES.DELETE_VS_ALL);
-
-  /**
-   * Safely mutate the database with proper transaction management
-   *
-   * @param mutator - Function that performs the database mutations
-   */
-  function safeMutate(mutator: () => void): void {
-    const startedTx = beginIfNeeded();
-    try {
-      mutator();
-      if (startedTx) {
-        commitIfNeeded();
-      }
-    } catch (error) {
-      if (startedTx) {
-        rollbackIfNeeded();
-      }
-      throw error;
-    }
-  }
 
   /**
    * Delete everything from the database.
@@ -336,24 +315,28 @@ export async function makeSQLKernelDatabase({
      * @param deletes - A set of keys that have been deleted.
      */
     function updateKVData(sets: [string, string][], deletes: string[]): void {
-      safeMutate(() => {
-        for (const [key, value] of sets) {
-          try {
-            sqlVatstoreSet.bind([vatID, key, value]);
-            sqlVatstoreSet.step();
-          } finally {
-            sqlVatstoreSet.reset();
-          }
+      // A statement that throws leaves a transaction this began open, for
+      // `guardWrite` to discard.
+      const startedTx = beginIfNeeded();
+      for (const [key, value] of sets) {
+        try {
+          sqlVatstoreSet.bind([vatID, key, value]);
+          sqlVatstoreSet.step();
+        } finally {
+          sqlVatstoreSet.reset();
         }
-        for (const value of deletes) {
-          try {
-            sqlVatstoreDelete.bind([vatID, value]);
-            sqlVatstoreDelete.step();
-          } finally {
-            sqlVatstoreDelete.reset();
-          }
+      }
+      for (const value of deletes) {
+        try {
+          sqlVatstoreDelete.bind([vatID, value]);
+          sqlVatstoreDelete.step();
+        } finally {
+          sqlVatstoreDelete.reset();
         }
-      });
+      }
+      if (startedTx) {
+        commitIfNeeded();
+      }
     }
 
     return {
