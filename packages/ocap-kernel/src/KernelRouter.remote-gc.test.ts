@@ -64,6 +64,9 @@ describe('a GC action for a remote that is offline', () => {
 
     expect(sends).toBe(1);
     expect(remote.deliverRetireImports).not.toHaveBeenCalled();
+    expect([...kernelStore.getGCActions()]).toStrictEqual([
+      makeGCAction('r1', 'retireImport', kref),
+    ]);
     expect(kernelStore.hasCListEntry('r1', kref)).toBe(true);
 
     online = true;

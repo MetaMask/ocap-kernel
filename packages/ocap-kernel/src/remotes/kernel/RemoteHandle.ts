@@ -721,8 +721,8 @@ export class RemoteHandle implements EndpointHandle {
    * @param messageBase - The delivery to make.
    * @param options - Options bag.
    * @param options.exemptFromCapacityLimit - Whether the pending queue's
-   * capacity limit does not apply. A GC delivery is exempt, since refusing one
-   * would stop the run loop; give-up, not this limit, bounds the queue.
+   * capacity limit does not apply. A GC delivery is exempt: refusing one would
+   * stop the run loop, and the remote's c-list bounds how many there can be.
    * @returns This handle's crank result, carrying the send.
    */
   #deliverToPeer(
@@ -779,7 +779,7 @@ export class RemoteHandle implements EndpointHandle {
    * @param messageBase - The message, before its sequence number and ack.
    * @param options - Options bag.
    * @param options.exemptFromCapacityLimit - Whether the pending queue's
-   * capacity limit does not apply, for a reply that must not fail.
+   * capacity limit does not apply.
    * @returns What transmitting it needs.
    */
   #persistRemoteCommand(

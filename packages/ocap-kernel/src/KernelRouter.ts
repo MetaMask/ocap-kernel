@@ -562,11 +562,12 @@ export class KernelRouter {
       `@@@@ deliver ${endpointId} ${type} ${JSON.stringify(krefs)}`,
     );
     const endpoint = this.#lookupEndpoint(endpointId, type);
-    // Only a skipped vat gets here without a handle; a remote throws above. One
-    // the store does not call terminated has been cleaned up whole, possibly
-    // by `nextTerminatedVatCleanup` earlier in this crank, or is still
-    // persisted. That one keeps its c-list as the vat last saw it, since a
-    // restart would bring up an incarnation still holding those erefs.
+    // Only a skipped vat gets here without a handle: a remote's GC actions wait
+    // in the set until it has one. One the store does not call terminated has
+    // been cleaned up whole, possibly by `nextTerminatedVatCleanup` earlier in
+    // this crank, or is still persisted. That one keeps its c-list as the vat
+    // last saw it, since a restart would bring up an incarnation still holding
+    // those erefs.
     if (!endpoint && !this.#kernelStore.isVatTerminated(endpointId as VatId)) {
       return { didDelivery: endpointId };
     }

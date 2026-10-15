@@ -46,8 +46,7 @@ describe('garbage-collection', () => {
         const krefs = givenAnActionEach();
         const isOffline = (endpointId: string): boolean => endpointId === 'r1';
 
-        // Twice, because the first call is what spends `v1`'s action: an action
-        // merely examined is deleted from the set whether or not it is chosen.
+        // The first call takes `v1`'s action, leaving only the offline one.
         processGCActionSet(kernelStore, { isOffline });
         const result = processGCActionSet(kernelStore, { isOffline });
 

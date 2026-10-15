@@ -1641,7 +1641,7 @@ describe('KernelQueue', () => {
   });
 
   describe('GC actions for an offline endpoint', () => {
-    it("leaves which endpoints to skip to run's isOffline", async () => {
+    it("passes run's isOffline to processGCActionSet", async () => {
       const isOffline = vi.fn();
       (gc.processGCActionSet as unknown as MockInstance).mockImplementationOnce(
         () => {
@@ -1679,6 +1679,33 @@ describe('KernelQueue', () => {
         expect(gc.processGCActionSet).toHaveBeenCalledOnce(),
       );
       kernelQueue.recheckGCActions();
+
+      await expect(running).rejects.toThrow(STOP_RUN_LOOP);
+      expect(gc.processGCActionSet).toHaveBeenCalledTimes(2);
+    });
+
+    it('does nothing to a run loop in the middle of a crank', async () => {
+      let finishDelivery!: () => void;
+      const deliver = vi.fn(
+        async () =>
+          new Promise<undefined>((resolve) => {
+            finishDelivery = () => resolve(undefined);
+          }),
+      );
+      (gc.processGCActionSet as unknown as MockInstance)
+        .mockReturnValueOnce({
+          type: 'dropExports',
+          endpointId: 'v1',
+          krefs: ['ko1'],
+        })
+        .mockImplementationOnce(() => {
+          throw new Error(STOP_RUN_LOOP);
+        });
+
+      const running = kernelQueue.run(deliver);
+      await vi.waitFor(() => expect(deliver).toHaveBeenCalledOnce());
+      kernelQueue.recheckGCActions();
+      finishDelivery();
 
       await expect(running).rejects.toThrow(STOP_RUN_LOOP);
       expect(gc.processGCActionSet).toHaveBeenCalledTimes(2);
