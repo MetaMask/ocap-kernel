@@ -93,7 +93,7 @@ describe('a crank whose transaction SQLite rolls back mid-delivery', () => {
         message: { methargs: { body: '', slots: [] }, result: null },
       } as unknown as RunQueueItem);
 
-      // As `VatSyscall` does: a failed syscall is logged and the vat carries on.
+      // As `VatSyscall` does: a failed syscall is logged and the delivery carries on.
       const syscall = (write: () => void): void => {
         try {
           write();

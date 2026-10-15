@@ -80,9 +80,9 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
    *
    * @param restored - The savepoint being rolled back to, whose snapshot of
    * `maybeFreeKrefs` is the "before" this restores.
-   * @param rollbackError - The error the rollback threw, if it threw. Kept as
-   * the `cause` should reverting fail too, since it is the root cause an
-   * operator needs.
+   * @param rollbackError - The error the rollback or release threw, if it
+   * threw. Kept as the `cause` should reverting fail too, since it is the root
+   * cause an operator needs.
    */
   function revertStateBeneathRollback(
     restored: Savepoint,
@@ -109,7 +109,7 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
         throw revertError;
       }
       throw new Error(
-        `Crank rollback failed and its caches could not be reverted: ${String(revertError)}`,
+        `Crank's savepoints were lost and its caches could not be reverted: ${String(revertError)}`,
         { cause: rollbackError },
       );
     }
@@ -119,16 +119,22 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
    * Release all savepoints.
    */
   function releaseAllSavepoints(): void {
-    if (ctx.savepoints.length > 0) {
-      try {
-        kdb.releaseSavepoint('t0');
-      } finally {
-        // As in `rollbackCrank`: a failed release discards the whole
-        // transaction, so keeping these listed would have the next crank
-        // release a `t0` the store no longer has.
-        ctx.savepoints.length = 0;
-      }
+    const [outermost] = ctx.savepoints;
+    if (outermost === undefined) {
+      return;
     }
+    try {
+      kdb.releaseSavepoint('t0');
+    } catch (error) {
+      // A failed release leaves the store with no savepoints and the crank's
+      // writes discarded or refused, so RAM goes back as for a failed rollback.
+      // A `t0` still listed would make `reset` throw between clearing the store
+      // and restoring the keys it keeps.
+      ctx.savepoints.length = 0;
+      revertStateBeneathRollback(outermost, error);
+      throw error;
+    }
+    ctx.savepoints.length = 0;
   }
 
   /**

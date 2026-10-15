@@ -888,9 +888,13 @@ describe('Kernel', () => {
     });
 
     it('releases everything even if the timestamp cannot be written', async () => {
+      const stopRemoteCommsMock = vi
+        .spyOn(mockPlatformServices, 'stopRemoteComms')
+        .mockResolvedValue(undefined);
       const workerTerminateAllMock = vi
         .spyOn(mockPlatformServices, 'terminateAll')
         .mockResolvedValue(undefined);
+      const closeSpy = vi.spyOn(mockKernelDatabase, 'close');
       const logger = new Logger('test');
       const logErrorSpy = vi.spyOn(logger, 'error');
       const kernel = await Kernel.make(
@@ -907,7 +911,9 @@ describe('Kernel', () => {
 
       await kernel.stop();
 
+      expect(stopRemoteCommsMock).toHaveBeenCalledOnce();
       expect(workerTerminateAllMock).toHaveBeenCalledOnce();
+      expect(closeSpy).toHaveBeenCalledOnce();
       expect(logErrorSpy).toHaveBeenCalledWith(
         'could not record last active time',
         refusal,

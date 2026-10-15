@@ -889,9 +889,7 @@ export class Kernel {
     try {
       this.#kernelStore.recordLastActiveTime();
     } catch (error) {
-      // A store that can no longer persist anything refuses this write, and
-      // everything below it releases something: remote comms, the vat workers,
-      // the database handle. A timestamp is not worth leaking those over.
+      // The store refuses every write once it cannot end a transaction.
       this.#logger.error('could not record last active time', error);
     }
     await this.#platformServices.stopRemoteComms();

@@ -263,9 +263,12 @@ describe('crank methods', () => {
       expect(context.savepoints).toStrictEqual([]);
     });
 
-    it('forgets the savepoints even if the database release fails', () => {
+    it('goes back to the outermost savepoint when the release fails', () => {
       context.inCrank = true;
-      context.savepoints = [makeSavepoint('start')];
+      context.maybeFreeKrefs.add('ko1');
+      crankMethods.createCrankSavepoint('crank');
+      context.maybeFreeKrefs.add('ko2');
+      crankMethods.createCrankSavepoint('delivery');
       vi.mocked(kdb.releaseSavepoint).mockImplementationOnce(() => {
         throw new Error('database is gone');
       });
@@ -274,9 +277,28 @@ describe('crank methods', () => {
         'database is gone',
       );
 
-      // A failed release discards the transaction and every savepoint in it,
-      // so the next crank would release a `t0` the store no longer has.
+      expect([...context.maybeFreeKrefs]).toStrictEqual(['ko1']);
       expect(context.savepoints).toStrictEqual([]);
+      expect(context.refreshCachedValues).toHaveBeenCalled();
+      expect(context.refreshRunQueue).toHaveBeenCalled();
+    });
+
+    it('keeps the release failure as the cause when the revert fails too', () => {
+      context.inCrank = true;
+      crankMethods.createCrankSavepoint('crank');
+      vi.mocked(kdb.releaseSavepoint).mockImplementationOnce(() => {
+        throw new Error('database is gone');
+      });
+      vi.mocked(context.refreshCachedValues).mockImplementationOnce(() => {
+        throw new Error('caches are gone');
+      });
+
+      expect(() => crankMethods.releaseAllSavepoints()).toThrow(
+        expect.objectContaining({
+          message: expect.stringContaining('caches are gone'),
+          cause: expect.objectContaining({ message: 'database is gone' }),
+        }),
+      );
     });
 
     it('should not call releaseSavepoint if no savepoints exist', () => {
