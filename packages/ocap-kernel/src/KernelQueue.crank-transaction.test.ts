@@ -135,6 +135,44 @@ describe('a crank whose transaction SQLite rolls back mid-delivery', () => {
       ).not.toThrow();
     },
   );
+
+  it('keeps the write SQLite rolled back on when the crank then fails for another reason', async () => {
+    const kdb = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
+    const kernelStore = makeKernelStore(kdb);
+    const kernelQueue = new KernelQueue(kernelStore, async () => undefined);
+    kernelStore.enqueueRun({
+      type: 'send',
+      target: 'ko1',
+      message: { methargs: { body: '', slots: [] }, result: null },
+    } as unknown as RunQueueItem);
+    const deliver = async (): Promise<CrankResult | undefined> => {
+      kdb.executeQuery('PRAGMA max_page_count = 1');
+      try {
+        kernelStore.setKernelServiceKref('big', 'x'.repeat(100_000));
+      } catch {
+        // Swallowed, as `VatSyscall` does.
+      }
+      kdb.executeQuery('PRAGMA max_page_count = 1073741823');
+      // A read that finds the write SQLite undid.
+      throw new Error('no record matching key');
+    };
+
+    const failure = await kernelQueue.run(deliver).catch((error) => error);
+
+    expect(failure).toMatchObject({
+      cause: { message: 'no record matching key' },
+      errors: [
+        { message: 'no record matching key' },
+        {
+          message: 'SQLite already ended the transaction holding savepoint t1',
+          cause: { message: 'database or disk is full' },
+        },
+      ],
+    });
+    expect(kernelQueue.getRunLoopStatus().detail).toContain(
+      'database or disk is full',
+    );
+  });
 });
 
 /**
