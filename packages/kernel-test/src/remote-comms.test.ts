@@ -663,31 +663,41 @@ describe('Remote Communications (Integration Tests)', () => {
       listObjectCList(kernelDatabase1, giverOnImporter);
     const giverSide = (): Record<string, string> =>
       listObjectCList(kernelDatabase2, importerOnGiver);
-    const giftOnImporter = Object.keys(importerSide()).find(
+    const krefsIn = (entries: Record<string, string>): KRef[] =>
+      Object.keys(entries).filter((key) => key.startsWith('ko')) as KRef[];
+    const giftOnImporter = krefsIn(importerSide()).find(
       (kref) => kref !== importerRoot,
     ) as KRef;
-    const giftOnGiver = Object.keys(giverSide()).find(
-      (kref) => kernelStore2.getOwner(kref as KRef) === giverVatId,
+    const giftOnGiver = krefsIn(giverSide()).find(
+      (kref) => kernelStore2.getOwner(kref) === giverVatId,
     ) as KRef;
-    const importerRootOnGiver = Object.keys(giverSide()).find(
+    const importerRootOnGiver = krefsIn(giverSide()).find(
       (kref) => kref !== giftOnGiver,
     ) as KRef;
 
     // Each side numbers both objects 1, with opposite signs, so a ref sent
     // unflipped names the other object.
     expect({ importer: importerSide(), giver: giverSide() }).toStrictEqual({
-      importer: { [importerRoot]: 'R ro-1', [giftOnImporter]: 'R ro+1' },
-      giver: { [importerRootOnGiver]: 'R ro+1', [giftOnGiver]: 'R ro-1' },
+      importer: {
+        [importerRoot]: 'R ro-1',
+        'ro-1': importerRoot,
+        [giftOnImporter]: 'R ro+1',
+        'ro+1': giftOnImporter,
+      },
+      giver: {
+        [importerRootOnGiver]: 'R ro+1',
+        'ro+1': importerRootOnGiver,
+        [giftOnGiver]: 'R ro-1',
+        'ro-1': giftOnGiver,
+      },
     });
 
     // Held weakly, the gift is dropped but still recognized, so its retirement
     // has to start at the giver and reach kernel1 as a remote importer.
     await kernel1.queueMessage(importerRoot, 'makeWeak', ['gift']);
-    const receivedFromImporter = (): number =>
-      kernelStore2.getRemoteSeqState(importerOnGiver)?.highestReceivedSeq ?? 0;
-    const receivedBefore = receivedFromImporter();
     await pokeUntil({
-      isDone: () => receivedFromImporter() > receivedBefore,
+      isDone: () =>
+        !kernelStore2.getReachableFlag(importerOnGiver, giftOnGiver),
       poke: async () => {
         kernel1.reapVats((vatId) => vatId === importerVatId);
         await kernel1.queueMessage(importerRoot, 'noop', []);
@@ -695,8 +705,18 @@ describe('Remote Communications (Integration Tests)', () => {
     });
 
     expect({ importer: importerSide(), giver: giverSide() }).toStrictEqual({
-      importer: { [importerRoot]: 'R ro-1', [giftOnImporter]: '_ ro+1' },
-      giver: { [importerRootOnGiver]: 'R ro+1', [giftOnGiver]: '_ ro-1' },
+      importer: {
+        [importerRoot]: 'R ro-1',
+        'ro-1': importerRoot,
+        [giftOnImporter]: '_ ro+1',
+        'ro+1': giftOnImporter,
+      },
+      giver: {
+        [importerRootOnGiver]: 'R ro+1',
+        'ro+1': importerRootOnGiver,
+        [giftOnGiver]: '_ ro-1',
+        'ro-1': giftOnGiver,
+      },
     });
 
     await pokeUntil({
@@ -718,8 +738,8 @@ describe('Remote Communications (Integration Tests)', () => {
       ),
       giftOnGiver: kernelStore2.kernelRefExists(giftOnGiver),
     }).toStrictEqual({
-      importer: { [importerRoot]: 'R ro-1' },
-      giver: { [importerRootOnGiver]: 'R ro+1' },
+      importer: { [importerRoot]: 'R ro-1', 'ro-1': importerRoot },
+      giver: { [importerRootOnGiver]: 'R ro+1', 'ro+1': importerRootOnGiver },
       giftOnImporter: false,
       giftInImporterVat: false,
       giftOnGiver: false,
@@ -751,25 +771,29 @@ async function pokeUntil({
 }
 
 /**
- * List an endpoint's c-list entries for kernel objects, as stored: each kref
- * maps to its reachable flag (`R` or `_`) and the endpoint's ref for it.
+ * List a remote's c-list entries for objects, both ways, as stored: each kref
+ * maps to its reachable flag (`R` or `_`) and the remote's ref for it, and each
+ * ref maps back to its kref. Promises are left out, since a settled one stays
+ * in the c-list.
  *
  * @param kernelDatabase - The kernel's database.
- * @param endpointId - The endpoint.
- * @returns The entries, by kref.
+ * @param remoteId - The remote.
+ * @returns The entries, by key.
  */
 function listObjectCList(
   kernelDatabase: KernelDatabase,
-  endpointId: string,
+  remoteId: string,
 ): Record<string, string> {
   const { kernelKVStore } = kernelDatabase;
-  const cListPrefix = `${endpointId}.c.`;
-  const objectPrefix = `${cListPrefix}ko`;
+  const cListPrefix = `${remoteId}.c.`;
   const entries: Record<string, string> = {};
-  let key = kernelKVStore.getNextKey(objectPrefix);
-  while (key?.startsWith(objectPrefix)) {
-    entries[key.slice(cListPrefix.length)] = kernelKVStore.getRequired(key);
-    key = kernelKVStore.getNextKey(key);
+  for (const refPrefix of ['ko', 'ro']) {
+    const prefix = `${cListPrefix}${refPrefix}`;
+    let key = kernelKVStore.getNextKey(prefix);
+    while (key?.startsWith(prefix)) {
+      entries[key.slice(cListPrefix.length)] = kernelKVStore.getRequired(key);
+      key = kernelKVStore.getNextKey(key);
+    }
   }
   return entries;
 }
@@ -797,8 +821,13 @@ function getOnlyRemoteId(kernelStore: KernelStore) {
  * @returns The vat's ID.
  */
 function findVatId(kernel: Kernel, name: string): VatId {
-  return kernel.getVats().find((row) => row.config.parameters?.name === name)
-    ?.id as VatId;
+  const vatId = kernel
+    .getVats()
+    .find((row) => row.config.parameters?.name === name)?.id;
+  if (vatId === undefined) {
+    throw Error(`no vat named ${name}`);
+  }
+  return vatId;
 }
 
 /**

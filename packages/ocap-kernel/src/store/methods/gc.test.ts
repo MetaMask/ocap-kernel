@@ -263,6 +263,16 @@ describe('GC methods', () => {
       ]);
     });
 
+    it('names a terminated vat whose config survives once', () => {
+      kernelStore.setVatConfig('v1', { bundleName: 'vat1' });
+      kernelStore.setVatConfig('v2', { bundleName: 'vat2' });
+      const kref = kernelStore.initKernelObject('v1');
+      kernelStore.addCListEntry('v2', kref, 'o-1');
+      kernelStore.markVatAsTerminated('v2');
+
+      expect(kernelStore.getImporters(kref)).toStrictEqual(['v2']);
+    });
+
     it('throws for non-array input', () => {
       expect(() => {
         kernelStore.retireKernelObjects('not-an-array' as unknown as KRef[]);

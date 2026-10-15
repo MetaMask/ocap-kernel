@@ -789,7 +789,7 @@ describe('KernelRouter', () => {
           ],
         },
       ] as const)(
-        'names the refs of a $type to a remote in its frame',
+        'names the refs of a $type to a remote in its frame and tears its c-list down by its own',
         async ({ type, deliverMethod, deleted }) => {
           (
             kernelStore.krefsToErefs as unknown as MockInstance
