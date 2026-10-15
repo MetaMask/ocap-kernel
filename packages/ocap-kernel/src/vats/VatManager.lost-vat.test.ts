@@ -1,4 +1,5 @@
 import { makePromiseKit } from '@endo/promise-kit';
+import { StreamReadError } from '@metamask/kernel-errors';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
@@ -54,7 +55,8 @@ const config: VatConfig = { sourceSpec: 'test.js' };
 /**
  * Fake vat workers on in-memory streams, speaking the vat's side of the
  * JSON-RPC protocol: `initVat` and `deliver` are answered with an empty
- * checkpoint, after the vat's hook for each, if it has one, has run.
+ * checkpoint once the vat's hook for each, if any, has run; a `deliver` hook
+ * can withhold the answer.
  *
  * @returns The launcher and the record of what each vat was delivered.
  */
@@ -72,7 +74,10 @@ function makeWorkers() {
         receive({ jsonrpc: '2.0', method: 'syscall', params: vso }),
       die: async (death) => {
         if (death === 'close') {
-          await holder.stream?.return();
+          if (!holder.stream) {
+            throw new Error(`Vat ${vatId} has no channel to close`);
+          }
+          await holder.stream.return();
         } else {
           await receive(NaN);
         }
@@ -197,12 +202,18 @@ function boot(kdb: KernelDatabase) {
  * Boot a kernel and launch `v1` ("doomed"), which imports the root of `v2`
  * ("survivor").
  *
+ * @param options - Named options.
+ * @param options.onDisk - Keep the store in a file, so `reboot` can open it
+ *   again.
  * @returns The pieces a test drives, and a way to boot the same store again.
  */
-async function setUp() {
-  const dir = await mkdtemp(join(tmpdir(), 'lost-vat-'));
-  onTestFinished(async () => rm(dir, { recursive: true, force: true }));
-  const dbFilename = join(dir, 'store.db');
+async function setUp({ onDisk = false }: { onDisk?: boolean } = {}) {
+  let dbFilename = ':memory:';
+  if (onDisk) {
+    const dir = await mkdtemp(join(tmpdir(), 'lost-vat-'));
+    onTestFinished(async () => rm(dir, { recursive: true, force: true }));
+    dbFilename = join(dir, 'store.db');
+  }
   const kdb = await makeSQLKernelDatabase({ dbFilename });
   const kernel = boot(kdb);
   const { vatManager, kernelStore } = kernel;
@@ -218,17 +229,22 @@ async function setUp() {
      * Close the database, as `Kernel.stop` does, which discards an open
      * crank, and start a kernel over the same file with new workers.
      *
-     * @returns The new kernel's pieces, its run loop running.
+     * @returns The new kernel's pieces, its run loop running, and whether a
+     *   crank was still open when the database closed.
      */
     reboot: async () => {
+      if (!onDisk) {
+        throw new Error('Only a store on disk can be booted again');
+      }
       // A turn of the event loop first, as `Kernel.stop`'s own awaits give,
-      // so whatever a lost channel set off has run.
+      // so every microtask chain a lost channel set off has run.
       await delay(0);
+      const cutOff = kernel.kernelStore.isInCrank();
       kdb.close();
       const next = boot(await makeSQLKernelDatabase({ dbFilename }));
       await next.vatManager.initializeAllVats();
       next.run();
-      return next;
+      return { ...next, cutOff };
     },
   };
 }
@@ -248,12 +264,64 @@ async function deliverEverythingQueued(harness: Harness): Promise<void> {
   while (kernelStore.isInCrank()) {
     await kernelQueue.waitForCrank();
   }
+  kernelQueue.assertRunLoopAlive('queue the sentinel');
   kernelQueue
     .enqueueMessage(survivorRoot, 'sentinel', [])
     .catch(() => undefined);
   await vi.waitFor(() =>
     expect(workers.methodsDelivered('v2')).toContain('sentinel'),
   );
+}
+
+/**
+ * Have the next vat to start lose its channel as its handshake ends, before or
+ * after the manager registers its handle.
+ *
+ * @param options - Named options.
+ * @param options.vatManager - The manager starting it.
+ * @param options.vatId - The vat.
+ * @param options.when - Whether the loss comes before or after registration.
+ * @returns Where the loss landed: `'registered'`, `'unregistered'`, or
+ *   `'never'`.
+ */
+function loseChannelAsItStarts({
+  vatManager,
+  vatId,
+  when,
+}: {
+  vatManager: VatManager;
+  vatId: VatId;
+  when: 'before' | 'after';
+}): () => string {
+  let landed = 'never';
+  const make = VatHandle.make.bind(VatHandle);
+  vi.spyOn(VatHandle, 'make').mockImplementationOnce(async (params) => {
+    const handle = await make(params);
+    const lose = (): void => {
+      landed = vatManager.hasVat(vatId) ? 'registered' : 'unregistered';
+      params.onStreamFailure(
+        new StreamReadError(
+          { vatId },
+          { cause: new Error('vat channel closed') },
+        ),
+      );
+    };
+    if (when === 'before') {
+      lose();
+    } else {
+      // Polled a microtask at a time, so the loss lands once the handle is
+      // registered and before the start's caller checks for one. Bounded, as
+      // a registration that waits on a timer would otherwise spin forever.
+      (async () => {
+        for (let turn = 0; turn < 100 && !vatManager.hasVat(vatId); turn++) {
+          await Promise.resolve();
+        }
+        lose();
+      })().catch(() => undefined);
+    }
+    return handle;
+  });
+  return () => landed;
 }
 
 describe('a vat that loses its channel mid-delivery', () => {
@@ -349,7 +417,7 @@ describe('a vat that loses its channel mid-delivery', () => {
 
 describe('a delivery a kernel stop cuts off', () => {
   it('is delivered again on the next start when the vat then loses its channel', async () => {
-    const harness = await setUp();
+    const harness = await setUp({ onDisk: true });
     const { kernelQueue, vatManager, workers } = harness;
     let doomedWorker: Worker | undefined;
     workers.onDeliver('v1', async (worker) => {
@@ -367,9 +435,14 @@ describe('a delivery a kernel stop cuts off', () => {
     const next = await harness.reboot();
 
     expect({
+      cutOff: next.cutOff,
       running: vatManager.getVatIds(),
       runLoop: kernelQueue.getRunLoopStatus().state,
-    }).toStrictEqual({ running: ['v1', 'v2'], runLoop: 'running' });
+    }).toStrictEqual({
+      cutOff: true,
+      running: ['v1', 'v2'],
+      runLoop: 'running',
+    });
     await vi.waitFor(() =>
       expect(next.workers.methodsDelivered('v1')).toStrictEqual(['work']),
     );
@@ -435,8 +508,8 @@ describe('terminateAllVats while the run loop runs', () => {
       const terminating = vatManager.terminateAllVats();
       v2Busy.resolve();
       await terminating;
-      // The delivery reached v1's worker, so the stop resumed inside its
-      // crank, whose end is where a rollback would have undone the
+      // The delivery reached v1's worker, so `terminateAllVats` resumed inside
+      // its crank, whose end is where a rollback would have undone the
       // retirement.
       await vi.waitFor(() => expect(v1Started).toBe(true));
       await kernelQueue.waitForCrank();
@@ -457,64 +530,87 @@ describe('terminateAllVats while the run loop runs', () => {
 });
 
 describe('terminateAllVats resuming inside a restart crank', () => {
-  it('leaves the vat neither running nor persisted', async () => {
-    const harness = await setUp();
-    const { kernelStore, kernelQueue, vatManager, workers } = harness;
-    const v2Busy = makePromiseKit<void>();
-    let v2Started = false;
-    workers.onDeliver('v2', async () => {
-      v2Started = true;
-      await v2Busy.promise;
-      return 'answer';
-    });
-    kernelQueue
-      .enqueueMessage(harness.survivorRoot, 'first', [])
-      .catch(() => undefined);
-    harness.run();
-    await vi.waitFor(() => expect(v2Started).toBe(true));
+  const relaunches = [
+    {
+      relaunch: 'succeeds',
+      arrange: (): (() => void) => () => undefined,
+    },
+    {
+      relaunch: 'fails',
+      // Once the vat is retired, which a rollback would undo.
+      arrange: ({ platformServices }: Harness): (() => void) => {
+        const launch = makePromiseKit<never>();
+        vi.mocked(platformServices.launch).mockImplementationOnce(
+          async () => launch.promise,
+        );
+        return () => launch.reject(new Error('worker gone'));
+      },
+    },
+  ];
 
-    let restart = 'pending';
-    vatManager
-      .restartVat('v1')
-      .then(() => {
-        restart = 'fulfilled';
-        return undefined;
-      })
-      .catch((error: Error) => {
-        restart = error.message;
+  it.each(relaunches)(
+    'leaves no vat running or persisted when the relaunch $relaunch',
+    async ({ arrange }) => {
+      const harness = await setUp();
+      const { kernelStore, kernelQueue, vatManager, workers } = harness;
+      const endRelaunch = arrange(harness);
+      const v2Busy = makePromiseKit<void>();
+      let v2Started = false;
+      workers.onDeliver('v2', async () => {
+        v2Started = true;
+        await v2Busy.promise;
+        return 'answer';
       });
-    // Resumes inside the restart's crank, which starts as this one ends.
-    const terminating = vatManager.terminateAllVats();
-    v2Busy.resolve();
-    await terminating;
+      kernelQueue
+        .enqueueMessage(harness.survivorRoot, 'first', [])
+        .catch(() => undefined);
+      harness.run();
+      await vi.waitFor(() => expect(v2Started).toBe(true));
 
-    // The restart is answered once its crank commits.
-    await vi.waitFor(() =>
-      expect({
-        restart,
-        running: vatManager.getVatIds(),
-        persisted: [...kernelStore.getAllVatRecords()].map(
-          ({ vatID }) => vatID,
-        ),
-        runLoop: kernelQueue.getRunLoopStatus().state,
-      }).toStrictEqual({
-        restart: 'Vat was deleted.',
-        running: [],
-        persisted: [],
-        runLoop: 'running',
-      }),
-    );
-  });
+      let restart = 'pending';
+      vatManager
+        .restartVat('v1')
+        .then(() => {
+          restart = 'fulfilled';
+          return undefined;
+        })
+        .catch((error: Error) => {
+          restart = error.message;
+        });
+      // Resumes inside the restart's crank, which starts as this one ends.
+      const terminating = vatManager.terminateAllVats();
+      v2Busy.resolve();
+      await terminating;
+      endRelaunch();
+
+      // The restart is answered once its crank commits.
+      await vi.waitFor(() =>
+        expect({
+          restart,
+          running: vatManager.getVatIds(),
+          persisted: [...kernelStore.getAllVatRecords()].map(
+            ({ vatID }) => vatID,
+          ),
+          runLoop: kernelQueue.getRunLoopStatus().state,
+        }).toStrictEqual({
+          restart: 'Vat was deleted.',
+          running: [],
+          persisted: [],
+          runLoop: 'running',
+        }),
+      );
+    },
+  );
 });
 
 describe('a restarted vat that loses its new channel as the restart ends', () => {
-  it.each([
-    { when: 'before the manager registers its handle' },
-    { when: 'after the manager registers its handle' },
-  ])('fails the restart when it is lost $when', async ({ when }) => {
-    const harness = await setUp();
-    const { kernelStore, kernelQueue, vatManager, workers, survivorERef } =
-      harness;
+  /**
+   * Have v1's next worker send to v2 while it starts.
+   *
+   * @param harness - The kernel.
+   */
+  const sendWhileStarting = (harness: Harness): void => {
+    const { workers, survivorERef } = harness;
     workers.onInit('v1', async ({ syscall }) =>
       syscall([
         'send',
@@ -522,94 +618,118 @@ describe('a restarted vat that loses its new channel as the restart ends', () =>
         { methargs: kser(['fromNewWorker', []]), result: 'p+5' },
       ]),
     );
-    const make = VatHandle.make.bind(VatHandle);
-    vi.spyOn(VatHandle, 'make').mockImplementationOnce(async (params) => {
-      const handle = await make(params);
-      const lose = (): void =>
-        params.onStreamFailure(new Error('vat channel closed'));
-      if (when.startsWith('before')) {
-        lose();
-      } else {
-        // Polled a microtask at a time, so the loss lands as soon as the
-        // handle is registered and before the restart's crank reads it back.
-        (async () => {
-          while (!vatManager.hasVat('v1')) {
-            await Promise.resolve();
-          }
-          lose();
-        })().catch(() => undefined);
-      }
-      return handle;
-    });
+  };
+
+  it('commits what the new worker sent while starting when it is not lost', async () => {
+    const harness = await setUp();
+    sendWhileStarting(harness);
     harness.run();
 
-    let restarted = 'pending';
-    vatManager
-      .restartVat('v1')
-      .then(() => {
-        restarted = 'fulfilled';
-        return undefined;
-      })
-      .catch((error: unknown) => {
-        restarted = (error as Error).message;
-      });
+    await harness.vatManager.restartVat('v1');
+    await deliverEverythingQueued(harness);
 
-    await vi.waitFor(() =>
+    expect(harness.workers.methodsDelivered('v2')).toStrictEqual([
+      'fromNewWorker',
+      'sentinel',
+    ]);
+  });
+
+  it.each([
+    { when: 'before' as const, landed: 'unregistered' },
+    { when: 'after' as const, landed: 'registered' },
+  ])(
+    'fails the restart when it is lost $when the manager registers its handle',
+    async ({ when, landed }) => {
+      const harness = await setUp();
+      const { kernelStore, kernelQueue, vatManager, workers } = harness;
+      sendWhileStarting(harness);
+      const lossLanded = loseChannelAsItStarts({
+        vatManager,
+        vatId: 'v1',
+        when,
+      });
+      harness.run();
+
+      let restarted = 'pending';
+      vatManager
+        .restartVat('v1')
+        .then(() => {
+          restarted = 'fulfilled';
+          return undefined;
+        })
+        .catch((error: unknown) => {
+          restarted = (error as Error).message;
+        });
+
+      await vi.waitFor(() => expect(restarted).not.toBe('pending'));
+      await deliverEverythingQueued(harness);
+
       expect({
+        landed: lossLanded(),
         restarted,
+        survivorGot: workers.methodsDelivered('v2'),
         running: vatManager.getVatIds(),
         active: kernelStore.isVatActive('v1'),
         runLoop: kernelQueue.getRunLoopStatus().state,
       }).toStrictEqual({
+        landed,
         restarted:
           'Vat v1 was terminated after its restart failed: vat channel closed',
+        survivorGot: ['sentinel'],
         running: ['v2'],
         active: false,
         runLoop: 'running',
-      }),
-    );
-    // Nothing the new worker sent while starting is committed.
-    await deliverEverythingQueued(harness);
-    expect(workers.methodsDelivered('v2')).toStrictEqual(['sentinel']);
-  });
+      });
+    },
+  );
 });
 
 describe('a vat that loses its channel as it launches', () => {
-  it('fails the launch and stops the worker', async () => {
-    const harness = await setUp();
-    const { kernelQueue, vatManager, platformServices } = harness;
-    const make = VatHandle.make.bind(VatHandle);
-    vi.spyOn(VatHandle, 'make').mockImplementationOnce(async (params) => {
-      const handle = await make(params);
-      params.onStreamFailure(new Error('vat channel closed'));
-      return handle;
-    });
-    harness.run();
+  it.each([
+    { when: 'before' as const, landed: 'unregistered' },
+    { when: 'after' as const, landed: 'registered' },
+  ])(
+    'fails the launch and stops the worker when it is lost $when the manager registers its handle',
+    async ({ when, landed }) => {
+      const harness = await setUp();
+      const { kernelStore, kernelQueue, vatManager, platformServices } =
+        harness;
+      const lossLanded = loseChannelAsItStarts({
+        vatManager,
+        vatId: 'v3',
+        when,
+      });
+      harness.run();
 
-    const failure = await vatManager
-      .launchVat(config, 'late')
-      .catch((error: Error) => error);
+      const failure = await vatManager
+        .launchVat(config, 'late')
+        .catch((error: Error) => error);
 
-    expect({
-      failure: (failure as Error).message,
-      cause: ((failure as Error).cause as Error).message,
-      stopped: vi.mocked(platformServices.terminate).mock.calls,
-      running: vatManager.getVatIds(),
-      runLoop: kernelQueue.getRunLoopStatus().state,
-    }).toStrictEqual({
-      failure: 'Failed to launch vat v3 (late)',
-      cause: 'vat channel closed',
-      stopped: [['v3']],
-      running: ['v1', 'v2'],
-      runLoop: 'running',
-    });
-  });
+      expect({
+        landed: lossLanded(),
+        failure: (failure as Error).message,
+        lostWith: (((failure as Error).cause as Error).cause as Error).message,
+        stopped: vi.mocked(platformServices.terminate).mock.calls,
+        running: vatManager.getVatIds(),
+        active: kernelStore.isVatActive('v3'),
+        runLoop: kernelQueue.getRunLoopStatus().state,
+      }).toStrictEqual({
+        landed,
+        failure: 'Failed to launch vat v3 (late)',
+        lostWith: 'vat channel closed',
+        stopped: [['v3']],
+        running: ['v1', 'v2'],
+        active: false,
+        runLoop: 'running',
+      });
+    },
+  );
 });
 
 describe('a restart a kernel stop cuts short', () => {
   it('leaves messages to the vat for the next start', async () => {
-    const harness = await setUp();
-    const { kernelStore, kernelQueue, vatManager, platformServices } = harness;
+    const harness = await setUp({ onDisk: true });
+    const { kernelQueue, vatManager, platformServices } = harness;
     harness.run();
     const launch = makePromiseKit<never>();
     let launchStarted = false;
@@ -627,11 +747,10 @@ describe('a restart a kernel stop cuts short', () => {
     vatManager.expectWorkersToStop();
     launch.reject(new Error('channel closed by the stop'));
 
-    // Answered before the restart's crank is left open for good.
     await expect(restarting).rejects.toThrow('cut short by a kernel stop');
-    expect(kernelStore.isInCrank()).toBe(true);
     const next = await harness.reboot();
 
+    expect(next.cutOff).toBe(true);
     await vi.waitFor(() =>
       expect({
         delivered: next.workers.methodsDelivered('v1'),

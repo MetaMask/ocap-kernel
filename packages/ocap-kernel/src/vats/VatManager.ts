@@ -1,6 +1,7 @@
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 import {
+  StreamReadError,
   VatAlreadyExistsError,
   VatDeletedError,
   VatNotFoundError,
@@ -36,8 +37,8 @@ type StopVatOptions = { vatId: VatId } & (
 );
 
 /**
- * A start's handle, set once `VatHandle.make` returns, and the loss of its
- * channel, once the manager has taken a report of one.
+ * A start's handle, set as it is registered, and the loss of its channel, once
+ * the manager has taken a report of one.
  */
 type RunningVat = { handle?: VatHandle; lost?: Error };
 
@@ -205,8 +206,8 @@ export class VatManager {
     subclusterId?: SubclusterId,
   ): Promise<KRef> {
     const vatId = this.#kernelStore.getNextVatId();
-    // Register the vat with its subcluster BEFORE awaiting `runVat`.
-    // `runVat` yields to the kernel event loop (loading the bundle,
+    // Register the vat with its subcluster BEFORE awaiting its start, which
+    // yields to the kernel event loop (loading the bundle,
     // negotiating with the vat worker); any crank that runs during that
     // window ends with `collectGarbage()` → `clearEmptySubclusters()`,
     // which would otherwise delete the just-created, still-empty
@@ -216,7 +217,20 @@ export class VatManager {
       this.#kernelStore.addSubclusterVat(subclusterId, vatName, vatId);
     }
     try {
-      await this.runVat(vatId, vatConfig);
+      const running = await this.#startVat({ vatId, vatConfig });
+      if (running.lost) {
+        // Lost once registered but before the vat is recorded below, so the
+        // termination the loss queued finds no vat, and stops no worker.
+        await this.#platformServices
+          .terminate(vatId)
+          .catch((stopError: unknown) =>
+            this.#logger.error(
+              `Failed to stop the worker for vat ${vatId} after it lost its channel:`,
+              stopError,
+            ),
+          );
+        throw running.lost;
+      }
     } catch (error) {
       // Attribute the failure to the specific vat by kernel id and name.
       throw new Error(`Failed to launch vat ${vatId} (${vatName})`, {
@@ -276,7 +290,8 @@ export class VatManager {
    * @param options.vatId - The ID of the vat to start.
    * @param options.vatConfig - Its configuration.
    * @param options.launch - Abandoned by a relaunch that gave up waiting.
-   * @returns The start's handle, and any loss reported once it was registered.
+   * @returns The start's record, on which a later loss of its channel is
+   *   noted.
    */
   async #startVat({
     vatId,
@@ -330,6 +345,14 @@ export class VatManager {
           this.#reportLostVat({ vatId, running, error }),
       });
       if (running.lost) {
+        vat
+          .terminate(true, running.lost)
+          .catch((closeError: unknown) =>
+            this.#logger.error(
+              `Channel to vat ${vatId} would not close:`,
+              closeError,
+            ),
+          );
         throw running.lost;
       }
     } catch (error) {
@@ -419,14 +442,14 @@ export class VatManager {
   }
 
   /**
-   * Retire a vat whose handle reports a lost channel. A handle not yet
-   * registered has its start fail instead.
+   * Retire a vat whose handle reports a lost channel.
    *
    * The handle comes off the books before this returns, so the router finds
    * the vat gone by the time a delivery waiting on the channel fails, and
-   * terminates it in that delivery's crank; a restart's crank does the same
-   * for the handle it started. Otherwise the termination queued here records
-   * the death, in a crank of its own. With the run loop dead nothing does:
+   * terminates it in that delivery's crank. A launch or restart that has yet
+   * to return finds the loss on its start's record and fails instead.
+   * Otherwise the termination queued here records the death, in a crank of
+   * its own. With the run loop dead nothing does short of `terminateAllVats`:
    * the vat stays persisted, and the next start relaunches it.
    *
    * @param options - Named options.
@@ -470,7 +493,8 @@ export class VatManager {
     });
     this.terminateVat(vatId, makeLostVatReason(vatId, error)).catch(
       (failure: unknown) => {
-        // A vat lost mid-delivery was retired in that delivery's crank.
+        // Retired by the crank of the delivery or restart it was lost in, or
+        // never recorded, by a launch that then fails.
         if (!this.#kernelStore.isVatActive(vatId)) {
           return;
         }
@@ -832,7 +856,7 @@ export class VatManager {
    *
    * @param vatId - The ID of the vat.
    * @returns The crank outcome: an abort and a termination if the relaunch
-   *   failed or the new worker's channel was lost before the crank ended,
+   *   failed or the new worker's channel was lost before this returns,
    *   otherwise the callers' answer, for once the crank commits. Never
    *   settles if a kernel stop cut the restart short.
    */
@@ -854,7 +878,7 @@ export class VatManager {
       const error = new VatDeletedError(vatId);
       return harden({ afterCommit: async () => taken.answer(error) });
     }
-    let running: RunningVat;
+    let running: RunningVat | undefined;
     try {
       // From the handle where there is one, so the incarnation that comes back
       // is configured like the one that left; from the store for a vat that is
@@ -878,7 +902,10 @@ export class VatManager {
         );
         return new Promise<never>(() => undefined);
       }
-      return this.#failRestart({ vatId, taken, error });
+      // Unless retired meanwhile, as below, where an abort would undo that.
+      if (this.#kernelStore.isVatActive(vatId)) {
+        return this.#failRestart({ vatId, taken, error });
+      }
     }
     if (!this.#kernelStore.isVatActive(vatId)) {
       // Retired while this crank waited on a worker, by a `terminateAllVats`
@@ -897,10 +924,9 @@ export class VatManager {
       }
       return harden({ afterCommit: async () => taken.answer(error) });
     }
-    if (running.lost) {
-      // Lost its new channel once registered. Failed here rather than left to
-      // the termination the loss queued, which would run after this crank had
-      // committed what the new worker did.
+    if (running?.lost) {
+      // Failed here rather than left to the termination the loss queued, which
+      // would run after this crank had committed what the new worker did.
       return this.#failRestart({ vatId, taken, error: running.lost });
     }
     // Only once the crank commits: one that then fails, in its collection or
@@ -929,23 +955,29 @@ export class VatManager {
     taken: TakenWaiters<VatHandle>;
     error: unknown;
   }): CrankResult {
+    // A lost channel is reported as a delivery's crank reports one, by what
+    // the channel ended with rather than the handle's generic error.
+    const lost = error instanceof StreamReadError;
+    const reason = lost && error.cause instanceof Error ? error.cause : error;
     const failure = new Error(
-      `Vat ${vatId} was terminated after its restart failed: ${error instanceof Error ? error.message : String(error)}`,
+      `Vat ${vatId} was terminated after its restart failed: ${reason instanceof Error ? reason.message : String(reason)}`,
       { cause: error },
     );
     this.#logger.error(failure.message, error);
     // Not `answer` from `afterCommit`, which an aborted crank skips.
     taken.answerOnceCrankEnds(failure);
     // Through the crank result, so the run loop rolls back before retiring
-    // the vat: what the failed `initVat` buffered would otherwise be flushed
-    // on behalf of a vat that no longer exists. The rollback restores this
-    // request, which then finds no waiters and is dropped.
+    // the vat: what the new worker's `initVat` buffered would otherwise be
+    // flushed on behalf of a vat that no longer exists. The rollback restores
+    // this request, which then finds no waiters and is dropped.
     return harden({
       abort: true,
       terminate: {
         vatId,
         reject: true,
-        info: makeFatalKernelError('INTERNAL_ERROR', failure.message),
+        info: lost
+          ? makeLostVatReason(vatId, error)
+          : makeFatalKernelError('INTERNAL_ERROR', failure.message),
       },
     });
   }
