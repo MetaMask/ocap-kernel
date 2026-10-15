@@ -3,7 +3,7 @@ import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import { fromHex } from '@metamask/kernel-utils';
+import { fromHex, waitUntilQuiescent } from '@metamask/kernel-utils';
 import { makeKernelStore, kunser, Kernel } from '@metamask/ocap-kernel';
 import type {
   KernelStore,
@@ -12,6 +12,7 @@ import type {
   PlatformServices,
   RemoteMessageHandler,
   RemoteCommsOptions,
+  VatId,
 } from '@metamask/ocap-kernel';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -637,7 +638,218 @@ describe('Remote Communications (Integration Tests)', () => {
       await rm(tempDir, { recursive: true, force: true });
     }
   });
+
+  it('collects an object on both kernels once the importing kernel lets go', async () => {
+    // kernel1 hands out its importer vat by URL; kernel2's giver vat redeems
+    // it and gives it a fresh object, keeping no reference of its own.
+    const kernelStore2 = makeKernelStore(kernelDatabase2);
+    const { ocapURL } = (await runTestVats(
+      kernel1,
+      makeGiftImporterConfig(),
+    )) as BootstrapResult;
+    await runTestVats(kernel2, makeGiftGiverConfig());
+    const importerVatId = findVatId(kernel1, 'Importer');
+    const importerRoot = kernelStore1.getRootObject(importerVatId) as KRef;
+    const giverVatId = findVatId(kernel2, 'Giver');
+    const giverRoot = kernelStore2.getRootObject(giverVatId) as KRef;
+
+    const given = await kernel2.queueMessage(giverRoot, 'giveGift', [
+      ocapURL,
+      'gift',
+    ]);
+    expect(kunser(given)).toBe('stored');
+
+    const giverOnImporter = getOnlyRemoteId(kernelStore1);
+    const importerOnGiver = getOnlyRemoteId(kernelStore2);
+    const importerSide = (): Record<string, string> =>
+      listObjectCList(kernelDatabase1, giverOnImporter);
+    const giverSide = (): Record<string, string> =>
+      listObjectCList(kernelDatabase2, importerOnGiver);
+    const giftOnImporter = Object.keys(importerSide()).find(
+      (kref) => kref !== importerRoot,
+    ) as KRef;
+    const giftOnGiver = Object.keys(giverSide()).find(
+      (kref) => kernelStore2.getOwner(kref as KRef) === giverVatId,
+    ) as KRef;
+    const importerRootOnGiver = Object.keys(giverSide()).find(
+      (kref) => kref !== giftOnGiver,
+    ) as KRef;
+
+    // Each kernel names both objects `ro±1`, read in its own frame: what one
+    // kernel calls `ro-1` the other calls `ro+1`. So a ref sent unflipped
+    // names the other object.
+    expect({ importer: importerSide(), giver: giverSide() }).toStrictEqual({
+      importer: { [importerRoot]: 'R ro-1', [giftOnImporter]: 'R ro+1' },
+      giver: { [importerRootOnGiver]: 'R ro+1', [giftOnGiver]: 'R ro-1' },
+    });
+
+    // The importer keeps only a weak reference, so kernel1 tells kernel2 to
+    // drop the gift.
+    await kernel1.queueMessage(importerRoot, 'makeWeak', ['gift']);
+    const receivedFromImporter = (): number =>
+      kernelStore2.getRemoteSeqState(importerOnGiver)?.highestReceivedSeq ?? 0;
+    const receivedBefore = receivedFromImporter();
+    await pokeUntil({
+      isDone: () => receivedFromImporter() > receivedBefore,
+      poke: async () => {
+        kernel1.reapVats((vatId) => vatId === importerVatId);
+        await kernel1.queueMessage(importerRoot, 'noop', []);
+      },
+    });
+
+    expect({ importer: importerSide(), giver: giverSide() }).toStrictEqual({
+      importer: { [importerRoot]: 'R ro-1', [giftOnImporter]: '_ ro+1' },
+      giver: { [importerRootOnGiver]: 'R ro+1', [giftOnGiver]: '_ ro-1' },
+    });
+
+    // Unreachable on kernel2, the gift is collected by its giver, which
+    // retires it while kernel1's importer can still recognize it. kernel2
+    // retires its import in kernel1, which retires it in the importer.
+    await pokeUntil({
+      isDone: () => !kernelStore1.kernelRefExists(giftOnImporter),
+      poke: async () => {
+        kernel2.reapVats((vatId) => vatId === giverVatId);
+        await kernel2.queueMessage(giverRoot, 'noop', []);
+        await kernel1.queueMessage(importerRoot, 'noop', []);
+      },
+    });
+
+    expect({
+      importer: importerSide(),
+      giver: giverSide(),
+      giftOnImporter: kernelStore1.kernelRefExists(giftOnImporter),
+      giftInImporterVat: kernelStore1.hasCListEntry(
+        importerVatId,
+        giftOnImporter,
+      ),
+      giftOnGiver: kernelStore2.kernelRefExists(giftOnGiver),
+    }).toStrictEqual({
+      importer: { [importerRoot]: 'R ro-1' },
+      giver: { [importerRootOnGiver]: 'R ro+1' },
+      giftOnImporter: false,
+      giftInImporterVat: false,
+      giftOnGiver: false,
+    });
+  }, 60_000);
 });
+
+/**
+ * Run cranks until a condition holds or the attempts run out, whichever is
+ * first. Garbage collection crosses a kernel only after the crank deciding it
+ * commits, and a vat reports a dropped object only once its engine has
+ * collected it, so how many cranks it takes is not fixed.
+ *
+ * @param options - Options bag.
+ * @param options.isDone - The condition.
+ * @param options.poke - Starts one more round of work.
+ */
+async function pokeUntil({
+  isDone,
+  poke,
+}: {
+  isDone: () => boolean;
+  poke: () => Promise<void>;
+}): Promise<void> {
+  for (let attempt = 0; attempt < 20 && !isDone(); attempt++) {
+    await poke();
+    await waitUntilQuiescent(100);
+  }
+}
+
+/**
+ * List an endpoint's c-list entries for kernel objects, as stored: each kref
+ * maps to its reachable flag (`R` or `_`) and the endpoint's ref for it.
+ *
+ * @param kernelDatabase - The kernel's database.
+ * @param endpointId - The endpoint.
+ * @returns The entries, by kref.
+ */
+function listObjectCList(
+  kernelDatabase: KernelDatabase,
+  endpointId: string,
+): Record<string, string> {
+  const { kernelKVStore } = kernelDatabase;
+  const cListPrefix = `${endpointId}.c.`;
+  const objectPrefix = `${cListPrefix}ko`;
+  const entries: Record<string, string> = {};
+  let key = kernelKVStore.getNextKey(objectPrefix);
+  while (key?.startsWith(objectPrefix)) {
+    entries[key.slice(cListPrefix.length)] = kernelKVStore.getRequired(key);
+    key = kernelKVStore.getNextKey(key);
+  }
+  return entries;
+}
+
+/**
+ * Get the ID of the one remote a kernel knows about.
+ *
+ * @param kernelStore - The kernel's store.
+ * @returns The remote's ID.
+ */
+function getOnlyRemoteId(kernelStore: KernelStore) {
+  const remoteIds = kernelStore.getRemoteIDs();
+  const [remoteId] = remoteIds;
+  if (remoteIds.length !== 1 || remoteId === undefined) {
+    throw Error(`expected one remote, found ${remoteIds.length}`);
+  }
+  return remoteId;
+}
+
+/**
+ * Find a vat by the name in its config.
+ *
+ * @param kernel - The kernel running it.
+ * @param name - The vat's name.
+ * @returns The vat's ID.
+ */
+function findVatId(kernel: Kernel, name: string): VatId {
+  return kernel.getVats().find((row) => row.config.parameters?.name === name)
+    ?.id as VatId;
+}
+
+/**
+ * Create a subcluster configuration whose bootstrap vat issues an ocap URL for
+ * an importer vat.
+ *
+ * @returns Cluster configuration for the importing kernel.
+ */
+function makeGiftImporterConfig(): ClusterConfig {
+  return {
+    bootstrap: 'issuer',
+    forceReset: true,
+    services: ['ocapURLIssuerService'],
+    vats: {
+      issuer: {
+        bundleSpec: getBundleSpec('remote-sender-vat'),
+        parameters: { name: 'Issuer' },
+      },
+      receiver: {
+        bundleSpec: getBundleSpec('importer-vat'),
+        parameters: { name: 'Importer' },
+      },
+    },
+  };
+}
+
+/**
+ * Create a subcluster configuration for a vat that gives objects to vats on
+ * other kernels.
+ *
+ * @returns Cluster configuration for the giving kernel.
+ */
+function makeGiftGiverConfig(): ClusterConfig {
+  return {
+    bootstrap: 'giver',
+    forceReset: true,
+    services: ['ocapURLRedemptionService'],
+    vats: {
+      giver: {
+        bundleSpec: getBundleSpec('remote-gift-vat'),
+        parameters: { name: 'Giver' },
+      },
+    },
+  };
+}
 
 /**
  * Create a test subcluster configuration for a MaaS server vat.
