@@ -116,12 +116,8 @@ function filterActionsForProcessing(
  *
  * @param storage - The kernel storage.
  * @param options - Options bag.
- * @param options.isHeldBack - Whether an endpoint's actions are to be left
- * alone this time round. They stay in the durable set, rather than being
- * examined and spent, so that an endpoint which cannot take a delivery costs
- * only itself: GC actions are selected ahead of every other kind of work, so
- * one of them failing forever at the front of the queue would starve the
- * kernel.
+ * @param options.isHeldBack - Whether to leave an endpoint's actions in the set
+ * unexamined, since examining an action spends it.
  * @returns The next action to process, or undefined if there are no actions to process.
  */
 export function processGCActionSet(

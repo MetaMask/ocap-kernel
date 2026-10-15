@@ -1053,9 +1053,6 @@ describe('KernelRouter', () => {
       it.each(['dropExports', 'retireExports', 'retireImports'] as const)(
         'keeps a %s addressed to it instead of releasing it unheard',
         async (type) => {
-          // Releasing the kernel's side without telling the peer leaves it
-          // holding references to an object this kernel has let go, and its
-          // next message naming one mints a second kref for the same object.
           const result = await kernelRouter.deliver({
             type,
             endpointId: remoteId,
@@ -1069,8 +1066,6 @@ describe('KernelRouter', () => {
       );
 
       it('holds its GC actions back so they leave the front of the queue', async () => {
-        // GC actions are selected ahead of every other kind of work, so an
-        // action that fails every crank would starve the kernel for one peer.
         await kernelRouter.deliver({
           type: 'retireImports',
           endpointId: remoteId,
@@ -1081,7 +1076,7 @@ describe('KernelRouter', () => {
       });
     });
 
-    describe('a remote that refuses a GC delivery', () => {
+    describe('a GC delivery the endpoint refuses', () => {
       const remoteId = 'r1' as EndpointId;
 
       beforeEach(() => {
@@ -1090,7 +1085,7 @@ describe('KernelRouter', () => {
         ).mockRejectedValue(new Error('send queue full'));
       });
 
-      it('aborts the crank so the action and the entries both come back', async () => {
+      it('aborts the crank and holds the remote back', async () => {
         const result = await kernelRouter.deliver({
           type: 'retireImports',
           endpointId: remoteId,

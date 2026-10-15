@@ -563,8 +563,7 @@ export class KernelRouter {
       `@@@@ deliver ${endpointId} ${type} ${JSON.stringify(krefs)}`,
     );
     const remote = isRemoteId(endpointId) ? endpointId : undefined;
-    // A remote out of reach may be skipped here only because the action is kept
-    // rather than dropped; a vat with no handle is gone and keeps nothing.
+    // Not discarded: `#keepForLater` gives a remote's action back.
     const endpoint = this.#lookupEndpoint(endpointId, type, {
       discardable: Boolean(remote),
     });
@@ -609,16 +608,14 @@ export class KernelRouter {
         endpoint[GC_DELIVERY[type]](erefs),
       );
     } catch (error) {
-      // `#deliverUnlessLost` turns a vat lost during the delivery into a crank
-      // result that terminates it, so a vat's throw that gets here is a kernel
-      // fault and stops the run loop.
+      // A vat lost during the delivery comes back from `#deliverUnlessLost` as
+      // a result, so a vat's throw here is a kernel fault.
       if (!remote) {
         throw error;
       }
-      // The kernel's half is done above, so committing here would leave the
-      // peer holding references this kernel has let go — and its next message
-      // naming one of them mints a second kref for the same object, reconciled
-      // only by an incarnation change. The abort puts both halves back.
+      // Committing would keep the kernel's half without the peer's, and the
+      // peer's next message naming one of these erefs would mint a second kref
+      // for the same object.
       this.#logger?.warn(
         `Remote ${endpointId} refused ${type}; keeping the action:`,
         error,
@@ -628,9 +625,8 @@ export class KernelRouter {
   }
 
   /**
-   * Abort the crank, which restores the GC action this one spent, and hold that
-   * remote's actions back so the retry does not starve every other kind of
-   * work.
+   * Abort the crank, which restores the GC action and the kernel's half of it,
+   * and hold the remote's GC actions back.
    *
    * @param remoteId - The remote that could not be told.
    * @param type - The GC action being kept.

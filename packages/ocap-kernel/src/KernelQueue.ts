@@ -80,14 +80,10 @@ export class KernelQueue {
   #wakeUpTheRunQueue: (() => void) | null;
 
   /**
-   * Remotes whose GC actions are held back until the run loop next has nothing
-   * else to do.
-   *
-   * A remote that cannot take a GC delivery keeps the action — the crank aborts
-   * and the rollback restores it — but GC actions are selected ahead of every
-   * other kind of work, so re-selecting it every crank would starve the kernel
-   * to serve one unreachable peer. Cleared when the loop wakes from an empty
-   * queue, which is both a bound and the moment retrying costs nothing.
+   * Remotes whose GC actions are skipped until the run loop next wakes from an
+   * empty queue. A remote that cannot take a GC delivery aborts the crank, which
+   * restores the action, and GC actions are selected ahead of the run queue, so
+   * retrying every crank would starve the kernel.
    */
   readonly #remotesHeldBack: Set<EndpointId> = new Set();
 
@@ -228,8 +224,6 @@ export class KernelQueue {
         }
         if (wakeUpPromise) {
           await wakeUpPromise;
-          // Nothing else was left to do, so a held-back remote costs nobody
-          // anything now.
           this.#remotesHeldBack.clear();
         }
       }
@@ -485,8 +479,8 @@ export class KernelQueue {
   }
 
   /**
-   * Hold a remote's GC actions back until the run loop next has nothing else to
-   * do. Called for a remote that could not be told about a release.
+   * Skip a remote's GC actions until the run loop next wakes from an empty
+   * queue.
    *
    * @param remoteId - The remote to hold back.
    */

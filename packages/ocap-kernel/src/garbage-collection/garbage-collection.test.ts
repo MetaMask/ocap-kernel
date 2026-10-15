@@ -13,11 +13,6 @@ describe('garbage-collection', () => {
     });
 
     describe('an endpoint held back', () => {
-      /**
-       * Give two endpoints a droppable export each.
-       *
-       * @returns Their krefs, by endpoint.
-       */
       function givenAnActionEach(): Record<string, string> {
         const krefs: Record<string, string> = {};
         for (const endpointId of ['r1', 'v1']) {
