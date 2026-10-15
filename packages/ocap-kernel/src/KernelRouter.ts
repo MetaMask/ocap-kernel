@@ -613,12 +613,13 @@ export class KernelRouter {
 
   /**
    * Make a delivery, and if its vat is lost while it is in flight, roll the
-   * delivery back and terminate the vat in the same crank, unless the kernel
-   * retired the vat during it.
+   * delivery back and terminate the vat in the same crank. After the rollback
+   * nothing the vat did in the delivery takes effect, and a kernel caller
+   * awaiting the result of the message it was handling is told why the vat
+   * ended.
    *
-   * After the rollback nothing the vat did in the delivery takes effect, and
-   * a kernel caller awaiting the result of the message it was handling is told
-   * why the vat ended.
+   * A vat the kernel retired during the delivery is the exception: the crank
+   * commits, with whatever the vat sent before it was retired.
    *
    * @param endpointId - The endpoint the delivery is addressed to.
    * @param deliver - Makes the delivery.
@@ -640,7 +641,8 @@ export class KernelRouter {
       if (!this.#kernelStore.isVatActive(endpointId)) {
         // Retired by the kernel inside this crank, as `terminateAllVats` can
         // do while the run loop runs. A rollback would undo that retirement,
-        // and any other it made in this crank.
+        // and any other it made in this crank. #1105 is to run
+        // `terminateAllVats` with the loop stopped.
         return harden({ didDelivery: endpointId });
       }
       this.#logger?.warn(
