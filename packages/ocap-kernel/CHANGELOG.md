@@ -75,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `getImporters` counts remote importers and terminated vats cleanup has not reached, so retiring a kernel object tells every endpoint still holding it rather than leaving an importer with a c-list entry naming a kref that no longer exists ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))
+- A GC action for a remote names each object in the remote's frame, as messages do. It went out in the sender's frame, so the peer applied a drop to whatever it held under that ref, often another live object, and usually refused a retirement ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))
 - A delivery during which its vat loses its channel is rolled back, so nothing the vat did in it takes effect, and a `queueMessage` caller awaiting its result is told why the vat ended ([#1100](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1100))
 - A vat restart that `Kernel.stop` cuts short is left uncommitted, so the next start finds the vat as it was, instead of failing the restart, which could terminate the vat ([#1100](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1100))
 - `Kernel.terminateAllVats` also terminates vats that are persisted but have no worker ([#1100](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1100))
