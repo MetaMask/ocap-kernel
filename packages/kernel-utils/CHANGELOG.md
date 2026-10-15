@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `startRelay()` accepts an optional `publicIp` that is fed to libp2p's `appendAnnounce`, so a relay running on a NAT-backed host can announce its publicly-reachable IPv4 alongside its bound NIC addresses ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 - Add `replaceNodeEnvPlugin` to the `./vite-plugins` exports, a Rolldown transform plugin that inlines `process.env.NODE_ENV` as a string literal (configurable via `{ value }`, defaulting to `'production'`) in any module referencing it — used by `bundleVat` in place of a build-config `define`, so vats that pull in libraries like immer resolve the reference at bundle time ([#967](https://github.com/MetaMask/ocap-kernel/pull/967))
 
+### Changed
+
+- `stringify` includes an `AggregateError`'s `errors`, each with its own `cause` chain ([#1094](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1094))
+
 ## [0.5.0]
 
 ### Added

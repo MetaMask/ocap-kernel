@@ -483,6 +483,7 @@ describe('KernelQueue', () => {
         message:
           'Run loop died and its crank could not be rolled back: Error: database is gone',
         cause: crankError,
+        errors: [crankError, rollbackError],
       });
       expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
         state: 'failed',
@@ -1317,9 +1318,10 @@ describe('KernelQueue', () => {
     });
 
     it('keeps the crank error when ending the crank fails too', async () => {
+      const endCrankError = new Error('commit failed');
       (kernelStore.endCrank as unknown as MockInstance).mockImplementation(
         () => {
-          throw new Error('commit failed');
+          throw endCrankError;
         },
       );
 
@@ -1331,17 +1333,14 @@ describe('KernelQueue', () => {
         target: 'ko123',
         message: {} as KernelMessage,
       });
-      const deliver = vi.fn().mockRejectedValue(new Error('crank exploded'));
+      const crankError = new Error('crank exploded');
+      const deliver = vi.fn().mockRejectedValue(crankError);
 
-      let thrown: Error | undefined;
-      try {
-        await kernelQueue.run(deliver);
-      } catch (error) {
-        thrown = error as Error;
-      }
-
-      expect(thrown?.message).toContain('commit failed');
-      expect((thrown?.cause as Error).message).toBe('crank exploded');
+      await expect(kernelQueue.run(deliver)).rejects.toMatchObject({
+        message: expect.stringContaining('commit failed'),
+        cause: crankError,
+        errors: [crankError, endCrankError],
+      });
     });
 
     it('reports a failed end of an otherwise healthy crank', async () => {

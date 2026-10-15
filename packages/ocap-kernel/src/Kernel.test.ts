@@ -939,6 +939,39 @@ describe('Kernel', () => {
       expect(timestamp).toBeGreaterThanOrEqual(before);
       expect(timestamp).toBeLessThanOrEqual(after);
     });
+
+    it('releases everything even if the timestamp cannot be written', async () => {
+      const stopRemoteCommsMock = vi
+        .spyOn(mockPlatformServices, 'stopRemoteComms')
+        .mockResolvedValue(undefined);
+      const workerTerminateAllMock = vi
+        .spyOn(mockPlatformServices, 'terminateAll')
+        .mockResolvedValue(undefined);
+      const closeSpy = vi.spyOn(mockKernelDatabase, 'close');
+      const logger = new Logger('test');
+      const logErrorSpy = vi.spyOn(logger, 'error');
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+        { logger },
+      );
+      const refusal = new Error('refusing further writes on this connection');
+      vi.spyOn(mockKernelDatabase.kernelKVStore, 'set').mockImplementation(
+        () => {
+          throw refusal;
+        },
+      );
+
+      await kernel.stop();
+
+      expect(stopRemoteCommsMock).toHaveBeenCalledOnce();
+      expect(workerTerminateAllMock).toHaveBeenCalledOnce();
+      expect(closeSpy).toHaveBeenCalledOnce();
+      expect(logErrorSpy).toHaveBeenCalledWith(
+        'could not record last active time',
+        refusal,
+      );
+    });
   });
 
   describe('restartVat()', () => {

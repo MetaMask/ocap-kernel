@@ -901,7 +901,11 @@ export class Kernel {
         'Kernel was stopped before answering; terminations already queued still take effect on its next start, restarts do not',
       ),
     );
-    this.#kernelStore.recordLastActiveTime();
+    try {
+      this.#kernelStore.recordLastActiveTime();
+    } catch (error) {
+      this.#logger.error('could not record last active time', error);
+    }
     await this.#platformServices.stopRemoteComms();
     this.#remoteManager.cleanup();
     await this.#platformServices.terminateAll();
