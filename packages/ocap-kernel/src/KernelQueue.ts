@@ -25,10 +25,9 @@ import type {
 import { Fail } from './utils/assert.ts';
 
 /**
- * The most arrivals held for one remote at once. A peer keeps about this many
- * messages unacknowledged, and retransmits all of them on a timeout, so a
- * refusal is usually a copy of one already waiting; any other is
- * unacknowledged, and sent again.
+ * The most arrivals held for one remote at once: as many as a peer keeps
+ * unacknowledged, so a refusal takes a peer that gave up on a window of
+ * messages and started another while this kernel still holds the first.
  */
 const MAX_ARRIVALS_PER_REMOTE = 200;
 
@@ -656,22 +655,42 @@ export class KernelQueue {
    * acknowledged until the crank that takes it commits, so an arrival this
    * kernel forgets is one the peer sends again.
    *
-   * @param remoteId - The remote the message came from.
-   * @param message - The message, as it arrived.
+   * A copy of an arrival already waiting is not held again. A peer
+   * retransmits every message it has unacknowledged on a timeout, so during
+   * a long crank its copies would otherwise fill the remote's share and turn
+   * away a message it has yet to send. Acknowledgements are cumulative, so
+   * the next one taken would then retire the refused one at the peer.
+   *
+   * @param options - Options bag.
+   * @param options.remoteId - The remote the message came from.
+   * @param options.seq - The message's sequence number.
+   * @param options.message - The message, as it arrived.
    * @returns False if the remote already has `MAX_ARRIVALS_PER_REMOTE`
    * arrivals waiting and this one was refused.
    */
-  acceptRemoteInbound(remoteId: RemoteId, message: string): boolean {
+  acceptRemoteInbound({
+    remoteId,
+    seq,
+    message,
+  }: {
+    remoteId: RemoteId;
+    seq: number;
+    message: string;
+  }): boolean {
     this.assertRunLoopAlive('accept a remote message');
     const held = this.#arrivedFromRemotes.filter(
       (item) => item.remoteId === remoteId,
-    ).length;
-    if (held >= MAX_ARRIVALS_PER_REMOTE) {
+    );
+    if (held.some((item) => item.seq === seq)) {
+      return true;
+    }
+    if (held.length >= MAX_ARRIVALS_PER_REMOTE) {
       return false;
     }
     this.#arrivedFromRemotes.push({
       type: 'remoteInbound',
       remoteId,
+      seq,
       message,
     });
     this.#wakeTheRunLoop();
