@@ -76,3 +76,27 @@ describe('what a crank rollback reverts beyond the database', () => {
     expect(kernelStore.kernelRefExists(collectable)).toBe(false);
   });
 });
+
+describe('a crank whose release finds SQLite already ended its transaction', () => {
+  it('leaves the caches and `reset` matching the store', async () => {
+    const kdb = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
+    const kernelStore = makeKernelStore(kdb);
+    kdb.kernelKVStore.set('keySeed', 'seed');
+
+    kernelStore.startCrank();
+    kernelStore.createCrankSavepoint('crank');
+    kernelStore.addGCActions([makeGCAction('v1', 'dropExport', 'ko1')]);
+    kdb.executeQuery('PRAGMA max_page_count = 1');
+    expect(() => kdb.kernelKVStore.set('big', 'x'.repeat(100_000))).toThrow(
+      'database or disk is full',
+    );
+    kdb.executeQuery('PRAGMA max_page_count = 1073741823');
+    expect(() => kernelStore.endCrank()).toThrow(
+      'SQLite already ended the transaction holding savepoint t0',
+    );
+
+    expect([...kernelStore.getGCActions()]).toStrictEqual([]);
+    kernelStore.reset({ except: ['keySeed'] });
+    expect(kdb.kernelKVStore.get('keySeed')).toBe('seed');
+  });
+});
