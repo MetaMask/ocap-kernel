@@ -889,7 +889,6 @@ export class Kernel {
     try {
       this.#kernelStore.recordLastActiveTime();
     } catch (error) {
-      // The store refuses every write once it cannot end a transaction.
       this.#logger.error('could not record last active time', error);
     }
     await this.#platformServices.stopRemoteComms();

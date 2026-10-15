@@ -595,7 +595,7 @@ describe('transaction management', () => {
   it('leaves a vatstore update to the transaction it finds open', async () => {
     const db = await makeSQLKernelDatabase({});
     txOpen = true;
-    mockDb._spStack = [];
+    mockDb._spStack = ['t0'];
     const vatStore = db.makeVatStore('test-vat');
     vatStore.updateKVData([['key', 'value']], []);
     expect(mockBegin.step).not.toHaveBeenCalled();
@@ -619,6 +619,7 @@ describe('transaction management', () => {
       expect(() =>
         db.makeVatStore('test-vat').updateKVData([['key', 'value']], []),
       ).toThrowError('SQLITE_IOERR: first');
+      expect(mockAbort.step).toHaveBeenCalledOnce();
     },
   );
 

@@ -200,4 +200,27 @@ describe('the wasm driver on real SQLite', () => {
     );
     expect(kdb.kernelKVStore.get('crank')).toBeUndefined();
   });
+
+  it('discards the transaction a vatstore update began when a write in it fails', async () => {
+    const kdb = await makeDb();
+    // RAISE(ABORT) undoes only the statement, leaving the transaction open.
+    kdb.executeQuery(
+      "CREATE TRIGGER refuse BEFORE INSERT ON kv_vatstore WHEN NEW.key = 'bad' BEGIN SELECT RAISE(ABORT, 'refused'); END",
+    );
+
+    expect(() =>
+      kdb.makeVatStore('v1').updateKVData(
+        [
+          ['good', 'value'],
+          ['bad', 'value'],
+        ],
+        [],
+      ),
+    ).toThrow('refused');
+
+    expect(() => kdb.executeQuery('ROLLBACK TRANSACTION')).toThrow(
+      'no transaction is active',
+    );
+    expect(kdb.makeVatStore('v1').getKVData()).toStrictEqual([]);
+  });
 });

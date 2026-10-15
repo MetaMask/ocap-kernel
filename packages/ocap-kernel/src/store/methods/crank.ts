@@ -126,10 +126,12 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
     try {
       kdb.releaseSavepoint('t0');
     } catch (error) {
-      // A failed release leaves the store with no savepoints and the crank's
-      // writes discarded or refused, so RAM goes back as for a failed rollback.
-      // A `t0` still listed would make `reset` throw between clearing the store
-      // and restoring the keys it keeps.
+      // The store has dropped its savepoints and discarded the crank's writes,
+      // so RAM goes back as for a failed rollback — unless the abort doing the
+      // discard failed, in which case the reload still sees those writes and a
+      // later write whose retried abort succeeds leaves the caches ahead of the
+      // store. A `t0` still listed would make `reset` throw between clearing
+      // the store and restoring the keys it keeps.
       ctx.savepoints.length = 0;
       revertStateBeneathRollback(outermost, error);
       throw error;

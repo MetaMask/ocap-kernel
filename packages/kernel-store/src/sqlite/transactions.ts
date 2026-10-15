@@ -97,7 +97,7 @@ export function makeTransactionMethods({
    * Refuse a write into a transaction an abort could not end, where it would be
    * lost with that transaction, or into one SQLite has rolled back, where it
    * would commit alone while the work around it is gone. The first lasts until
-   * an abort succeeds; rolling back or releasing a savepoint ends the second.
+   * the transaction ends; rolling back or releasing a savepoint ends the second.
    *
    * @throws If either holds.
    */
@@ -128,10 +128,15 @@ export function makeTransactionMethods({
       } catch (error) {
         if (isTransactionLost()) {
           lossCause = error;
-        } else if (db.inTransaction && db._spStack.length === 0) {
+        } else if (
+          !txAbandoned &&
+          db.inTransaction &&
+          db._spStack.length === 0
+        ) {
           // One the write began for itself and left open, as better-sqlite3's
           // `db.transaction` does when its ROLLBACK fails. No savepoint reaches
-          // it, so nothing else would end it.
+          // it, so nothing else would end it. Already abandoned, it has just
+          // failed an abort and the next write retries one.
           discardTransaction('write');
         }
         throw error;
@@ -213,7 +218,7 @@ export function makeTransactionMethods({
    */
   function rollbackIfNeeded(): void {
     if (!db.inTransaction) {
-      // The only way out of an abort that keeps failing.
+      // SQLite ending it is the only way out of an abort that keeps failing.
       txAbandoned = false;
       return;
     }
