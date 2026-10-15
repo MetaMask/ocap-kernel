@@ -36,7 +36,7 @@ export type TransactionMethods = {
  * @param options.begin - Runs the driver's prepared `BEGIN TRANSACTION`.
  * @param options.commit - Runs the driver's prepared `COMMIT TRANSACTION`.
  * @param options.abort - Runs the driver's prepared `ROLLBACK TRANSACTION`.
- * @param options.logger - A logger, for an abort that fails.
+ * @param options.logger - A logger.
  * @returns The transaction and savepoint methods.
  */
 export function makeTransactionMethods({
@@ -52,21 +52,15 @@ export function makeTransactionMethods({
   abort: () => void;
   logger?: Logger | undefined;
 }): TransactionMethods {
-  // Set when an abort fails to end the transaction, leaving one open that no
-  // savepoint reaches.
   let txAbandoned = false;
-  // The refusal's `cause`: the logger that would report the abort is optional.
   let abortFailure: unknown;
-  // The error a write threw as SQLite rolled back the transaction, kept as the
-  // cause of what is thrown until the savepoint is rolled back or released,
-  // since whoever caught it may swallow it.
+  // The write error SQLite rolled back on, which its catcher may have swallowed.
   let lossCause: unknown;
 
   /**
    * Refuse to touch a transaction an earlier abort could not end. A savepoint
    * created inside one is released into it, committing the crank that abort was
-   * discarding, and a COMMIT makes those writes durable outright. Retried once
-   * first, since the failure may have been transient.
+   * discarding, and a COMMIT makes those writes durable outright.
    *
    * @throws If the transaction is still there afterwards.
    */
@@ -94,10 +88,10 @@ export function makeTransactionMethods({
   }
 
   /**
-   * Refuse a write into a transaction an abort could not end, where it would be
-   * lost with that transaction, or into one SQLite has rolled back, where it
-   * would commit alone while the work around it is gone. The first lasts until
-   * the transaction ends; rolling back or releasing a savepoint ends the second.
+   * Refuse a write into a transaction an abort could not end, or into one
+   * SQLite has rolled back, where it would commit alone while the work around it
+   * is gone. The first lasts until the transaction ends; rolling back or
+   * releasing a savepoint ends the second.
    *
    * @throws If either holds.
    */
@@ -133,10 +127,9 @@ export function makeTransactionMethods({
           db.inTransaction &&
           db._spStack.length === 0
         ) {
-          // One the write began for itself and left open, as better-sqlite3's
-          // `db.transaction` does when its ROLLBACK fails. No savepoint reaches
-          // it, so nothing else would end it. Already abandoned, it has just
-          // failed an abort and the next write retries one.
+          // As better-sqlite3's `db.transaction` leaves one when its ROLLBACK
+          // fails. An abandoned one has just failed an abort, which the next
+          // write retries.
           discardTransaction('write');
         }
         throw error;
@@ -145,12 +138,11 @@ export function makeTransactionMethods({
   }
 
   /**
-   * Tell a savepoint's owner that SQLite has already ended its transaction,
-   * taking every savepoint in it.
+   * Tell a savepoint's owner that SQLite has already ended its transaction.
    *
    * @param name - The savepoint.
-   * @throws If the transaction has ended, after clearing the stack of the
-   * savepoints SQLite took with it.
+   * @throws If it has, after clearing the stack of the savepoints SQLite took
+   * with it.
    */
   function assertSavepointLive(name: string): void {
     if (db.inTransaction) {
@@ -166,11 +158,9 @@ export function makeTransactionMethods({
   }
 
   /**
-   * Discard the transaction after a failure that leaves it unowned. An abort
-   * that fails is logged, not thrown, so the caller's own error propagates.
+   * Discard the transaction after a failure that leaves it unowned.
    *
-   * @param after - What failed, completing "failed to discard transaction
-   * after ...".
+   * @param after - What failed.
    */
   function discardTransaction(after: string): void {
     db._spStack.length = 0;
@@ -230,8 +220,7 @@ export function makeTransactionMethods({
       throw error;
     }
     db._spStack.length = 0;
-    // Normally false now. If SQLite still reports a transaction, it is still
-    // not ours to commit.
+    // If SQLite still reports a transaction, it is still not ours to commit.
     txAbandoned = db.inTransaction;
   }
 
@@ -268,10 +257,7 @@ export function makeTransactionMethods({
     try {
       db.exec(SQL_QUERIES.CREATE_SAVEPOINT.replace('%NAME%', name));
     } catch (error) {
-      // Nothing was pushed, so no savepoint path would reach this transaction
-      // and `txAbandoned` is unset: left open, it would take every later write
-      // and be committed by some unrelated release. One we merely found open is
-      // the caller's to discard, not ours.
+      // One we merely found open is the caller's to discard, not ours.
       if (startedTransaction) {
         discardTransaction('savepoint creation');
       }

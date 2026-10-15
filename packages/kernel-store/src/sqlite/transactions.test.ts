@@ -9,13 +9,11 @@ const { BEGIN_TRANSACTION, COMMIT_TRANSACTION, ABORT_TRANSACTION } =
 
 /**
  * A fake database whose `inTransaction` follows the BEGIN, COMMIT and ROLLBACK
- * that succeed; a statement that throws changes nothing. `failOnce` fails a
- * statement once, so a test can show a refusal ending as well as starting, and
+ * that succeed; a statement that throws changes nothing.
  * `endTransactionBehindOurBack` stands in for SQLite rolling back on its own
- * after `SQLITE_FULL`.
+ * after `SQLITE_FULL`, and `write` is a guarded write that does nothing.
  *
- * @returns The fake database, its spies and levers, the methods built over it,
- * and `write`, a guarded write that does nothing.
+ * @returns The fake database, its levers, and the methods built over it.
  */
 const makeFakeDriver = () => {
   let inTransaction = false;
@@ -372,12 +370,6 @@ describe('makeTransactionMethods', () => {
   });
 
   describe('a transaction an abort could not end', () => {
-    /**
-     * Wedge the connection the way an I/O error can: the crank's rollback
-     * fails, and so does the abort meant to discard the transaction instead.
-     *
-     * @returns The driver, mid-crank, with the transaction abandoned.
-     */
     const abandon = () => {
       const driver = makeFakeDriver();
       driver.createSavepoint('t0');

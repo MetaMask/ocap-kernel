@@ -81,8 +81,7 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
    * @param restored - The savepoint being rolled back to, whose snapshot of
    * `maybeFreeKrefs` is the "before" this restores.
    * @param rollbackError - The error the rollback or release threw, if it
-   * threw. Kept as the `cause` should reverting fail too, since it is the root
-   * cause an operator needs.
+   * threw.
    */
   function revertStateBeneathRollback(
     restored: Savepoint,
@@ -126,12 +125,10 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
     try {
       kdb.releaseSavepoint('t0');
     } catch (error) {
-      // The store has dropped its savepoints and discarded the crank's writes,
-      // so RAM goes back as for a failed rollback — unless the abort doing the
-      // discard failed, in which case the reload still sees those writes and a
-      // later write whose retried abort succeeds leaves the caches ahead of the
-      // store. A `t0` still listed would make `reset` throw between clearing
-      // the store and restoring the keys it keeps.
+      // The store has discarded the crank's writes and its savepoints. If the
+      // abort doing that failed, the reload still sees those writes, and the
+      // caches stay ahead of the store once a later write's retry succeeds. A
+      // `t0` left listed would make `reset` throw before restoring its keys.
       ctx.savepoints.length = 0;
       revertStateBeneathRollback(outermost, error);
       throw error;

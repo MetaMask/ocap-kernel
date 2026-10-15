@@ -37,7 +37,7 @@ async function initDB(dbFilename: string, logger?: Logger): Promise<Database> {
  *
  * @param db - The (open) database to use.
  * @param options - Options for the store.
- * @param options.guardWrite - The guard every write goes through.
+ * @param options.guardWrite - The transaction methods' write guard.
  * @returns A key/value store using the given database.
  */
 function makeKVStore(
