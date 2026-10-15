@@ -598,8 +598,9 @@ export class KernelRouter {
         endpoint[GC_DELIVERY[type]](erefs),
       );
     } catch (error) {
-      // A vat lost during the delivery comes back above already terminated, so
-      // a vat's throw that gets here is a kernel fault and stops the run loop.
+      // `#deliverUnlessLost` turns a vat lost during the delivery into a crank
+      // result that terminates it, so a vat's throw that gets here is a kernel
+      // fault and stops the run loop.
       if (!remote) {
         throw error;
       }
