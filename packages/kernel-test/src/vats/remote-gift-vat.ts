@@ -4,9 +4,8 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { TestPowers } from '../test-powers.ts';
 
 /**
- * Build function for a vat that hands a fresh object to a vat on another
- * kernel and keeps no reference to it, so the object lives exactly as long as
- * the other kernel holds it.
+ * Build function for a vat that gives a fresh object to a vat on another
+ * kernel and keeps no reference to it.
  *
  * @param vatPowers - Special powers granted to this vat.
  * @param vatPowers.logger - The logger for the vat.

@@ -585,9 +585,8 @@ export class KernelRouter {
     if (!endpoint) {
       return { didDelivery: endpointId };
     }
-    // A remote reads an rref in its own frame, so it is told of the c-list's
-    // ref with its direction flipped, as `translateRefKtoE` does for every
-    // other delivery. Unflipped, the ref names whatever the peer has under it.
+    // A remote reads an rref in its own frame, so flip it as `translateRefKtoE`
+    // does for every other delivery.
     const delivered = isRemoteId(endpointId)
       ? erefs.map((eref) => this.#kernelStore.invertRRef(eref as RRef))
       : erefs;

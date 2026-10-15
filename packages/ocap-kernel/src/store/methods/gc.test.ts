@@ -229,9 +229,6 @@ describe('GC methods', () => {
       expect(kernelStore.getObjectRefCount(ko2)).toBeDefined();
     });
 
-    // The object is deleted once its importers have been told, so an importer
-    // left out keeps a c-list entry naming a kref that no longer exists, which
-    // nothing tears down and the audit reports as dangling.
     it('tells a remote importer too', () => {
       kernelStore.setVatConfig('v1', { bundleName: 'vat1' });
       kernelStore.setVatConfig('v2', { bundleName: 'vat2' });
@@ -255,8 +252,7 @@ describe('GC methods', () => {
       kernelStore.setVatConfig('v1', { bundleName: 'vat1' });
       const kref = kernelStore.initKernelObject('v1');
       kernelStore.addCListEntry('v2', kref, 'o-1');
-      // `deleteVat` drops the config row `getVatIDs` enumerates, but the c-list
-      // survives until `nextTerminatedVatCleanup` reaches this vat.
+      // No config for v2: termination has deleted it.
       kernelStore.markVatAsTerminated('v2');
       kernelStore.setGCActions(new Set());
 

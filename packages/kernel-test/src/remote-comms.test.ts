@@ -640,8 +640,6 @@ describe('Remote Communications (Integration Tests)', () => {
   });
 
   it('collects an object on both kernels once the importing kernel lets go', async () => {
-    // kernel1 hands out its importer vat by URL; kernel2's giver vat redeems
-    // it and gives it a fresh object, keeping no reference of its own.
     const kernelStore2 = makeKernelStore(kernelDatabase2);
     const { ocapURL } = (await runTestVats(
       kernel1,
@@ -675,16 +673,15 @@ describe('Remote Communications (Integration Tests)', () => {
       (kref) => kref !== giftOnGiver,
     ) as KRef;
 
-    // Each kernel names both objects `ro±1`, read in its own frame: what one
-    // kernel calls `ro-1` the other calls `ro+1`. So a ref sent unflipped
-    // names the other object.
+    // Each side numbers both objects 1, with opposite signs, so a ref sent
+    // unflipped names the other object.
     expect({ importer: importerSide(), giver: giverSide() }).toStrictEqual({
       importer: { [importerRoot]: 'R ro-1', [giftOnImporter]: 'R ro+1' },
       giver: { [importerRootOnGiver]: 'R ro+1', [giftOnGiver]: 'R ro-1' },
     });
 
-    // The importer keeps only a weak reference, so kernel1 tells kernel2 to
-    // drop the gift.
+    // Held weakly, the gift is dropped but still recognized, so its retirement
+    // has to start at the giver and reach kernel1 as a remote importer.
     await kernel1.queueMessage(importerRoot, 'makeWeak', ['gift']);
     const receivedFromImporter = (): number =>
       kernelStore2.getRemoteSeqState(importerOnGiver)?.highestReceivedSeq ?? 0;
@@ -702,9 +699,6 @@ describe('Remote Communications (Integration Tests)', () => {
       giver: { [importerRootOnGiver]: 'R ro+1', [giftOnGiver]: '_ ro-1' },
     });
 
-    // Unreachable on kernel2, the gift is collected by its giver, which
-    // retires it while kernel1's importer can still recognize it. kernel2
-    // retires its import in kernel1, which retires it in the importer.
     await pokeUntil({
       isDone: () => !kernelStore1.kernelRefExists(giftOnImporter),
       poke: async () => {
@@ -734,10 +728,10 @@ describe('Remote Communications (Integration Tests)', () => {
 });
 
 /**
- * Run cranks until a condition holds or the attempts run out, whichever is
- * first. Garbage collection crosses a kernel only after the crank deciding it
- * commits, and a vat reports a dropped object only once its engine has
- * collected it, so how many cranks it takes is not fixed.
+ * Poke until a condition holds, at most 20 times. How many rounds GC takes is
+ * not fixed: a vat reports a drop only once its engine has collected the
+ * object, and a GC message leaves a kernel only once the crank deciding it
+ * commits.
  *
  * @param options - Options bag.
  * @param options.isDone - The condition.

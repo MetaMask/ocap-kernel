@@ -169,12 +169,9 @@ export function getVatMethods(ctx: StoreContext) {
   /**
    * Gets all endpoints that import a specific kernel object.
    *
-   * Remotes count, and so do terminated vats cleanup has not reached yet:
-   * `retireKernelObjects` deletes the object once every importer it is told
-   * about has a `retireImport` queued, so a missed importer is left holding a
-   * c-list entry naming a kref that no longer exists. `getVatIDs` enumerates
-   * `vatConfig` rows, which `deleteVat` drops while the vat's c-list survives
-   * until `nextTerminatedVatCleanup` reaches it, one vat per crank.
+   * Terminated vats count until cleanup reaches them: termination deletes the
+   * `vatConfig` row `getVatIDs` reads, but not the c-list, and an importer left
+   * out keeps an entry naming the kref `retireKernelObjects` then deletes.
    *
    * @param koid - The kernel object ID.
    * @returns An array of endpoint IDs that import the kernel object.
