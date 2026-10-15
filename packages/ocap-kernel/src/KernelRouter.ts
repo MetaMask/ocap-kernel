@@ -25,8 +25,9 @@ import type {
   RemoteId,
   VatId,
 } from './types.ts';
-import { isRemoteId } from './types.ts';
+import { isRemoteId, isVatId } from './types.ts';
 import { assert, Fail } from './utils/assert.ts';
+import { makeLostVatReason } from './vats/lost-vat-reason.ts';
 
 const GC_DELIVERY = {
   dropExports: 'deliverDropExports',
@@ -238,9 +239,9 @@ export class KernelRouter {
   /**
    * Reject a message's result promise, unless it is already settled.
    *
-   * A failed delivery may have settled the result on its way down: the vat
-   * resolved it and then lost its stream. Resolving a settled promise is a
-   * `Fail`, thrown from inside the catch that is handling the failure.
+   * A failed delivery may have settled the result first. Resolving a settled
+   * promise is a `Fail`, thrown from inside the catch that is handling the
+   * failure.
    *
    * @param endpointId - The endpoint that was to have decided it.
    * @param kpid - The result promise.
@@ -361,9 +362,8 @@ export class KernelRouter {
           message,
         );
         try {
-          crankResult = await endpoint.deliverMessage(
-            endpointTarget,
-            endpointMessage,
+          crankResult = await this.#deliverUnlessLost(eid, async () =>
+            endpoint.deliverMessage(endpointTarget, endpointMessage),
           );
         } catch (error) {
           // Delivery failed (e.g., remote queue full). Reject the kernel promise
@@ -453,8 +453,9 @@ export class KernelRouter {
     } catch (error) {
       // A restart and a termination each happen inside a crank of their own,
       // so no crank sees a vat between workers. A vat with no handle has
-      // ended, and the store may already have forgotten it entirely, unless a
-      // retirement that did not complete stranded it.
+      // ended, is waiting on the termination its channel's loss queued, failed
+      // to start at boot, or was stranded by a retirement that did not
+      // complete.
       //
       // A remote with no handle is only out of reach, so only a delivery with
       // nothing to lose may skip one.
@@ -534,7 +535,9 @@ export class KernelRouter {
     // promise in the batch here, since the endpoint can never refer to a
     // settled promise by that eref again. Left alone for now because the
     // debug UI discovers exported ocap URLs by scanning these entries.
-    return await endpoint.deliverNotify(resolutions);
+    return await this.#deliverUnlessLost(endpointId, async () =>
+      endpoint.deliverNotify(resolutions),
+    );
   }
 
   /**
@@ -559,9 +562,9 @@ export class KernelRouter {
     }
     // Only a skipped vat gets here without a handle; a remote returns above. One
     // the store does not call terminated has been cleaned up whole, possibly
-    // by `nextTerminatedVatCleanup` earlier in this crank, or is stranded and
-    // still persisted, and keeps its c-list for the incarnation a reboot
-    // brings up.
+    // by `nextTerminatedVatCleanup` earlier in this crank, or is still
+    // persisted. That one keeps its c-list as the vat last saw it, since a
+    // restart would bring up an incarnation still holding those erefs.
     if (!endpoint && !this.#kernelStore.isVatTerminated(endpointId as VatId)) {
       return { didDelivery: endpointId };
     }
@@ -591,10 +594,12 @@ export class KernelRouter {
       return { didDelivery: endpointId };
     }
     try {
-      return await endpoint[GC_DELIVERY[type]](erefs);
+      return await this.#deliverUnlessLost(endpointId, async () =>
+        endpoint[GC_DELIVERY[type]](erefs),
+      );
     } catch (error) {
-      // A vat that refuses a GC delivery is broken, and the crank that aborts
-      // terminates it, as it always has.
+      // A vat lost during the delivery comes back above already terminated, so
+      // a vat's throw that gets here is a kernel fault and stops the run loop.
       if (!remote) {
         throw error;
       }
@@ -643,7 +648,79 @@ export class KernelRouter {
     if (!endpoint) {
       return { didDelivery: endpointId };
     }
-    const crankResult = await endpoint.deliverBringOutYourDead();
-    return crankResult;
+    return await this.#deliverUnlessLost(endpointId, async () =>
+      endpoint.deliverBringOutYourDead(),
+    );
+  }
+
+  /**
+   * Make a delivery, and if its vat is lost while it is in flight, roll the
+   * delivery back and terminate the vat in the same crank. After the rollback
+   * nothing the vat did in the delivery takes effect, and a kernel caller
+   * awaiting the result of the message it was handling is told why the vat
+   * ended.
+   *
+   * A vat the kernel retired during the delivery is the exception: the crank
+   * commits, with whatever the vat sent before it was retired.
+   *
+   * @param endpointId - The endpoint the delivery is addressed to.
+   * @param deliver - Makes the delivery.
+   * @returns The crank outcome.
+   */
+  async #deliverUnlessLost(
+    endpointId: EndpointId,
+    deliver: () => Promise<CrankResult>,
+  ): Promise<CrankResult> {
+    try {
+      return await deliver();
+    } catch (error) {
+      // A vat whose channel dies mid-delivery has its pending commands
+      // rejected and its handle taken in one step, so a vat with no handle by
+      // now is what tells that apart from a kernel fault.
+      if (!isVatId(endpointId) || this.#isVatRunning(endpointId)) {
+        throw error;
+      }
+      if (!this.#kernelStore.isVatActive(endpointId)) {
+        // Retired by the kernel inside this crank, as `terminateAllVats` can
+        // do while the run loop runs. A rollback would undo that retirement,
+        // and any other it made in this crank. #1105 is to run
+        // `terminateAllVats` with the loop stopped.
+        return harden({ didDelivery: endpointId });
+      }
+      this.#logger?.warn(
+        `Rolled back a delivery to ${endpointId}, which was lost during it:`,
+        error,
+      );
+      return harden({
+        didDelivery: endpointId,
+        abort: true,
+        terminate: {
+          vatId: endpointId,
+          reject: true,
+          info: makeLostVatReason(
+            endpointId,
+            error instanceof Error ? error : new Error(String(error)),
+          ),
+        },
+      });
+    }
+  }
+
+  /**
+   * Whether a vat still has a handle.
+   *
+   * @param vatId - The vat.
+   * @returns False if the vat has none.
+   */
+  #isVatRunning(vatId: VatId): boolean {
+    try {
+      this.#getEndpoint(vatId);
+      return true;
+    } catch (error) {
+      if (error instanceof VatNotFoundError) {
+        return false;
+      }
+      throw error;
+    }
   }
 }
