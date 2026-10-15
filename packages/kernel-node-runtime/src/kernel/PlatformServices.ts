@@ -105,9 +105,8 @@ export class NodejsPlatformServices implements PlatformServices {
 
     // Handle worker errors before 'online' event
     worker.once('error', (error) => {
-      worker.removeAllListeners();
       // eslint-disable-next-line promise/no-promise-in-callback
-      worker.terminate().catch(() => {
+      this.#killWorker(vatId, worker).catch(() => {
         // Ignore termination errors
       });
       reject(

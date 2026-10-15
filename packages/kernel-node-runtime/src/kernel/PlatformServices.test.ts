@@ -185,6 +185,32 @@ describe('NodejsPlatformServices', () => {
       expect(worker.terminate).toHaveBeenCalled();
     });
 
+    it('logs an error raised while stopping a worker that failed at startup', async () => {
+      const logger = new Logger('test');
+      const logError = vi.spyOn(logger, 'error').mockReturnValue();
+      const service = new NodejsPlatformServices({ workerFilePath, logger });
+      const testVatId: VatId = getTestVatId();
+      const worker = mocks.createMockWorker(false);
+      vi.mocked(NodeWorker).mockImplementationOnce(function () {
+        return worker;
+      });
+      const failure = new Error('uncaught in the vat');
+      worker.terminate.mockImplementationOnce(async () => {
+        worker.emit('error', failure);
+        return undefined;
+      });
+      const launching = service.launch(testVatId);
+      await Promise.resolve();
+
+      worker.emit('error', new Error('worker startup error'));
+
+      await expect(launching).rejects.toThrowError('errored during startup');
+      expect(logError).toHaveBeenCalledWith(
+        `Worker ${testVatId} errored as it stopped:`,
+        failure,
+      );
+    });
+
     it('rejects if worker exits during startup', async () => {
       const service = new NodejsPlatformServices({ workerFilePath });
       const testVatId: VatId = getTestVatId();
@@ -313,10 +339,12 @@ describe('NodejsPlatformServices', () => {
       mocks.stream.return.mockReturnValueOnce(new Promise(() => undefined));
       service.terminate(testVatId).catch(() => undefined);
       await service.launch(testVatId);
+      mocks.stream.throw.mockClear();
 
       firstWorker.emit('exit', 1);
 
       expect(service.workers.get(testVatId)?.worker).toBe(secondWorker);
+      expect(mocks.stream.throw).not.toHaveBeenCalled();
     });
   });
 
