@@ -146,9 +146,14 @@ function makeWorkers() {
  * `VatHandle`s over fake workers, wired as `Kernel` wires them.
  *
  * @param kdb - The database.
+ * @param options - Options.
+ * @param options.failToStart - Vats whose worker will not launch.
  * @returns The pieces a test drives.
  */
-function boot(kdb: KernelDatabase) {
+function boot(
+  kdb: KernelDatabase,
+  { failToStart = new Set() }: { failToStart?: Set<VatId> } = {},
+) {
   const kernelStore: KernelStore = makeKernelStore(kdb);
   const logger = new Logger('test');
   for (const level of ['log', 'warn', 'error', 'debug'] as const) {
@@ -165,7 +170,12 @@ function boot(kdb: KernelDatabase) {
   );
   const workers = makeWorkers();
   const platformServices = {
-    launch: vi.fn(async (vatId: VatId) => workers.launch(vatId)),
+    launch: vi.fn(async (vatId: VatId) => {
+      if (failToStart.has(vatId)) {
+        throw new Error(`bundle for ${vatId} not found`);
+      }
+      return workers.launch(vatId);
+    }),
     terminate: vi.fn(async () => undefined),
   } as unknown as PlatformServices;
   const vatManager = new VatManager({
@@ -229,10 +239,12 @@ async function setUp({ onDisk = false }: { onDisk?: boolean } = {}) {
      * Close the database, as `Kernel.stop` does, which discards an open
      * crank, and start a kernel over the same file with new workers.
      *
+     * @param options - What `boot` takes.
+     * @param options.failToStart - Vats whose worker will not launch.
      * @returns The new kernel's pieces, its run loop running, and whether a
      *   crank was still open when the database closed.
      */
-    reboot: async () => {
+    reboot: async (options: { failToStart?: Set<VatId> } = {}) => {
       if (!onDisk) {
         throw new Error('Only a store on disk can be booted again');
       }
@@ -241,7 +253,7 @@ async function setUp({ onDisk = false }: { onDisk?: boolean } = {}) {
       await delay(0);
       const cutOff = kernel.kernelStore.isInCrank();
       kdb.close();
-      const next = boot(await makeSQLKernelDatabase({ dbFilename }));
+      const next = boot(await makeSQLKernelDatabase({ dbFilename }), options);
       await next.vatManager.initializeAllVats();
       next.run();
       return { ...next, cutOff };
@@ -446,6 +458,22 @@ describe('a delivery a kernel stop cuts off', () => {
     await vi.waitFor(() =>
       expect(next.workers.methodsDelivered('v1')).toStrictEqual(['work']),
     );
+  });
+});
+
+describe('a vat that failed to start at boot', () => {
+  it('is terminated by terminateAllVats', async () => {
+    const harness = await setUp({ onDisk: true });
+    const next = await harness.reboot({ failToStart: new Set(['v1']) });
+
+    await next.vatManager.terminateAllVats();
+
+    expect({
+      running: next.vatManager.getVatIds(),
+      persisted: [...next.kernelStore.getAllVatRecords()].map(
+        ({ vatID }) => vatID,
+      ),
+    }).toStrictEqual({ running: [], persisted: [] });
   });
 });
 
