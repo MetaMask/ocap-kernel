@@ -163,4 +163,41 @@ describe('the wasm driver on real SQLite', () => {
 
     expect(kdb.kernelKVStore.get('key')).toBe('value');
   });
+
+  it('leaves no transaction open after a COMMIT fails', async () => {
+    const kdb = await makeDb();
+    kdb.executeQuery('PRAGMA foreign_keys = ON');
+    kdb.executeQuery('CREATE TABLE parent (id PRIMARY KEY)');
+    kdb.executeQuery(
+      'CREATE TABLE child (parentId REFERENCES parent (id) DEFERRABLE INITIALLY DEFERRED)',
+    );
+    kdb.createSavepoint('t0');
+    kdb.executeQuery('INSERT INTO child VALUES (1)');
+    expect(() => kdb.releaseSavepoint('t0')).toThrow(
+      'FOREIGN KEY constraint failed',
+    );
+
+    kdb.kernelKVStore.set('after', 'value');
+
+    expect(() => kdb.executeQuery('ROLLBACK TRANSACTION')).toThrow(
+      'no transaction is active',
+    );
+    expect(kdb.kernelKVStore.get('after')).toBe('value');
+  });
+
+  it('discards the transaction when a RELEASE fails', async () => {
+    const kdb = await makeDb();
+    kdb.createSavepoint('t0');
+    kdb.kernelKVStore.set('crank', 'dequeued');
+    kdb.createSavepoint('t1');
+    // Released behind the driver's back, so its own RELEASE finds no t1.
+    kdb.executeQuery('RELEASE SAVEPOINT t1');
+
+    expect(() => kdb.releaseSavepoint('t1')).toThrow('no such savepoint: t1');
+
+    expect(() => kdb.executeQuery('ROLLBACK TRANSACTION')).toThrow(
+      'no transaction is active',
+    );
+    expect(kdb.kernelKVStore.get('crank')).toBeUndefined();
+  });
 });
