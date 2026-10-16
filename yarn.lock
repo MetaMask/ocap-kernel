@@ -973,20 +973,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@endo/pass-style@npm:^2.0.1":
-  version: 2.0.1
-  resolution: "@endo/pass-style@npm:2.0.1"
-  dependencies:
-    "@endo/common": "npm:^1.4.0"
-    "@endo/env-options": "npm:^1.1.11"
-    "@endo/errors": "npm:^1.3.1"
-    "@endo/eventual-send": "npm:^1.5.0"
-    "@endo/harden": "npm:^1.1.0"
-    "@endo/promise-kit": "npm:^1.2.1"
-  checksum: 10/f798774e589ed532c878daaf1e691a9cd3c6bed1189bcf92bfd4093702692fb9e9670842724f0dbd1419db9d5de928e06a60a767dbad979709d7e69f3135952b
-  languageName: node
-  linkType: hard
-
 "@endo/path-compare@npm:^1.1.0":
   version: 1.1.0
   resolution: "@endo/path-compare@npm:1.1.0"
@@ -994,7 +980,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@endo/patterns@npm:^1.7.0, @endo/patterns@npm:^1.9.0":
+"@endo/patterns@npm:^1.7.0, @endo/patterns@npm:^1.9.0, @endo/patterns@npm:^1.9.1":
   version: 1.9.1
   resolution: "@endo/patterns@npm:1.9.1"
   dependencies:
@@ -1005,20 +991,6 @@ __metadata:
     "@endo/marshal": "npm:^1.10.0"
     "@endo/pass-style": "npm:^1.8.1"
   checksum: 10/c80da12a5bc6f55259583b22cc6f485822b6b7e0297cc4d936551bc225ed47397b0b5b63fad313524d9bbeaafa23e0de8d508794fca8a9b3ac2c02d4a60b33f2
-  languageName: node
-  linkType: hard
-
-"@endo/patterns@npm:^2.1.0":
-  version: 2.1.0
-  resolution: "@endo/patterns@npm:2.1.0"
-  dependencies:
-    "@endo/common": "npm:^1.4.0"
-    "@endo/errors": "npm:^1.3.1"
-    "@endo/eventual-send": "npm:^1.5.0"
-    "@endo/harden": "npm:^1.1.0"
-    "@endo/marshal": "npm:^1.10.0"
-    "@endo/pass-style": "npm:^1.8.2"
-  checksum: 10/14d7c8b0705ba3844f5e1db14b633c610497479452f44df08ec3c47fc47dfc02c5d3fc72030d992c9b1ad767af8a0f82c4bc5e4ccaa5157851de373258906f35
   languageName: node
   linkType: hard
 
@@ -2886,7 +2858,7 @@ __metadata:
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.17.4"
     "@endo/exo": "npm:^1.7.0"
-    "@endo/patterns": "npm:^2.1.0"
+    "@endo/patterns": "npm:^1.9.1"
     "@metamask/auto-changelog": "npm:^6.2.1"
     "@metamask/eslint-config": "npm:^15.0.1"
     "@metamask/eslint-config-nodejs": "npm:^15.0.1"
@@ -3116,8 +3088,8 @@ __metadata:
     "@endo/errors": "npm:^1.3.1"
     "@endo/eventual-send": "npm:^1.5.0"
     "@endo/exo": "npm:^1.7.0"
-    "@endo/pass-style": "npm:^2.0.1"
-    "@endo/patterns": "npm:^2.1.0"
+    "@endo/pass-style": "npm:^1.8.2"
+    "@endo/patterns": "npm:^1.9.1"
     "@endo/promise-kit": "npm:^1.2.1"
     "@libp2p/autonat": "npm:3.0.14"
     "@libp2p/circuit-relay-v2": "npm:4.1.7"
@@ -3297,7 +3269,7 @@ __metadata:
     "@endo/errors": "npm:^1.3.1"
     "@endo/eventual-send": "npm:^1.5.0"
     "@endo/marshal": "npm:^1.10.0"
-    "@endo/pass-style": "npm:^2.0.1"
+    "@endo/pass-style": "npm:^1.8.2"
     "@endo/promise-kit": "npm:^1.2.1"
     "@libp2p/bootstrap": "npm:12.0.15"
     "@libp2p/circuit-relay-v2": "npm:4.1.7"
@@ -3584,7 +3556,7 @@ __metadata:
     "@arethetypeswrong/cli": "npm:^0.17.4"
     "@endo/eventual-send": "npm:^1.5.0"
     "@endo/exo": "npm:^1.7.0"
-    "@endo/patterns": "npm:^2.1.0"
+    "@endo/patterns": "npm:^1.9.1"
     "@metamask/auto-changelog": "npm:^6.2.1"
     "@metamask/eslint-config": "npm:^15.0.1"
     "@metamask/eslint-config-nodejs": "npm:^15.0.1"
@@ -3774,7 +3746,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@metamask/utils@npm:^11.0.1, @metamask/utils@npm:^11.1.0, @metamask/utils@npm:^11.11.0, @metamask/utils@npm:^11.12.0, @metamask/utils@npm:^11.12.1, @metamask/utils@npm:^11.4.0, @metamask/utils@npm:^11.4.2, @metamask/utils@npm:^11.9.0":
+"@metamask/utils@npm:^11.0.1, @metamask/utils@npm:^11.1.0, @metamask/utils@npm:^11.11.0, @metamask/utils@npm:^11.12.0, @metamask/utils@npm:^11.12.1, @metamask/utils@npm:^11.4.0, @metamask/utils@npm:^11.9.0":
   version: 11.12.1
   resolution: "@metamask/utils@npm:11.12.1"
   dependencies:
@@ -4241,7 +4213,7 @@ __metadata:
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.17.4"
     "@endo/eventual-send": "npm:^1.5.0"
-    "@endo/patterns": "npm:^2.1.0"
+    "@endo/patterns": "npm:^1.9.1"
     "@metamask/auto-changelog": "npm:^6.2.1"
     "@metamask/eslint-config": "npm:^15.0.1"
     "@metamask/eslint-config-nodejs": "npm:^15.0.1"
@@ -4528,7 +4500,7 @@ __metadata:
     "@endo/eventual-send": "npm:^1.5.0"
     "@endo/exo": "npm:^1.7.0"
     "@endo/marshal": "npm:^1.10.0"
-    "@endo/patterns": "npm:^2.1.0"
+    "@endo/patterns": "npm:^1.9.1"
     "@endo/promise-kit": "npm:^1.2.1"
     "@libp2p/crypto": "npm:5.1.14"
     "@libp2p/peer-id": "npm:6.0.5"
@@ -4715,7 +4687,7 @@ __metadata:
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.17.4"
     "@endo/eventual-send": "npm:^1.5.0"
-    "@endo/pass-style": "npm:^2.0.1"
+    "@endo/pass-style": "npm:^1.8.2"
     "@metamask/auto-changelog": "npm:^6.2.1"
     "@metamask/eslint-config": "npm:^15.0.1"
     "@metamask/eslint-config-nodejs": "npm:^15.0.1"
@@ -4822,7 +4794,7 @@ __metadata:
     "@arethetypeswrong/cli": "npm:^0.17.4"
     "@endo/eventual-send": "npm:^1.5.0"
     "@endo/exo": "npm:^1.7.0"
-    "@endo/patterns": "npm:^2.1.0"
+    "@endo/patterns": "npm:^1.9.1"
     "@endo/promise-kit": "npm:^1.2.1"
     "@endo/stream": "npm:^1.3.1"
     "@metamask/auto-changelog": "npm:^6.2.1"
