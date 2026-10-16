@@ -2434,6 +2434,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@metamask/cryptography@npm:^1.1.2":
+  version: 1.1.2
+  resolution: "@metamask/cryptography@npm:1.1.2"
+  checksum: 10/567ab4d7a27bbf1be129a120bd0d6d1dfc1677ddc36c2e81c259bebd7824b493fbb67127b585d57f94d98463daa7f7a43296db8ff2d9ed85f440ecc7e9c83dc9
+  languageName: node
+  linkType: hard
+
 "@metamask/delegation-abis@npm:^2.0.0":
   version: 2.0.0
   resolution: "@metamask/delegation-abis@npm:2.0.0"
@@ -2688,7 +2695,7 @@ __metadata:
     "@metamask/logger": "workspace:^"
     "@metamask/ocap-kernel": "workspace:^"
     "@metamask/rpc-errors": "npm:^7.0.3"
-    "@metamask/snaps-utils": "npm:^12.6.0"
+    "@metamask/snaps-utils": "npm:^12.6.1"
     "@metamask/streams": "workspace:^"
     "@metamask/superstruct": "npm:^3.4.1"
     "@metamask/utils": "npm:^12.0.0"
@@ -3314,7 +3321,7 @@ __metadata:
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/logger": "workspace:^"
     "@metamask/rpc-errors": "npm:^7.0.3"
-    "@metamask/snaps-execution-environments": "npm:^11.3.1"
+    "@metamask/snaps-execution-environments": "npm:^11.3.2"
     "@metamask/streams": "workspace:^"
     "@metamask/superstruct": "npm:^3.4.1"
     "@metamask/utils": "npm:^12.0.0"
@@ -3636,9 +3643,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@metamask/snaps-execution-environments@npm:^11.3.1":
-  version: 11.3.1
-  resolution: "@metamask/snaps-execution-environments@npm:11.3.1"
+"@metamask/snaps-execution-environments@npm:^11.3.2":
+  version: 11.3.2
+  resolution: "@metamask/snaps-execution-environments@npm:11.3.2"
   dependencies:
     "@metamask/json-rpc-engine": "npm:^10.5.0"
     "@metamask/object-multiplex": "npm:^2.1.0"
@@ -3646,11 +3653,11 @@ __metadata:
     "@metamask/providers": "npm:^22.1.1"
     "@metamask/rpc-errors": "npm:^7.0.3"
     "@metamask/snaps-sdk": "npm:^12.1.0"
-    "@metamask/snaps-utils": "npm:^12.6.0"
-    "@metamask/superstruct": "npm:^3.3.0"
-    "@metamask/utils": "npm:^11.11.0"
+    "@metamask/snaps-utils": "npm:^12.6.1"
+    "@metamask/superstruct": "npm:^3.4.1"
+    "@metamask/utils": "npm:^12.0.0"
     readable-stream: "npm:^3.6.2"
-  checksum: 10/3ee35804601777e1d9e8bd1eb3757a852b3c499c27c108577d9af5ed155a132ff800c31c855d7ac137ad027779de6a37a5a42f01a51b3fac41cd2265497b074b
+  checksum: 10/d668aa06c2e5463316539fd07e7f70b50329366aa5a889cf9831bf84a3bb2d6955969014b7c3b0645b5f97788f7246983775966d0c7c9b1ee1f4d9f5d6faedeb
   languageName: node
   linkType: hard
 
@@ -3666,7 +3673,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@metamask/snaps-sdk@npm:^12.0.1, @metamask/snaps-sdk@npm:^12.1.0":
+"@metamask/snaps-sdk@npm:^12.1.0":
   version: 12.1.0
   resolution: "@metamask/snaps-sdk@npm:12.1.0"
   dependencies:
@@ -3681,21 +3688,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@metamask/snaps-utils@npm:^12.6.0":
-  version: 12.6.0
-  resolution: "@metamask/snaps-utils@npm:12.6.0"
+"@metamask/snaps-utils@npm:^12.6.1":
+  version: 12.6.1
+  resolution: "@metamask/snaps-utils@npm:12.6.1"
   dependencies:
     "@babel/core": "npm:^7.23.2"
     "@babel/types": "npm:^7.23.0"
+    "@metamask/cryptography": "npm:^1.1.2"
     "@metamask/key-tree": "npm:^10.1.1"
     "@metamask/messenger": "npm:^2.0.0"
     "@metamask/permission-controller": "npm:^13.1.1"
     "@metamask/rpc-errors": "npm:^7.0.3"
     "@metamask/slip44": "npm:^4.5.0"
     "@metamask/snaps-registry": "npm:^4.0.0"
-    "@metamask/snaps-sdk": "npm:^12.0.1"
-    "@metamask/superstruct": "npm:^3.3.0"
-    "@metamask/utils": "npm:^11.11.0"
+    "@metamask/snaps-sdk": "npm:^12.1.0"
+    "@metamask/superstruct": "npm:^3.4.1"
+    "@metamask/utils": "npm:^12.0.0"
     "@scure/base": "npm:^1.1.1"
     chalk: "npm:^4.1.2"
     cron-parser: "npm:^4.5.0"
@@ -3706,9 +3714,9 @@ __metadata:
     marked: "npm:^12.0.1"
     rfdc: "npm:^1.3.0"
     semver: "npm:^7.5.4"
-    ses: "npm:^2.1.0"
+    ses: "npm:^2.3.0"
     validate-npm-package-name: "npm:^5.0.0"
-  checksum: 10/57dc98974b74bcd33a1dddf57835964fa03dd520659364c7779ee6fe7905e1d002b3a13318b51afd9d45b9b823f94c713a8b91c693c021c6a0c9dd579be81c9c
+  checksum: 10/16e60e90667976f4ccbaa1f654e10f404e210037cfcf5f8eb8e02fd877a7d32c9e95ceaae34679d9fc42de5ee62d929068c3e7f192ceeb4359c0a62d1dc34f87
   languageName: node
   linkType: hard
 
@@ -14857,7 +14865,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ses@npm:^2.0.0, ses@npm:^2.1.0, ses@npm:^2.3.0":
+"ses@npm:^2.0.0, ses@npm:^2.3.0":
   version: 2.3.0
   resolution: "ses@npm:2.3.0"
   dependencies:

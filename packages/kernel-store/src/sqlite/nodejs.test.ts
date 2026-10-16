@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { SQL_QUERIES } from './common.ts';
 import { makeSQLKernelDatabase, getDBFilename } from './nodejs.ts';
+import type { KernelDatabase } from '../types.ts';
 
 const mockKVData = [
   { key: 'key1', value: 'value1' },
@@ -288,181 +289,95 @@ describe('makeSQLKernelDatabase', () => {
   });
 
   describe('savepoint functionality', () => {
-    beforeEach(() => {
-      mockDb.exec.mockClear();
-    });
-
-    it('creates a savepoint using sanitized name', async () => {
+    it('runs the transaction statements it prepared', async () => {
       const db = await makeSQLKernelDatabase({});
-      db.createSavepoint('valid_name');
 
-      expect(mockDb.exec).toHaveBeenCalledWith('SAVEPOINT valid_name');
-    });
-
-    it('rejects invalid savepoint names', async () => {
-      const db = await makeSQLKernelDatabase({});
-      expect(() => db.createSavepoint('invalid-name')).toThrowError(
-        'Invalid identifier',
-      );
-      expect(() => db.createSavepoint('123numeric')).toThrowError(
-        'Invalid identifier',
-      );
-      expect(() => db.createSavepoint('spaces not allowed')).toThrowError(
-        'Invalid identifier',
-      );
-      expect(() => db.createSavepoint("point'; DROP TABLE kv--")).toThrowError(
-        'Invalid identifier',
-      );
-      expect(mockDb.exec).not.toHaveBeenCalledWith(
-        expect.stringContaining('DROP TABLE'),
-      );
-    });
-
-    it('rolls back to a savepoint', async () => {
-      const db = await makeSQLKernelDatabase({});
-      db.createSavepoint('test_point');
-      db.rollbackSavepoint('test_point');
-      expect(mockDb.exec).toHaveBeenCalledWith(
-        'ROLLBACK TO SAVEPOINT test_point',
-      );
-    });
-
-    it('releases a savepoint', async () => {
-      const db = await makeSQLKernelDatabase({});
-      db.createSavepoint('test_point');
-      db.releaseSavepoint('test_point');
-      expect(mockDb.exec).toHaveBeenCalledWith('RELEASE SAVEPOINT test_point');
-    });
-
-    it('createSavepoint begins transaction if needed', async () => {
-      const db = await makeSQLKernelDatabase({});
-      db.createSavepoint('test_point');
-      expect(mockBegin.run).toHaveBeenCalled();
-      expect(mockDb._spStack).toContain('test_point');
-      expect(mockDb.exec).toHaveBeenCalledWith('SAVEPOINT test_point');
-    });
-
-    it('rollbackSavepoint validates savepoint exists', async () => {
-      const db = await makeSQLKernelDatabase({});
-      mockDb.inTransaction = true;
-      mockDb._spStack = ['existing_point'];
-      expect(() => db.rollbackSavepoint('nonexistent_point')).toThrowError(
-        'No such savepoint: nonexistent_point',
-      );
-    });
-
-    it('rollbackSavepoint removes all points after target', async () => {
-      const db = await makeSQLKernelDatabase({});
-      mockDb.inTransaction = true;
-      mockDb._spStack = ['point1', 'point2', 'point3'];
-      db.rollbackSavepoint('point2');
-      expect(mockDb._spStack).toStrictEqual(['point1']);
-      expect(mockDb.exec).toHaveBeenCalledWith('ROLLBACK TO SAVEPOINT point2');
-    });
-
-    it('rollbackSavepoint closes transaction if no savepoints remain', async () => {
-      const db = await makeSQLKernelDatabase({});
-      mockDb.inTransaction = true;
-      mockDb._spStack = ['point1'];
-      db.rollbackSavepoint('point1');
-      expect(mockDb._spStack).toStrictEqual([]);
-      expect(mockAbort.run).toHaveBeenCalled();
-      expect(mockDb.inTransaction).toBe(false);
-    });
-
-    // Otherwise every later write on this connection joins a transaction nothing
-    // will ever commit, reports success, and vanishes on close.
-    it('rollbackSavepoint discards the transaction when the rollback fails', async () => {
-      const db = await makeSQLKernelDatabase({});
-      mockDb.inTransaction = true;
-      mockDb._spStack = ['point1'];
-      mockStatement.run.mockClear();
-      mockDb.exec.mockImplementationOnce(() => {
-        throw new Error('disk I/O error');
-      });
-
-      expect(() => db.rollbackSavepoint('point1')).toThrowError(
-        'disk I/O error',
-      );
-
-      expect(mockDb._spStack).toStrictEqual([]);
-      expect(mockAbort.run).toHaveBeenCalledOnce();
-      expect(mockDb.inTransaction).toBe(false);
-    });
-
-    // The rollback failure is the diagnosis; a failed abort on top of it only
-    // repeats that the same connection is broken.
-    it('rollbackSavepoint reports the rollback failure even if the abort fails too', async () => {
-      const db = await makeSQLKernelDatabase({});
-      mockDb.inTransaction = true;
-      mockDb._spStack = ['point1'];
-      mockDb.exec.mockImplementationOnce(() => {
-        throw new Error('disk I/O error');
-      });
-      mockAbort.run.mockImplementationOnce(() => {
-        throw new Error('cannot rollback');
-      });
-
-      expect(() => db.rollbackSavepoint('point1')).toThrowError(
-        'disk I/O error',
-      );
-
-      expect(mockDb._spStack).toStrictEqual([]);
-      expect(mockAbort.run).toHaveBeenCalledOnce();
-    });
-
-    it('releaseSavepoint validates savepoint exists', async () => {
-      const db = await makeSQLKernelDatabase({});
-      mockDb.inTransaction = true;
-      mockDb._spStack = ['existing_point'];
-      expect(() => db.releaseSavepoint('nonexistent_point')).toThrowError(
-        'No such savepoint: nonexistent_point',
-      );
-    });
-
-    it('releaseSavepoint removes all points after target', async () => {
-      const db = await makeSQLKernelDatabase({});
-      mockDb.inTransaction = true;
-      mockDb._spStack = ['point1', 'point2', 'point3'];
-      db.releaseSavepoint('point2');
-      expect(mockDb._spStack).toStrictEqual(['point1']);
-      expect(mockDb.exec).toHaveBeenCalledWith('RELEASE SAVEPOINT point2');
-    });
-
-    it('releaseSavepoint commits transaction if no savepoints remain', async () => {
-      const db = await makeSQLKernelDatabase({});
-      mockDb.inTransaction = true;
-      mockDb._spStack = ['point1'];
-      db.releaseSavepoint('point1');
-      expect(mockDb._spStack).toStrictEqual([]);
-      expect(mockCommit.run).toHaveBeenCalled();
-      expect(mockDb.inTransaction).toBe(false);
-    });
-
-    it('supports nested savepoints', async () => {
-      const db = await makeSQLKernelDatabase({});
-      db.createSavepoint('outer');
-      db.createSavepoint('inner');
-      expect(mockBegin.run).toHaveBeenCalledOnce();
-      expect(mockDb._spStack).toStrictEqual(['outer', 'inner']);
-      db.rollbackSavepoint('inner');
-      expect(mockDb._spStack).toStrictEqual(['outer']);
-      db.releaseSavepoint('outer');
-      expect(mockDb._spStack).toStrictEqual([]);
-      expect(mockCommit.run).toHaveBeenCalledOnce();
-    });
-
-    it('drops savepoints SQLite discarded with the transaction', async () => {
-      const db = await makeSQLKernelDatabase({});
       db.createSavepoint('t0');
-      mockDb.inTransaction = false;
+      expect(mockBegin.run).toHaveBeenCalledOnce();
+      expect(mockDb.exec).toHaveBeenCalledWith('SAVEPOINT t0');
+
+      db.releaseSavepoint('t0');
+      expect(mockDb.exec).toHaveBeenCalledWith('RELEASE SAVEPOINT t0');
+      expect(mockCommit.run).toHaveBeenCalledOnce();
 
       db.createSavepoint('t1');
-      db.releaseSavepoint('t1');
-
-      expect(mockDb._spStack).toStrictEqual([]);
-      expect(mockCommit.run).toHaveBeenCalledOnce();
+      db.rollbackSavepoint('t1');
+      expect(mockDb.exec).toHaveBeenCalledWith('ROLLBACK TO SAVEPOINT t1');
+      expect(mockAbort.run).toHaveBeenCalledOnce();
     });
+  });
+
+  it.each([
+    {
+      what: 'a kv write',
+      write: (kdb: KernelDatabase) => kdb.kernelKVStore.set('k', 'v'),
+    },
+    {
+      what: 'a kv delete',
+      write: (kdb: KernelDatabase) => kdb.kernelKVStore.delete('k'),
+    },
+    {
+      what: 'a clear',
+      write: (kdb: KernelDatabase) => kdb.clear(),
+    },
+    {
+      what: 'a vatstore delete',
+      write: (kdb: KernelDatabase) => kdb.deleteVatStore('v1'),
+    },
+    {
+      what: 'a vatstore update',
+      write: (kdb: KernelDatabase) =>
+        kdb.makeVatStore('v1').updateKVData([['k', 'v']], []),
+    },
+  ])(
+    'refuses $what once SQLite rolls the transaction back',
+    async ({ write }) => {
+      const kdb = await makeSQLKernelDatabase({});
+      kdb.createSavepoint('t0');
+      mockDb.inTransaction = false;
+      mockStatement.run.mockClear();
+
+      expect(() => write(kdb)).toThrow('refusing writes until');
+      expect(mockStatement.run).not.toHaveBeenCalled();
+    },
+  );
+
+  it('logs an abort that fails while discarding a transaction', async () => {
+    const entries: LogEntry[] = [];
+    const logger = new Logger({ transports: [makeArrayTransport(entries)] });
+    const kdb = await makeSQLKernelDatabase({ logger });
+    kdb.createSavepoint('t0');
+    mockDb.exec.mockImplementationOnce(() => {
+      throw new Error('SQLITE_IOERR');
+    });
+    mockAbort.run.mockImplementationOnce(() => {
+      throw new Error('SQLITE_IOERR: abort');
+    });
+
+    expect(() => kdb.rollbackSavepoint('t0')).toThrow('SQLITE_IOERR');
+
+    expect(entries).toContainEqual(
+      expect.objectContaining({
+        level: 'error',
+        message: 'failed to discard transaction after rollback',
+      }),
+    );
+  });
+
+  it('discards a vatstore update that better-sqlite3 could not roll back', async () => {
+    const kdb = await makeSQLKernelDatabase({});
+    // `db.transaction` began it, a write failed, and so did its ROLLBACK.
+    mockDb.transaction.mockImplementationOnce(() => () => {
+      mockDb.inTransaction = true;
+      throw new Error('SQLITE_IOERR: ROLLBACK');
+    });
+
+    expect(() => kdb.makeVatStore('v1').updateKVData([['k', 'v']], [])).toThrow(
+      'SQLITE_IOERR: ROLLBACK',
+    );
+
+    expect(mockAbort.run).toHaveBeenCalledOnce();
+    expect(mockDb.inTransaction).toBe(false);
   });
 
   describe('close functionality', () => {

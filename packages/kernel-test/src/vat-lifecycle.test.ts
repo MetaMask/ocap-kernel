@@ -3,7 +3,7 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { makeKernelStore } from '@metamask/ocap-kernel';
 import type { VatId } from '@metamask/ocap-kernel';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 
 import {
   extractTestLogs,
@@ -246,7 +246,7 @@ describe('Vat Lifecycle', { timeout: 30_000 }, () => {
     await waitUntilQuiescent();
     const vatId = kernel.getVats()[0]?.id as VatId;
 
-    // The kernel cannot see a killed worker, only a bad frame from a live one.
+    // A live worker sending a frame the kernel cannot read.
     platformServices.workers.get(vatId)?.worker.emit('message', NaN);
     await waitUntilQuiescent();
     kernel.collectGarbage();
@@ -255,5 +255,60 @@ describe('Vat Lifecycle', { timeout: 30_000 }, () => {
     expect(kernel.getVats()).toStrictEqual([]);
     expect(kernelStore.isVatActive(vatId)).toBe(false);
     expect([...kernelStore.getAllVatRecords()]).toStrictEqual([]);
+  });
+
+  it('retires a vat whose worker dies, and keeps serving the rest', async () => {
+    const kernelDatabase = await makeSQLKernelDatabase({
+      dbFilename: ':memory:',
+    });
+    const platformServices = new NodejsPlatformServices({
+      logger: logger.logger.subLogger({ tags: ['vat-worker-manager'] }),
+    });
+    const kernel = await makeKernel(
+      kernelDatabase,
+      true,
+      logger.logger.subLogger({ tags: ['test'] }),
+      undefined,
+      platformServices,
+    );
+    const kernelStore = makeKernelStore(kernelDatabase);
+
+    await runTestVats(kernel, {
+      bootstrap: 'main',
+      vats: {
+        main: {
+          bundleSpec: getBundleSpec('persistence-counter-vat'),
+          parameters: { name: 'Doomed' },
+        },
+        survivor: {
+          bundleSpec: getBundleSpec('persistence-counter-vat'),
+          parameters: { name: 'Survivor' },
+        },
+      },
+    });
+    await waitUntilQuiescent();
+    const vats = kernel.getVats();
+    const doomedId = vats.find(
+      ({ config }) => config.parameters?.name === 'Doomed',
+    )?.id as VatId;
+    const survivorId = vats.find(
+      ({ config }) => config.parameters?.name === 'Survivor',
+    )?.id as VatId;
+    expect(doomedId).toBeDefined();
+    const survivorRoot = kernelStore.getRootObject(survivorId) as string;
+
+    // The thread alone, so only the `exit` listener can fail the channel.
+    await platformServices.workers.get(doomedId)?.worker.terminate();
+
+    await vi.waitFor(
+      () => {
+        expect(kernel.getVatIds()).not.toContain(doomedId);
+        expect(kernelStore.isVatActive(doomedId)).toBe(false);
+      },
+      { timeout: 5_000 },
+    );
+    expect(await runResume(kernel, survivorRoot)).toBe(
+      'Counter incremented to: 2',
+    );
   });
 });
