@@ -212,8 +212,10 @@ export class KernelQueue {
               this.#kernelStore.rollbackCrank('delivery');
             } catch (rollbackError) {
               // The original failure stays the `cause`, since that is the root
-              // cause an operator needs; the rollback failure is named here.
-              throw new Error(
+              // cause an operator needs. `errors` keeps the rollback failure's
+              // own chain, such as the write SQLite rolled the crank back on.
+              throw new AggregateError(
+                [error, rollbackError],
                 `Run loop died and its crank could not be rolled back: ${String(rollbackError)}`,
                 { cause: error },
               );
@@ -416,7 +418,8 @@ export class KernelQueue {
       if (!crankFailure) {
         throw endCrankError;
       }
-      throw new Error(
+      throw new AggregateError(
+        [crankFailure.error, endCrankError],
         `Run loop died and its crank could not be ended: ${String(endCrankError)}`,
         { cause: crankFailure.error },
       );
