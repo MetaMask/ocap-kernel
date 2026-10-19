@@ -26,9 +26,10 @@ import type {
 import { Fail } from './utils/assert.ts';
 
 /**
- * The most arrivals held for one remote at once: as many as a peer keeps
- * unacknowledged, so a refusal takes a peer that gave up on a window of
- * messages and started another while this kernel still holds the first.
+ * The most arrivals held for one remote at once, matching the window a peer
+ * keeps unacknowledged (`MAX_PENDING_MESSAGES` in `RemoteHandle.ts`). A peer
+ * goes past it only after giving up on a window this kernel still holds, or
+ * with `redeemURL` replies, which are exempt from that window.
  */
 const MAX_ARRIVALS_PER_REMOTE = 200;
 
@@ -120,7 +121,7 @@ export class KernelQueue {
     | RunQueueItemPeerIncarnation
   )[] = [];
 
-  /** Whether the last crank took an arrival, so the run queue goes next. */
+  /** Whether the last pick between arrivals and the run queue was an arrival. */
   #tookArrivalLast = false;
 
   /**
@@ -216,8 +217,10 @@ export class KernelQueue {
               this.#kernelStore.rollbackCrank('delivery');
             } catch (rollbackError) {
               // The original failure stays the `cause`, since that is the root
-              // cause an operator needs; the rollback failure is named here.
-              throw new Error(
+              // cause an operator needs. `errors` keeps the rollback failure's
+              // own chain, such as the write SQLite rolled the crank back on.
+              throw new AggregateError(
+                [error, rollbackError],
                 `Run loop died and its crank could not be rolled back: ${String(rollbackError)}`,
                 { cause: error },
               );
@@ -357,10 +360,10 @@ export class KernelQueue {
   }
 
   /**
-   * Get the next item from the kernel run queue.
-   * **ATTN:** Mutates the kernel store if the queue is not empty.
+   * Take the next item for the run loop.
+   * **ATTN:** Removes it from the kernel store or from the arrivals.
    *
-   * @returns The next item in the run queue, or undefined if the queue is empty.
+   * @returns The next item, or undefined if nothing is waiting.
    */
   #getNextRunQueueItem(): RunLoopItem | undefined {
     const gcAction = processGCActionSet(this.#kernelStore);
@@ -375,8 +378,7 @@ export class KernelQueue {
 
     // Arrivals and the run queue take turns, so a peer that sends faster than
     // cranks finish cannot hold up the kernel's own work.
-    const arrivalFirst =
-      !this.#tookArrivalLast || this.#kernelStore.runQueueLength() === 0;
+    const arrivalFirst = !this.#tookArrivalLast;
     this.#tookArrivalLast = false;
     if (arrivalFirst) {
       const arrival = this.#takeArrival();
@@ -423,7 +425,8 @@ export class KernelQueue {
       if (!crankFailure) {
         throw endCrankError;
       }
-      throw new Error(
+      throw new AggregateError(
+        [crankFailure.error, endCrankError],
         `Run loop died and its crank could not be ended: ${String(endCrankError)}`,
         { cause: crankFailure.error },
       );
@@ -654,51 +657,68 @@ export class KernelQueue {
    * Accept a message from a remote peer, for the run loop to take delivery of
    * in a crank of its own.
    *
-   * Held in memory rather than written to the run queue: a message arrives
-   * whenever the transport says so, which is usually while a crank is open,
-   * and writing it there would put it inside that crank's transaction — an
-   * abort would swallow it, which is the defect this whole shape exists to
-   * remove. Nothing is lost by not persisting it, because the peer is not
-   * acknowledged until the crank that takes it commits, so an arrival this
-   * kernel forgets is one the peer sends again.
+   * Held in memory, not on the run queue: a message can arrive while a crank
+   * is open, and written there it would join that crank's transaction and
+   * vanish with its abort. The peer is acknowledged only once the crank that
+   * takes the message commits, so one lost in a crash is resent.
    *
-   * A copy of an arrival already waiting is not held again. A peer
-   * retransmits every message it has unacknowledged on a timeout, so during
-   * a long crank its copies would otherwise fill the remote's share and turn
-   * away a message it has yet to send. Acknowledgements are cumulative, so
-   * the next one taken would then retire the refused one at the peer.
-   * Copies are looked for only behind the last incarnation change waiting,
-   * since a peer numbers a new incarnation's messages from 1 again.
+   * A peer retransmits everything unacknowledged on a timeout, and its copies
+   * would fill the remote's share and turn away messages it has yet to send.
+   * So a copy of a message waiting, or of one a committed crank has taken, is
+   * not held, and a copy held before its original committed takes no slot. A
+   * refused message is lost if a later one is taken first, since that one's
+   * acknowledgement covers it. Behind a change of the peer's incarnation still
+   * waiting, its messages are the new incarnation's, numbered from 1 again, and
+   * only they are compared.
    *
    * @param options - Options bag.
    * @param options.remoteId - The remote the message came from.
+   * @param options.peerId - The peer that sent it.
    * @param options.seq - The message's sequence number.
    * @param options.message - The message, as it arrived.
+   * @param options.highestReceivedSeq - The highest sequence number from this
+   * remote that a committed crank has taken.
    * @returns False if the remote already has `MAX_ARRIVALS_PER_REMOTE`
-   * arrivals waiting and this one was refused.
+   * uncommitted arrivals waiting and this one was refused.
    */
   acceptRemoteInbound({
     remoteId,
+    peerId,
     seq,
     message,
+    highestReceivedSeq,
   }: {
     remoteId: RemoteId;
+    peerId: string;
     seq: number;
     message: string;
+    highestReceivedSeq: number;
   }): boolean {
     this.assertRunLoopAlive('accept a remote message');
-    const held = this.#arrivedFromRemotes.filter(
-      (item) => item.type === 'remoteInbound' && item.remoteId === remoteId,
-    ).length;
-    if (this.#holdsSince(remoteId, seq)) {
+    const since = this.#afterIncarnationChange(peerId);
+    const floor = since > 0 ? 0 : highestReceivedSeq;
+    if (seq <= floor) {
       return true;
     }
-    if (held >= MAX_ARRIVALS_PER_REMOTE) {
+    const held = this.#arrivedFromRemotes
+      .slice(since)
+      .filter(
+        (item): item is RunQueueItemRemoteInbound =>
+          item.type === 'remoteInbound' &&
+          item.remoteId === remoteId &&
+          item.peerId === peerId &&
+          item.seq > floor,
+      );
+    if (held.some((item) => item.seq === seq)) {
+      return true;
+    }
+    if (held.length >= MAX_ARRIVALS_PER_REMOTE) {
       return false;
     }
     this.#arrivedFromRemotes.push({
       type: 'remoteInbound',
       remoteId,
+      peerId,
       seq,
       message,
     });
@@ -707,26 +727,20 @@ export class KernelQueue {
   }
 
   /**
-   * Whether an arrival with this seq is already waiting for a remote, behind
-   * every incarnation change waiting. This queue does not know which peer a
-   * remote is, so it stops at the last change of any peer; a copy held ahead
-   * of one is held twice, and takes a slot it did not need.
+   * Find where a peer's arrivals from its current incarnation begin.
    *
-   * @param remoteId - The remote the message came from.
-   * @param seq - The message's sequence number.
-   * @returns True if a copy is waiting.
+   * @param peerId - The peer.
+   * @returns The index just past the last change of its incarnation waiting,
+   * or 0 if none is waiting.
    */
-  #holdsSince(remoteId: RemoteId, seq: number): boolean {
-    for (let index = this.#arrivedFromRemotes.length - 1; index >= 0; index--) {
-      const item = this.#arrivedFromRemotes[index];
-      if (item?.type === 'peerIncarnation') {
-        return false;
-      }
-      if (item?.remoteId === remoteId && item.seq === seq) {
-        return true;
+  #afterIncarnationChange(peerId: string): number {
+    for (let index = this.#arrivedFromRemotes.length; index > 0; index -= 1) {
+      const item = this.#arrivedFromRemotes[index - 1];
+      if (item?.type === 'peerIncarnation' && item.peerId === peerId) {
+        return index;
       }
     }
-    return false;
+    return 0;
   }
 
   /**

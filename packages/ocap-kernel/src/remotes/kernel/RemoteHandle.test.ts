@@ -1,5 +1,5 @@
 import type { VatOneResolution } from '@agoric/swingset-liveslots';
-import type { Logger } from '@metamask/logger';
+import { Logger } from '@metamask/logger';
 import { makeAbortSignalMock } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -53,14 +53,13 @@ async function receiveAndRunCrank(
   remote: RemoteHandle,
   message: string,
 ): Promise<void> {
+  const { calls } = vi.mocked(mockKernelQueue.acceptRemoteInbound).mock;
+  const queuedBefore = calls.length;
   remote.receiveFromPeer(message);
-  const queued = vi
-    .mocked(mockKernelQueue.acceptRemoteInbound)
-    .mock.calls.at(-1);
-  if (!queued) {
+  if (calls.length === queuedBefore) {
     return;
   }
-  const result = await remote.deliverInbound(queued[0].message);
+  const result = await remote.deliverInbound(message);
   await result.afterCommit?.();
 }
 
@@ -351,9 +350,6 @@ describe('RemoteHandle', () => {
       });
     });
 
-    // The run loop is what drains an arrival, so a dead one would leave the
-    // peer acknowledged by a black hole. The refusal is the queue's, at the
-    // point the message is accepted rather than when its crank comes up.
     it('lets the queue refuse an arrival for a dead run loop', () => {
       const remote = makeRemote();
       const failure = new Error('Kernel run loop died; cannot accept it');
@@ -370,6 +366,38 @@ describe('RemoteHandle', () => {
           }),
         ),
       ).toThrow(failure);
+    });
+
+    it('hands the queue the sender and the highest seq committed', async () => {
+      const remote = makeRemote();
+      const notify = (seq: number): string =>
+        JSON.stringify({ seq, method: 'deliver', params: ['notify', []] });
+      await receiveAndRunCrank(remote, notify(1));
+
+      remote.receiveFromPeer(notify(2));
+
+      expect(mockKernelQueue.acceptRemoteInbound).toHaveBeenLastCalledWith({
+        remoteId: mockRemoteId,
+        peerId: mockRemotePeerId,
+        seq: 2,
+        message: notify(2),
+        highestReceivedSeq: 1,
+      });
+    });
+
+    it('warns of an arrival the queue refuses', () => {
+      const logger = new Logger('test');
+      const warn = vi.spyOn(logger, 'warn');
+      const remote = makeRemote(logger);
+      vi.mocked(mockKernelQueue.acceptRemoteInbound).mockReturnValueOnce(false);
+
+      remote.receiveFromPeer(
+        JSON.stringify({ seq: 7, method: 'deliver', params: ['notify', []] }),
+      );
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('refused message seq=7'),
+      );
     });
 
     it('does not send BOYD back when remotely triggered (ping-pong prevention)', async () => {
@@ -794,7 +822,6 @@ describe('RemoteHandle', () => {
     expect(sentMessage.method).toBe('redeemURLReply');
     expect(sentMessage.params).toStrictEqual([true, mockReplyKey, replyRRef]);
     expect(sentMessage.seq).toBe(1); // First outgoing message gets seq 1
-    // Reply is sent after commit, so ACK can be piggybacked
     expect(sentMessage.ack).toBe(1);
     expect(
       mockKernelStore.translateRefKtoE(remote.remoteId, replyKRef, false),
@@ -836,11 +863,10 @@ describe('RemoteHandle', () => {
       errorMessage,
     ]);
     expect(sentMessage.seq).toBe(1); // First outgoing message gets seq 1
-    // Reply is sent after commit, so ACK can be piggybacked
     expect(sentMessage.ack).toBe(1);
   });
 
-  it('handleRemoteMessage rejects bogus message type', async () => {
+  it('rejects a bogus message type', async () => {
     const remote = makeRemote();
     // Include seq for incoming message
     const request = JSON.stringify({
@@ -1251,8 +1277,6 @@ describe('RemoteHandle', () => {
 
       await receiveAndRunCrank(remote, standaloneAck);
 
-      // An acknowledgement is not a delivery: it is handled where it arrives
-      // and never reaches the run queue.
       expect(mockKernelQueue.acceptRemoteInbound).not.toHaveBeenCalled();
     });
 
@@ -1310,9 +1334,6 @@ describe('RemoteHandle', () => {
       vi.mocked(mockRemoteComms.sendRemoteMessage).mockClear();
       sendAck = undefined;
 
-      // The peer retransmits, which is it telling us it never got our
-      // acknowledgement. Arming the timer only for messages the crank accepts
-      // would leave it retransmitting to silence until it tore the link down.
       await receiveAndRunCrank(remote, message);
       sendAck?.();
 
@@ -1334,8 +1355,6 @@ describe('RemoteHandle', () => {
         }),
       );
 
-      // A piggybacked ack dropped here leaves the kernel retransmitting a
-      // message the peer has already taken.
       expect(
         mockKernelStore.getPendingMessage(mockRemoteId, 1),
       ).toBeUndefined();

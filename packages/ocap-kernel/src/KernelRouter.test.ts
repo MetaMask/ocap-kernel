@@ -14,6 +14,7 @@ import type {
   RunQueueItemNotify,
   RunQueueItemGCAction,
   RunQueueItemBringOutYourDead,
+  RunQueueItemRemoteInbound,
   EndpointId,
   GCRunQueueType,
   CrankResult,
@@ -855,62 +856,84 @@ describe('KernelRouter', () => {
     });
 
     describe('remoteInbound', () => {
-      it('takes delivery of an inbound message on the remote it names', async () => {
-        const remoteId = 'r1' as RemoteId;
-        const mockCrankResult: CrankResult = { didDelivery: remoteId };
-        const deliverInbound = vi.fn().mockResolvedValue(mockCrankResult);
+      const remoteId = 'r1' as RemoteId;
+
+      /**
+       * An inbound message from the peer `peer1`.
+       *
+       * @param message - The message, as it arrived.
+       * @returns The run loop item.
+       */
+      const inbound = (message = '{"seq":1}'): RunQueueItemRemoteInbound => ({
+        type: 'remoteInbound',
+        remoteId,
+        peerId: 'peer1',
+        seq: 1,
+        message,
+      });
+
+      /**
+       * Have `getEndpoint` return a remote for a peer.
+       *
+       * @param options - Options bag.
+       * @param options.deliverInbound - Its `deliverInbound`.
+       * @param options.peerId - The peer it is the remote for.
+       */
+      const routeToRemote = ({
+        deliverInbound,
+        peerId = 'peer1',
+      }: {
+        deliverInbound: MockInstance;
+        peerId?: string;
+      }): void => {
         vi.mocked(getEndpoint).mockReturnValue({
           ...endpointHandle,
+          peerId,
           deliverInbound,
         } as unknown as EndpointHandle);
+      };
 
-        const result = await kernelRouter.deliver({
-          type: 'remoteInbound',
-          remoteId,
-          seq: 1,
-          message: '{"seq":1}',
-        });
+      it('takes delivery of an inbound message on the remote it names', async () => {
+        const mockCrankResult: CrankResult = { didDelivery: remoteId };
+        const deliverInbound = vi.fn().mockResolvedValue(mockCrankResult);
+        routeToRemote({ deliverInbound });
+
+        const result = await kernelRouter.deliver(inbound());
 
         expect(getEndpoint).toHaveBeenCalledWith(remoteId);
         expect(deliverInbound).toHaveBeenCalledWith('{"seq":1}');
         expect(result).toStrictEqual(mockCrankResult);
       });
 
-      // Throwing would escape the crank and kill the run loop.
       it('drops a message for a remote that is gone', async () => {
-        const remoteId = 'r1' as RemoteId;
         vi.mocked(getEndpoint).mockImplementation(() => {
           throw Error(`unknown remote ${remoteId}`);
         });
 
-        const result = await kernelRouter.deliver({
-          type: 'remoteInbound',
-          remoteId,
-          seq: 1,
-          message: '{"seq":1}',
-        });
+        const result = await kernelRouter.deliver(inbound());
 
         expect(result).toStrictEqual({ didDelivery: remoteId });
       });
 
-      // What a peer sends is a peer's to get wrong, and the payload is only
-      // checked when its crank comes up. Throwing would kill the run loop.
+      it('drops a message held under a remote ID that has gone to another peer', async () => {
+        const deliverInbound = vi.fn();
+        routeToRemote({ deliverInbound, peerId: 'peer2' });
+
+        const result = await kernelRouter.deliver(inbound());
+
+        expect(deliverInbound).not.toHaveBeenCalled();
+        expect(result).toStrictEqual({ didDelivery: remoteId });
+      });
+
       it('discards a message it cannot deliver rather than dying of it', async () => {
-        const remoteId = 'r1' as RemoteId;
         const deliverInbound = vi
           .fn()
           .mockRejectedValue(Error('unknown remote message type bogus'));
-        vi.mocked(getEndpoint).mockReturnValue({
-          ...endpointHandle,
-          deliverInbound,
-        } as unknown as EndpointHandle);
+        routeToRemote({ deliverInbound });
 
-        const result = await kernelRouter.deliver({
-          type: 'remoteInbound',
-          remoteId,
-          seq: 1,
-          message: '{"seq":1,"method":"bogus"}',
-        });
+        const result = await kernelRouter.deliver(
+          inbound('{"seq":1,"method":"bogus"}'),
+        );
 
         expect(result).toStrictEqual({ didDelivery: remoteId, abort: true });
       });

@@ -402,6 +402,7 @@ export type RunQueueItemTerminateVat = Infer<
 export type RunQueueItemRemoteInbound = {
   type: 'remoteInbound';
   remoteId: RemoteId;
+  peerId: string;
   seq: number;
   message: string;
 };
@@ -1002,8 +1003,9 @@ export type EndpointHandle = {
   deliverBringOutYourDead: () => Promise<CrankResult>;
 };
 
-/** An endpoint that peers send messages to, as opposed to a vat. */
+/** A remote's endpoint, which also takes delivery of what its peer sends. */
 export type RemoteEndpointHandle = EndpointHandle & {
+  peerId: string;
   deliverInbound: (message: string) => Promise<CrankResult>;
 };
 

@@ -489,6 +489,7 @@ describe('KernelQueue', () => {
         message:
           'Run loop died and its crank could not be rolled back: Error: database is gone',
         cause: crankError,
+        errors: [crankError, rollbackError],
       });
       expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
         state: 'failed',
@@ -773,45 +774,140 @@ describe('KernelQueue', () => {
   });
 
   describe('remote arrivals', () => {
-    // Written to the run queue instead, the arrival would land in whatever
-    // crank happens to be open and be swallowed whole by an abort.
-    it('holds an arrival out of the run queue and hands it to a crank', async () => {
+    /**
+     * Hand the queue a message from a remote.
+     *
+     * @param options - Options bag.
+     * @param options.seq - The message's sequence number.
+     * @param options.remoteId - The remote it came from.
+     * @param options.peerId - The peer that sent it.
+     * @param options.highestReceivedSeq - What a committed crank has taken from
+     * that remote.
+     * @returns Whether the queue held it.
+     */
+    const arrive = ({
+      seq,
+      remoteId = 'r1',
+      peerId = `peer-${remoteId}`,
+      highestReceivedSeq = 0,
+    }: {
+      seq: number;
+      remoteId?: string;
+      peerId?: string;
+      highestReceivedSeq?: number;
+    }): boolean =>
       kernelQueue.acceptRemoteInbound({
-        remoteId: 'r1' as RemoteId,
-        seq: 1,
-        message: '{"seq":1}',
+        remoteId: remoteId as RemoteId,
+        peerId,
+        seq,
+        message: `{"seq":${seq}}`,
+        highestReceivedSeq,
       });
-      expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
 
-      const deliver = vi.fn().mockImplementation(() => {
-        throw new Error(STOP_RUN_LOOP);
-      });
-      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
-
-      expect(deliver).toHaveBeenCalledWith({
-        type: 'remoteInbound',
-        remoteId: 'r1',
-        seq: 1,
-        message: '{"seq":1}',
-      });
+    /**
+     * The run loop item an {@link arrive} call becomes.
+     *
+     * @param seq - The message's sequence number.
+     * @param remoteId - The remote it came from.
+     * @returns The item.
+     */
+    const arrival = (seq: number, remoteId = 'r1'): RunLoopItem => ({
+      type: 'remoteInbound',
+      remoteId: remoteId as RemoteId,
+      peerId: `peer-${remoteId}`,
+      seq,
+      message: `{"seq":${seq}}`,
     });
 
-    // A parked run loop with work waiting is a permanent wedge, and an arrival
-    // is the one kind of work that does not go through `#enqueueRun`.
+    /**
+     * Run the loop until it has delivered `count` items.
+     *
+     * @param count - How many to deliver before stopping the loop.
+     * @returns The items, in the order delivered.
+     */
+    const deliverItems = async (count: number): Promise<RunLoopItem[]> => {
+      const delivered: RunLoopItem[] = [];
+      const deliver = vi.fn().mockImplementation(async (item: RunLoopItem) => {
+        delivered.push(item);
+        if (delivered.length === count) {
+          throw new Error(STOP_RUN_LOOP);
+        }
+        return {};
+      });
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
+      return delivered;
+    };
+
+    it('holds an arrival out of the run queue and hands it to a crank', async () => {
+      arrive({ seq: 1 });
+      expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
+
+      expect(await deliverItems(1)).toStrictEqual([arrival(1)]);
+    });
+
+    it('refuses an arrival once the run loop has died', async () => {
+      await killRunLoop(new Error('dead'));
+
+      expect(() => arrive({ seq: 1 })).toThrow('Kernel run loop died');
+    });
+
+    it('refuses an incarnation change once the run loop has died', async () => {
+      await killRunLoop(new Error('dead'));
+
+      expect(() =>
+        kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B'),
+      ).toThrow('Kernel run loop died');
+    });
+
+    it("keeps a peer's messages and its incarnation change in the order they arrived", async () => {
+      arrive({ seq: 47 });
+      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
+      arrive({ seq: 1, highestReceivedSeq: 47 });
+
+      const delivered = await deliverItems(3);
+
+      // Order is what keeps the incarnations apart: the message ahead of the
+      // change belongs to the incarnation that ended and is recorded against
+      // it, the one behind it to the incarnation that started.
+      expect(delivered).toStrictEqual([
+        arrival(47),
+        {
+          type: 'peerIncarnation',
+          peerId: 'peer-r1',
+          incarnation: 'incarnation-B',
+        },
+        arrival(1),
+      ]);
+    });
+
+    it("holds a new incarnation's message numbered like one of the old incarnation's", async () => {
+      arrive({ seq: 1 });
+      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
+
+      expect(arrive({ seq: 1, highestReceivedSeq: 1 })).toBe(true);
+      const delivered = await deliverItems(3);
+      expect(delivered.map((item) => item.type)).toStrictEqual([
+        'remoteInbound',
+        'peerIncarnation',
+        'remoteInbound',
+      ]);
+    });
+
+    it("compares a message with what committed when only another peer's incarnation changed", async () => {
+      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
+      arrive({ seq: 3, remoteId: 'r2', highestReceivedSeq: 5 });
+      arrive({ seq: 6, remoteId: 'r2', highestReceivedSeq: 5 });
+
+      const delivered = await deliverItems(2);
+      expect(delivered.at(-1)).toStrictEqual(arrival(6, 'r2'));
+    });
+
     it.each([
-      {
-        what: 'a message arrives',
-        accept: (queue: KernelQueue) =>
-          queue.acceptRemoteInbound({
-            remoteId: 'r1' as RemoteId,
-            seq: 1,
-            message: '{"seq":1}',
-          }),
-      },
+      { what: 'a message arrives', accept: () => arrive({ seq: 1 }) },
       {
         what: 'a peer restarts',
-        accept: (queue: KernelQueue) =>
-          queue.acceptPeerIncarnation('peer-1', 'incarnation-B'),
+        accept: () =>
+          kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B'),
       },
     ])('wakes a parked run loop when $what', async ({ accept }) => {
       (kernelStore.runQueueLength as unknown as MockInstance).mockReturnValue(
@@ -823,7 +919,7 @@ describe('KernelQueue', () => {
           turns += 1;
           if (turns === 1) {
             // The loop found nothing and has armed its wake.
-            accept(kernelQueue);
+            accept();
           } else if (turns > 2) {
             throw new Error(STOP_RUN_LOOP);
           }
@@ -837,216 +933,101 @@ describe('KernelQueue', () => {
       expect(deliver).toHaveBeenCalledOnce();
     });
 
-    it('refuses an incarnation change once the run loop has died', async () => {
-      const deliver = vi.fn().mockRejectedValue(new Error('dead'));
-      (
-        kernelStore.runQueueLength as unknown as MockInstance
-      ).mockReturnValueOnce(1);
-      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValue({
-        type: 'send',
-        target: 'ko1',
-        message: {} as KernelMessage,
-      });
-      await expect(kernelQueue.run(deliver)).rejects.toThrow('dead');
-
-      expect(() =>
-        kernelQueue.acceptPeerIncarnation('peer-1', 'incarnation-B'),
-      ).toThrow('Kernel run loop died');
-    });
-
-    it('refuses an arrival once the run loop has died', async () => {
-      const deliver = vi.fn().mockRejectedValue(new Error('dead'));
-      (
-        kernelStore.runQueueLength as unknown as MockInstance
-      ).mockReturnValueOnce(1);
-      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValue({
-        type: 'send',
-        target: 'ko1',
-        message: {} as KernelMessage,
-      });
-      await expect(kernelQueue.run(deliver)).rejects.toThrow('dead');
-
-      expect(() =>
-        kernelQueue.acceptRemoteInbound({
-          remoteId: 'r1' as RemoteId,
-          seq: 1,
-          message: '{"seq":1}',
-        }),
-      ).toThrow('Kernel run loop died');
-    });
-
-    it("keeps a peer's messages and its incarnation change in the order they arrived", async () => {
-      kernelQueue.acceptRemoteInbound({
-        remoteId: 'r1' as RemoteId,
-        seq: 47,
-        message: '{"seq":47}',
-      });
-      kernelQueue.acceptPeerIncarnation('peer-1', 'incarnation-B');
-      kernelQueue.acceptRemoteInbound({
-        remoteId: 'r1' as RemoteId,
-        seq: 1,
-        message: '{"seq":1}',
-      });
-
-      const delivered: RunLoopItem[] = [];
-      const deliver = vi.fn().mockImplementation((item: RunLoopItem) => {
-        delivered.push(item);
-        if (delivered.length === 3) {
-          throw new Error(STOP_RUN_LOOP);
-        }
-        return {};
-      });
-      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
-
-      // Order is what keeps the incarnations apart: the message ahead of the
-      // change belongs to the incarnation that ended and is recorded against
-      // it, the one behind it to the incarnation that started.
-      expect(delivered.map((item) => item.type)).toStrictEqual([
-        'remoteInbound',
-        'peerIncarnation',
-        'remoteInbound',
-      ]);
-    });
-
-    // A parked run loop with work waiting is a permanent wedge, and an arrival
-    // is the one kind of work that does not go through `#enqueueRun`.
-    it('wakes a parked run loop when a message arrives', async () => {
-      (kernelStore.runQueueLength as unknown as MockInstance).mockReturnValue(
-        0,
+    it('holds 200 arrivals from a remote and refuses the next', () => {
+      const held = Array.from({ length: 200 }, (_, index) =>
+        arrive({ seq: index + 1 }),
       );
-      let turns = 0;
-      (kernelStore.endCrank as unknown as MockInstance).mockImplementation(
-        () => {
-          turns += 1;
-          if (turns === 1) {
-            // The loop found nothing and has armed its wake.
-            kernelQueue.acceptRemoteInbound({
-              remoteId: 'r1' as RemoteId,
-              seq: 1,
-              message: '{"seq":1}',
-            });
-          } else if (turns > 2) {
-            throw new Error(STOP_RUN_LOOP);
-          }
-        },
-      );
-      const deliver = vi.fn().mockResolvedValue({});
 
-      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
-
-      expect(mockPromiseKit.resolve).toHaveBeenCalled();
-      expect(deliver).toHaveBeenCalledOnce();
+      expect(held.every(Boolean)).toBe(true);
+      expect(arrive({ seq: 201 })).toBe(false);
     });
 
-    it('refuses an arrival from a remote with 200 already waiting', () => {
+    it('counts each remote against its own share', async () => {
       for (let seq = 1; seq <= 200; seq += 1) {
-        kernelQueue.acceptRemoteInbound({
-          remoteId: 'r1' as RemoteId,
-          seq,
-          message: `{"seq":${seq}}`,
-        });
+        arrive({ seq });
       }
 
-      expect(
-        kernelQueue.acceptRemoteInbound({
-          remoteId: 'r1' as RemoteId,
-          seq: 201,
-          message: '{"seq":201}',
-        }),
-      ).toBe(false);
-      expect(
-        kernelQueue.acceptRemoteInbound({
-          remoteId: 'r2' as RemoteId,
-          seq: 1,
-          message: '{"seq":1}',
-        }),
-      ).toBe(true);
+      expect(arrive({ seq: 1, remoteId: 'r2' })).toBe(true);
+      const delivered = await deliverItems(201);
+      expect(delivered.at(-1)).toStrictEqual(arrival(1, 'r2'));
     });
 
-    it("holds a new incarnation's message numbered like one of the old incarnation's", async () => {
-      kernelQueue.acceptRemoteInbound({
-        remoteId: 'r1' as RemoteId,
-        seq: 1,
-        message: '{"seq":1,"from":"A"}',
-      });
-      kernelQueue.acceptPeerIncarnation('peer-1', 'incarnation-B');
-      kernelQueue.acceptRemoteInbound({
-        remoteId: 'r1' as RemoteId,
-        seq: 1,
-        message: '{"seq":1,"from":"B"}',
-      });
+    it('holds a copy of an arrival already waiting only once', async () => {
+      arrive({ seq: 1 });
+      arrive({ seq: 2 });
+      arrive({ seq: 1 });
 
-      const delivered: RunLoopItem[] = [];
-      const deliver = vi.fn().mockImplementation((item: RunLoopItem) => {
-        delivered.push(item);
-        if (delivered.length === 3) {
-          throw new Error(STOP_RUN_LOOP);
-        }
-        return {};
-      });
-      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
-
-      expect(delivered.map((item) => item.type)).toStrictEqual([
-        'remoteInbound',
-        'peerIncarnation',
-        'remoteInbound',
-      ]);
+      expect(await deliverItems(2)).toStrictEqual([arrival(1), arrival(2)]);
     });
 
-    it('holds a copy of an arrival already waiting only once', () => {
+    // Two peers can hold one remote ID (#1183); the router drops the one it no
+    // longer names, so its message cannot stand in for the other's.
+    it('holds a message from a peer sharing its remote ID with another', async () => {
+      arrive({ seq: 1, peerId: 'peerA' });
+
+      expect(arrive({ seq: 1, peerId: 'peerB' })).toBe(true);
+      const delivered = await deliverItems(2);
+      expect(
+        delivered.map((item) => item.type === 'remoteInbound' && item.peerId),
+      ).toStrictEqual(['peerA', 'peerB']);
+    });
+
+    it('does not hold a copy of what a committed crank has taken', async () => {
+      expect(arrive({ seq: 4, highestReceivedSeq: 5 })).toBe(true);
+      arrive({ seq: 6, highestReceivedSeq: 5 });
+
+      expect(await deliverItems(1)).toStrictEqual([arrival(6)]);
+    });
+
+    it('gives no slot to a copy whose original has committed since', () => {
       for (let seq = 1; seq <= 200; seq += 1) {
-        kernelQueue.acceptRemoteInbound({
-          remoteId: 'r1' as RemoteId,
-          seq: 1 + (seq % 100),
-          message: `{"seq":${1 + (seq % 100)}}`,
-        });
+        arrive({ seq });
       }
 
-      // The peer's retransmissions of the first hundred took no room, so the
-      // message it sends next is held.
-      expect(
-        kernelQueue.acceptRemoteInbound({
-          remoteId: 'r1' as RemoteId,
-          seq: 101,
-          message: '{"seq":101}',
-        }),
-      ).toBe(true);
+      expect(arrive({ seq: 201, highestReceivedSeq: 200 })).toBe(true);
     });
 
     it('takes arrivals and run queue items in turns', async () => {
-      kernelQueue.acceptRemoteInbound({
-        remoteId: 'r1' as RemoteId,
-        seq: 1,
-        message: '{"seq":1}',
-      });
-      kernelQueue.acceptRemoteInbound({
-        remoteId: 'r1' as RemoteId,
-        seq: 2,
-        message: '{"seq":2}',
-      });
+      arrive({ seq: 1 });
+      arrive({ seq: 2 });
       (kernelStore.runQueueLength as unknown as MockInstance).mockReturnValue(
         1,
       );
       (kernelStore.dequeueRun as unknown as MockInstance)
         .mockReturnValueOnce({ type: 'send', target: 'ko1', message: {} })
         .mockReturnValueOnce({ type: 'send', target: 'ko2', message: {} });
-      const delivered: RunLoopItem['type'][] = [];
-      const deliver = vi.fn().mockImplementation(async (item: RunLoopItem) => {
-        delivered.push(item.type);
-        if (delivered.length === 4) {
-          throw new Error(STOP_RUN_LOOP);
-        }
-        return {};
-      });
 
-      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
+      const delivered = await deliverItems(4);
 
-      expect(delivered).toStrictEqual([
+      expect(delivered.map((item) => item.type)).toStrictEqual([
         'remoteInbound',
         'send',
         'remoteInbound',
         'send',
       ]);
+    });
+
+    it('takes arrivals back to back while the run queue is empty', async () => {
+      (kernelStore.runQueueLength as unknown as MockInstance).mockReturnValue(
+        0,
+      );
+      arrive({ seq: 1 });
+      arrive({ seq: 2 });
+
+      expect(await deliverItems(2)).toStrictEqual([arrival(1), arrival(2)]);
+      // The loop parks on a promise kit, and a parked loop waits for a wake
+      // that no message already held will send.
+      expect(makePromiseKit).not.toHaveBeenCalled();
+    });
+
+    it('takes a GC action before an arrival', async () => {
+      arrive({ seq: 1 });
+      const gcAction = { type: 'dropExports', endpointId: 'v1', krefs: [] };
+      vi.mocked(gc.processGCActionSet).mockReturnValueOnce(
+        gcAction as unknown as ReturnType<typeof gc.processGCActionSet>,
+      );
+
+      expect(await deliverItems(2)).toStrictEqual([gcAction, arrival(1)]);
     });
   });
 
@@ -1601,9 +1582,10 @@ describe('KernelQueue', () => {
     });
 
     it('keeps the crank error when ending the crank fails too', async () => {
+      const endCrankError = new Error('commit failed');
       (kernelStore.endCrank as unknown as MockInstance).mockImplementation(
         () => {
-          throw new Error('commit failed');
+          throw endCrankError;
         },
       );
 
@@ -1615,17 +1597,14 @@ describe('KernelQueue', () => {
         target: 'ko123',
         message: {} as KernelMessage,
       });
-      const deliver = vi.fn().mockRejectedValue(new Error('crank exploded'));
+      const crankError = new Error('crank exploded');
+      const deliver = vi.fn().mockRejectedValue(crankError);
 
-      let thrown: Error | undefined;
-      try {
-        await kernelQueue.run(deliver);
-      } catch (error) {
-        thrown = error as Error;
-      }
-
-      expect(thrown?.message).toContain('commit failed');
-      expect((thrown?.cause as Error).message).toBe('crank exploded');
+      await expect(kernelQueue.run(deliver)).rejects.toMatchObject({
+        message: expect.stringContaining('commit failed'),
+        cause: crankError,
+        errors: [crankError, endCrankError],
+      });
     });
 
     it('reports a failed end of an otherwise healthy crank', async () => {
