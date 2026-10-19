@@ -521,7 +521,6 @@ describe('RemoteManager', () => {
         'test message',
       );
 
-      // Nothing to reply with: taking the message off the wire only queues it.
       expect(response).toBeNull();
       expect(receiveFromPeer).toHaveBeenCalledWith('test message');
     });

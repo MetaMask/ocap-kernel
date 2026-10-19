@@ -556,8 +556,8 @@ describe('Remote Communications (Integration Tests)', () => {
     // incarnation, which starts its run loop inside `Kernel.make`, before
     // `initRemoteComms` can restore any remote to deliver it to.
     //
-    // A peer's `bringOutYourDead` schedules one too, but the crank that takes
-    // the request wakes the loop, which spends the reap at once.
+    // A peer's `bringOutYourDead` schedules one from inside a crank, so the
+    // loop spends it before parking.
     const tempDir = await mkdtemp(join(tmpdir(), 'kernel-test-rc-reap-'));
     const dbFile = join(tempDir, 'victim.db');
     try {

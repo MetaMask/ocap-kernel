@@ -25,9 +25,10 @@ import type {
 import { Fail } from './utils/assert.ts';
 
 /**
- * The most arrivals held for one remote at once: as many as a peer keeps
- * unacknowledged, so a refusal takes a peer that gave up on a window of
- * messages and started another while this kernel still holds the first.
+ * The most arrivals held for one remote at once, matching the window a peer
+ * keeps unacknowledged (`MAX_PENDING_MESSAGES` in `RemoteHandle.ts`). A peer
+ * goes past it only after giving up on a window this kernel still holds, or
+ * with `redeemURL` replies, which are exempt from that window.
  */
 const MAX_ARRIVALS_PER_REMOTE = 200;
 
@@ -116,7 +117,7 @@ export class KernelQueue {
   /** Messages from peers, waiting for a crank to take delivery of them. */
   #arrivedFromRemotes: RunQueueItemRemoteInbound[] = [];
 
-  /** Whether the last crank took an arrival, so the run queue goes next. */
+  /** Whether the last pick between arrivals and the run queue was an arrival. */
   #tookArrivalLast = false;
 
   /**
@@ -355,10 +356,10 @@ export class KernelQueue {
   }
 
   /**
-   * Get the next item from the kernel run queue.
-   * **ATTN:** Mutates the kernel store if the queue is not empty.
+   * Take the next item for the run loop.
+   * **ATTN:** Removes it from the kernel store or from the arrivals.
    *
-   * @returns The next item in the run queue, or undefined if the queue is empty.
+   * @returns The next item, or undefined if nothing is waiting.
    */
   #getNextRunQueueItem(): RunLoopItem | undefined {
     const gcAction = processGCActionSet(this.#kernelStore);
@@ -373,8 +374,7 @@ export class KernelQueue {
 
     // Arrivals and the run queue take turns, so a peer that sends faster than
     // cranks finish cannot hold up the kernel's own work.
-    const arrivalFirst =
-      !this.#tookArrivalLast || this.#kernelStore.runQueueLength() === 0;
+    const arrivalFirst = !this.#tookArrivalLast;
     this.#tookArrivalLast = false;
     if (arrivalFirst) {
       const arrival = this.#takeArrival();
@@ -650,39 +650,50 @@ export class KernelQueue {
    * Accept a message from a remote peer, for the run loop to take delivery of
    * in a crank of its own.
    *
-   * Held in memory rather than written to the run queue: a message arrives
-   * whenever the transport says so, which is usually while a crank is open,
-   * and writing it there would put it inside that crank's transaction — an
-   * abort would swallow it, which is the defect this whole shape exists to
-   * remove. Nothing is lost by not persisting it, because the peer is not
-   * acknowledged until the crank that takes it commits, so an arrival this
-   * kernel forgets is one the peer sends again.
+   * Held in memory, not on the run queue: a message can arrive while a crank
+   * is open, and written there it would join that crank's transaction and
+   * vanish with its abort. The peer is acknowledged only once the crank that
+   * takes the message commits, so one lost in a crash is resent.
    *
-   * A copy of an arrival already waiting is not held again. A peer
-   * retransmits every message it has unacknowledged on a timeout, so during
-   * a long crank its copies would otherwise fill the remote's share and turn
-   * away a message it has yet to send. Acknowledgements are cumulative, so
-   * the next one taken would then retire the refused one at the peer.
+   * A peer retransmits everything unacknowledged on a timeout, and its copies
+   * would fill the remote's share and turn away messages it has yet to send.
+   * So a copy of a message waiting, or of one a committed crank has taken, is
+   * not held, and a copy held before its original committed takes no slot. A
+   * refused message is lost if a later one is taken first, since that one's
+   * acknowledgement covers it.
    *
    * @param options - Options bag.
    * @param options.remoteId - The remote the message came from.
+   * @param options.peerId - The peer that sent it.
    * @param options.seq - The message's sequence number.
    * @param options.message - The message, as it arrived.
+   * @param options.highestReceivedSeq - The highest sequence number from this
+   * remote that a committed crank has taken.
    * @returns False if the remote already has `MAX_ARRIVALS_PER_REMOTE`
-   * arrivals waiting and this one was refused.
+   * uncommitted arrivals waiting and this one was refused.
    */
   acceptRemoteInbound({
     remoteId,
+    peerId,
     seq,
     message,
+    highestReceivedSeq,
   }: {
     remoteId: RemoteId;
+    peerId: string;
     seq: number;
     message: string;
+    highestReceivedSeq: number;
   }): boolean {
     this.assertRunLoopAlive('accept a remote message');
+    if (seq <= highestReceivedSeq) {
+      return true;
+    }
     const held = this.#arrivedFromRemotes.filter(
-      (item) => item.remoteId === remoteId,
+      (item) =>
+        item.remoteId === remoteId &&
+        item.peerId === peerId &&
+        item.seq > highestReceivedSeq,
     );
     if (held.some((item) => item.seq === seq)) {
       return true;
@@ -693,6 +704,7 @@ export class KernelQueue {
     this.#arrivedFromRemotes.push({
       type: 'remoteInbound',
       remoteId,
+      peerId,
       seq,
       message,
     });
@@ -708,11 +720,9 @@ export class KernelQueue {
    * number against the new one, and the new incarnation's first message would
    * then be discarded as a duplicate.
    *
-   * Reaches only what is still waiting. An arrival already handed to a crank
-   * has been shifted off this list, and a restart detected while that crank is
-   * suspended still records the old incarnation's sequence number — the
-   * handshake runs on the transport's flow, with nothing serializing it
-   * against an open crank.
+   * An arrival already handed to a crank is out of reach: a restart detected
+   * while that crank is suspended still records the old incarnation's
+   * sequence number (#1104).
    *
    * @param remoteId - The remote whose arrivals to discard.
    */

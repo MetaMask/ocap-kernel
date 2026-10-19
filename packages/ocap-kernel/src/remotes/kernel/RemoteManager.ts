@@ -203,8 +203,8 @@ export class RemoteManager {
    * what `persistPeerRestart` writes). Run-queue mutations
    * (`resolvePromises`) and everything `finalizePeerRestart` touches are
    * NOT reversible by a savepoint, so we collect the work to do inside the
-   * savepoint, commit, and then fan it out — mirroring the
-   * deferred-completion pattern in `RemoteHandle.deliverInbound`.
+   * savepoint, release it, and then fan it out. Released inside an open crank,
+   * that is not a commit (#1104).
    *
    * Fires on every handshake (not only on detected change) because the
    * in-memory PeerStateManager is unreliable across receiver restart and

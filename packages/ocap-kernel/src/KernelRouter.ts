@@ -606,22 +606,29 @@ export class KernelRouter {
   async #deliverRemoteInbound(
     item: RunQueueItemRemoteInbound,
   ): Promise<CrankResult> {
-    const { remoteId, message } = item;
+    const { remoteId, peerId, seq, message } = item;
     const remote = this.#lookupEndpoint(remoteId, 'an inbound message', {
       discardable: true,
     }) as RemoteEndpointHandle | undefined;
     if (!remote) {
       return { didDelivery: remoteId };
     }
+    // The remote ID has gone to another peer since (#1183). Delivered, the
+    // message would be read against that peer's c-list and answered to it.
+    if (remote.peerId !== peerId) {
+      this.#logger?.warn(
+        `Dropped inbound message seq=${seq} from peer ${peerId}: ${remoteId} is now another peer's`,
+      );
+      return { didDelivery: remoteId };
+    }
     try {
       return await remote.deliverInbound(message);
     } catch (error) {
-      // What a peer sends is a peer's to get wrong: an unknown method, a
-      // reference that does not resolve, a reply to a redemption that has
-      // already timed out. None of that is the kernel's to die of, and the
-      // crank has rolled back whatever the attempt started.
+      // What a peer sends can fail here: an unknown method, a reference that
+      // does not resolve, a reply to a redemption that has timed out. None of
+      // it is the kernel's to die of.
       this.#logger?.error(
-        `Discarded an inbound message from ${remoteId} that could not be delivered:`,
+        `Discarded inbound message seq=${seq} from ${remoteId}, which could not be delivered:`,
         error,
       );
       return { didDelivery: remoteId, abort: true };

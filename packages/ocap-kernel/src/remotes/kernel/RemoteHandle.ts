@@ -301,6 +301,15 @@ export class RemoteHandle implements RemoteEndpointHandle {
   }
 
   /**
+   * The peer ID of the remote kernel this is connected to.
+   *
+   * @returns The peer ID.
+   */
+  get peerId(): string {
+    return this.#peerId;
+  }
+
+  /**
    * Restore persisted state from storage on startup.
    */
   #restorePersistedState(): void {
@@ -433,7 +442,6 @@ export class RemoteHandle implements RemoteEndpointHandle {
 
   /**
    * Process an incoming ACK (cumulative - acknowledges all messages up to ackSeq).
-   * Uses crash-safe ordering: update startSeq first, then delete acked messages.
    *
    * Measures the queue from memory, unlike {@link #rejectAllPending}, and must
    * keep doing so: memory stops at what has actually been sent, so a peer
@@ -479,6 +487,13 @@ export class RemoteHandle implements RemoteEndpointHandle {
     // Crash-safe dequeue: persist updated startSeq first, then delete messages
     // On crash recovery, orphan entries (seq < startSeq) will be cleaned lazily
     this.#kernelStore.setRemoteStartSeq(this.remoteId, this.#startSeq);
+    // Memory's start passes the store's end where a rollback took back a
+    // give-up and the message it abandoned. Moved with it, as
+    // `#rejectAllPending` moves both, or after a restart the next message is
+    // numbered below the start and is never sent.
+    if (stored.nextSendSeq < this.#startSeq - 1) {
+      this.#kernelStore.setRemoteNextSendSeq(this.remoteId, this.#startSeq - 1);
+    }
     const lastAcked = Math.min(this.#startSeq - 1, stored.nextSendSeq);
     for (let seq = stored.startSeq; seq <= lastAcked; seq += 1) {
       this.#kernelStore.deletePendingMessage(this.remoteId, seq);
@@ -1213,8 +1228,6 @@ export class RemoteHandle implements RemoteEndpointHandle {
         break;
       }
       case 'bringOutYourDead': {
-        // Queue work like the arms above: `scheduleReap` is consumed only by the
-        // run loop, via `nextReapAction`.
         this.#kernelStore.scheduleReap(this.remoteId);
         break;
       }
@@ -1269,13 +1282,7 @@ export class RemoteHandle implements RemoteEndpointHandle {
         method: 'redeemURLReply',
         params: [success, data.replyKey, value],
       },
-      {
-        // exempt from capacity limit - this a reply that mustn't fail and is not vat-initiated
-        exemptFromCapacityLimit: true,
-        // The request being replied to. This crank records the receipt, so the
-        // acknowledgement is durable exactly when the reply is.
-        ack,
-      },
+      { exemptFromCapacityLimit: true, ack },
     );
   }
 
@@ -1328,10 +1335,9 @@ export class RemoteHandle implements RemoteEndpointHandle {
   /**
    * Take a message off the wire from this peer.
    *
-   * Acknowledgements and validation happen here, at receive time: they are
-   * idempotent and must not wait for a turn in the run queue. The message
-   * itself is processed in {@link deliverInbound}, in a crank of its own,
-   * rather than in a savepoint nested inside whichever crank is open.
+   * Acknowledgements and seq validation happen here, on arrival, since they
+   * must not wait for a crank. The message itself is processed in
+   * {@link deliverInbound}, in a crank of its own.
    *
    * @param message - The message, as it arrived.
    */
@@ -1368,11 +1374,13 @@ export class RemoteHandle implements RemoteEndpointHandle {
     if (
       !this.#kernelQueue.acceptRemoteInbound({
         remoteId: this.remoteId,
+        peerId: this.#peerId,
         seq,
         message,
+        highestReceivedSeq: this.#highestReceivedSeq,
       })
     ) {
-      this.#logger.log(
+      this.#logger.warn(
         `${this.#peerId.slice(0, 8)}:: refused message seq=${seq}: too many already waiting their turn`,
       );
     }
@@ -1436,7 +1444,6 @@ export class RemoteHandle implements RemoteEndpointHandle {
     this.#kernelStore.setRemoteHighestReceivedSeq(this.remoteId, seq);
     this.#persistAcknowledged();
 
-    // Written down inside the crank; only sending it waits for the commit.
     const reply =
       deferredCompletion?.type === 'redeemURL'
         ? this.#persistRedeemURLReply(deferredCompletion, seq)
@@ -1459,7 +1466,8 @@ export class RemoteHandle implements RemoteEndpointHandle {
         this.#completeHandleRedeemURLReply(deferredCompletion);
       }
 
-      // Restart delayed ACK timer, which may have been cleared by transmitting.
+      // Armed again for this receipt: the timer set on arrival may have fired
+      // with the one before, or been cleared by transmitting.
       this.#startDelayedAck();
     };
   }
