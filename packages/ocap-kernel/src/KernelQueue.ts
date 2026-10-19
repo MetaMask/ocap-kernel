@@ -485,6 +485,13 @@ export class KernelQueue {
    * their endpoint was offline.
    */
   recheckGCActions(): void {
+    this.#wakeRunLoop();
+  }
+
+  /**
+   * Wake the run loop if it is parked on an empty queue.
+   */
+  #wakeRunLoop(): void {
     const wakeUpTheRunQueue = this.#wakeUpTheRunQueue;
     if (wakeUpTheRunQueue) {
       this.#wakeUpTheRunQueue = null;
@@ -503,10 +510,8 @@ export class KernelQueue {
     // transition. A sleeping run loop plus a non-empty queue is a
     // permanent wedge, so err towards a spurious wake: the resolver is
     // cleared as it fires, and the loop re-checks the queue on waking.
-    if (this.#kernelStore.runQueueLength() > 0 && this.#wakeUpTheRunQueue) {
-      const wakeUpTheRunQueue = this.#wakeUpTheRunQueue;
-      this.#wakeUpTheRunQueue = null;
-      wakeUpTheRunQueue();
+    if (this.#kernelStore.runQueueLength() > 0) {
+      this.#wakeRunLoop();
     }
   }
 
