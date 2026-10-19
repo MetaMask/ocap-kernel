@@ -32,11 +32,8 @@ export default defineConfig(({ mode }) => {
       lib: {
         entry: './src/index.ts',
         name: 'KernelUI',
-        formats: ['es', 'cjs'],
-        fileName: (format, entryName) => {
-          const ext = format === 'es' ? 'mjs' : 'cjs';
-          return `${entryName}.${ext}`;
-        },
+        formats: ['es'],
+        fileName: (_format, entryName) => `${entryName}.js`,
       },
       rolldownOptions: {
         external: (id) =>

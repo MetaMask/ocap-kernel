@@ -20,27 +20,20 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./package.json": "./package.json"
   },
-  "module": "./dist/index.mjs",
-  "main": "./dist/index.cjs",
-  "types": "./dist/index.d.cts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "files": [
     "dist/"
   ],
   "scripts": {
     "build": "yarn build:lib && yarn build:vite",
     "build:dev": "yarn build:lib && yarn build:vite:dev",
-    "build:lib": "ts-bridge --project tsconfig.build.json --no-references --clean",
+    "build:lib": "rimraf --glob ./dist './*.tsbuildinfo' && tsc --project tsconfig.build.json",
     "build:vite": "vite build --configLoader runner --config vite.config.ts && yarn test:build",
     "build:vite:dev": "vite build --configLoader runner --config vite.config.ts --mode development",
     "build:docs": "typedoc",
@@ -87,8 +80,6 @@
     "@metamask/eslint-config-nodejs": "^15.0.1",
     "@metamask/eslint-config-typescript": "^15.0.1",
     "@ocap/repo-tools": "workspace:^",
-    "@ts-bridge/cli": "^0.6.3",
-    "@ts-bridge/shims": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",

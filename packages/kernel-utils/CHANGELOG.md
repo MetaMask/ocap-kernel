@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `stringify` includes an `AggregateError`'s `errors`, each with its own `cause` chain ([#1094](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1094))
 
+### Removed
+
+- **BREAKING:** Remove the CommonJS build; the package is ESM-only. Its entry points are `.js` and `.d.ts` files, formerly `.mjs`/`.cjs` and `.d.mts`/`.d.cts` ([#PRNUM](https://github.com/Consensys-Incorporated/ocap-kernel/pull/PRNUM))
+
 ## [0.5.0]
 
 ### Added

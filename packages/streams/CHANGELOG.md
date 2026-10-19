@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **BREAKING:** Remove the CommonJS build; the package is ESM-only. Its entry points are `.js` and `.d.ts` files, formerly `.mjs`/`.cjs` and `.d.mts`/`.d.cts` ([#PRNUM](https://github.com/Consensys-Incorporated/ocap-kernel/pull/PRNUM))
+- **BREAKING:** Remove `browser.js`, the CommonJS mirror of the `./browser` export for Browserify ([#PRNUM](https://github.com/Consensys-Incorporated/ocap-kernel/pull/PRNUM))
 - **BREAKING:** Remove the `MessagePortReader`, `MessagePortWriter`, `PostMessageReader`, `PostMessageWriter`, `ChromeRuntimeReader`, `ChromeRuntimeWriter`, `NodeWorkerReader`, and `NodeWorkerWriter` exports; use the corresponding duplex streams instead ([#1138](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1138))
 
 ### Fixed

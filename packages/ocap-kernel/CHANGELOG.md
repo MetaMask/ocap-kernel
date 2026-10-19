@@ -71,6 +71,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING:** `terminateVat` is carried out by the run loop as a run queue item, so an unrelated rollback can no longer undo a death its caller was told succeeded. It now waits behind the run queue, and rejects if the run loop dies or the kernel is stopped, reset or has its storage cleared first. A restart of the vat waiting on it, or asked for before it is carried out, is not carried out, and is answered by the termination. A reason carrying slots is refused ([#1097](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1097))
 - **BREAKING:** `Kernel.make` no longer rejects when a persisted vat fails to start. The failure is logged, and the vat stays persisted with no worker, messages to it rejected, until `restartVat`, `terminateVat` or `terminateAllVats` ([#1162](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1162))
 
+### Removed
+
+- **BREAKING:** Remove the CommonJS build; the package is ESM-only. Its entry points are `.js` and `.d.ts` files, formerly `.mjs`/`.cjs` and `.d.mts`/`.d.cts` ([#PRNUM](https://github.com/Consensys-Incorporated/ocap-kernel/pull/PRNUM))
+- **BREAKING:** Remove `rpc.js`, the CommonJS mirror of the `./rpc` export for Browserify ([#PRNUM](https://github.com/Consensys-Incorporated/ocap-kernel/pull/PRNUM))
+
 ### Fixed
 
 - `Kernel.stop` records its last-active timestamp best-effort, so a store that can no longer persist anything does not stop it from releasing remote comms, the vat workers and the database handle ([#1094](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1094))
