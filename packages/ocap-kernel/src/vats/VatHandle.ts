@@ -97,7 +97,7 @@ export class VatHandle implements EndpointHandle {
    * @param params.onStreamFailure - Called when the channel ends before
    * `terminate` or `expectClose`.
    */
-  // eslint-disable-next-line no-restricted-syntax
+  // eslint-disable-next-line ocap/no-restricted-syntax
   private constructor({
     vatId,
     vatConfig,

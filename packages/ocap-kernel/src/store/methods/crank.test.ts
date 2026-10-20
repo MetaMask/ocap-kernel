@@ -230,7 +230,9 @@ describe('crank methods', () => {
       }
 
       expect(thrown?.message).toContain('caches are gone');
-      expect((thrown?.cause as Error).message).toBe('database is gone');
+      expect((thrown?.cause as Error | undefined)?.message).toBe(
+        'database is gone',
+      );
     });
 
     it('clears the crank buffer', () => {

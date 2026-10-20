@@ -403,7 +403,7 @@ describe('VatManager', () => {
       const reportStreamFailure = (error: Error, launch = 0): void => {
         const { onStreamFailure } = makeVatHandleMock.mock.calls[
           launch
-        ]?.[0] as {
+        ]![0] as {
           onStreamFailure: (error: Error) => void;
         };
         onStreamFailure(error);

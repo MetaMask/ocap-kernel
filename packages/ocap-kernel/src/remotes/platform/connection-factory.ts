@@ -100,7 +100,7 @@ export class ConnectionFactory {
    * @param options.directTransports - Optional direct transports (e.g. QUIC, TCP) with listen addresses.
    * @param options.allowedWsHosts - Hostnames/IPs allowed for plain ws:// connections beyond private ranges.
    */
-  // eslint-disable-next-line no-restricted-syntax
+  // eslint-disable-next-line ocap/no-restricted-syntax
   private constructor(options: ConnectionFactoryOptions) {
     this.#keySeed = options.keySeed;
     this.#knownRelays = options.knownRelays;

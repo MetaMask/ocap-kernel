@@ -112,8 +112,8 @@ const awaySetupFns: Record<
   string,
   (
     services: DockerKernelServicePair,
-    c: ContractAddresses,
-    h: HomeResult,
+    contracts: ContractAddresses,
+    home: HomeResult,
   ) => AwayResult | Promise<AwayResult>
 > = {
   'bundler-7702': setup7702Away,
