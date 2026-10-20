@@ -329,7 +329,7 @@ module.exports = defineConfig({
       if (isChildWorkspace) {
         workspace.unset('packageManager');
       } else {
-        expectWorkspaceField(workspace, 'packageManager', 'yarn@4.12.0');
+        expectWorkspaceField(workspace, 'packageManager', 'yarn@4.18.1');
       }
 
       expectWorkspaceField(workspace, 'engines.node', '>=22');
