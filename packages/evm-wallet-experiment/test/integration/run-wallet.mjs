@@ -1,4 +1,4 @@
-/* eslint-disable jsdoc/require-description, jsdoc/require-param-description, jsdoc/require-returns-description, n/no-process-exit, no-plusplus, import-x/no-unresolved */
+/* oxlint-disable jsdoc/require-description, jsdoc/require-param-description, jsdoc/require-returns-description, node/no-process-exit, no-plusplus, import/no-unresolved */
 /**
  * Plain Node.js integration test for the evm-wallet subcluster.
  *

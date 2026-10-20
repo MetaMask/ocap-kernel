@@ -64,7 +64,7 @@ export function makeKeyring(options: KeyringInitOptions): Keyring {
     const startIndex = options.addressIndex ?? 0;
     deriveAccountInternal(startIndex);
   } else {
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    // oxlint-disable-next-line node/no-unsupported-features/node-builtins
     if (!globalThis.crypto?.getRandomValues) {
       throw new Error(
         'Throwaway keyring requires the "crypto" global endowment; ' +

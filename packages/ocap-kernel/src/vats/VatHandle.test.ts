@@ -402,7 +402,7 @@ describe('VatHandle', () => {
     it('leaves pending commands alone across a restart', async () => {
       const { vat } = await makeVat();
       const settled = vi.fn();
-      // eslint-disable-next-line promise/catch-or-return
+      // oxlint-disable-next-line promise/catch-or-return
       vat
         .sendVatCommand({ method: 'ping' as const, params: [] })
         .then(settled, settled);

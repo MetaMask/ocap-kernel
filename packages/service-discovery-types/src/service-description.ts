@@ -153,25 +153,25 @@ export const PrimitiveTypeSpecStruct: Struct<PrimitiveTypeSpec> = object({
 
 export const ArrayTypeSpecStruct: Struct<ArrayTypeSpec> = object({
   kind: literal('array'),
-  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  // oxlint-disable-next-line typescript/no-use-before-define
   elementType: lazy(() => TypeSpecStruct),
 });
 
 export const ObjectTypeSpecStruct: Struct<ObjectTypeSpec> = object({
   kind: literal('object'),
-  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  // oxlint-disable-next-line typescript/no-use-before-define
   spec: lazy(() => ObjectSpecStruct),
 });
 
 export const RemotableTypeSpecStruct: Struct<RemotableTypeSpec> = object({
   kind: literal('remotable'),
-  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  // oxlint-disable-next-line typescript/no-use-before-define
   spec: lazy(() => RemotableSpecStruct),
 });
 
 export const UnionTypeSpecStruct: Struct<UnionTypeSpec> = object({
   kind: literal('union'),
-  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  // oxlint-disable-next-line typescript/no-use-before-define
   members: array(lazy(() => TypeSpecStruct)),
 });
 

@@ -29,7 +29,7 @@ const PEER_INCARNATION_BASE = 'peerIncarnation.';
  * @param ctx - The store context.
  * @returns A vat store object that maps various persistent kernel data
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function getRemoteMethods(ctx: StoreContext) {
   const { kv } = ctx;
   const { getPrefixedKeys } = getBaseMethods(ctx.kv);

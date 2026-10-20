@@ -102,7 +102,7 @@ describe('doAttempt', () => {
     let callCount = 0;
     mockPrompter.mockImplementation(() => ({
       // The ++ operator is exactly what we want here.
-      // eslint-disable-next-line no-plusplus
+      // oxlint-disable-next-line no-plusplus
       prompt: `prompt ${++callCount}`,
       readerArgs: {},
     }));

@@ -1,4 +1,4 @@
-// eslint-disable-next-line spaced-comment
+// oxlint-disable-next-line spaced-comment
 /// <reference types="chrome" preserve="true" />
 
 export type ChromeRuntime = typeof chrome.runtime;

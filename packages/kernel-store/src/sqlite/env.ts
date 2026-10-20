@@ -1,4 +1,4 @@
-// eslint-disable-next-line spaced-comment
+// oxlint-disable-next-line spaced-comment
 /// <reference types="vite/client" />
 
 /**

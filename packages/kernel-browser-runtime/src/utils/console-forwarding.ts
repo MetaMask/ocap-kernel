@@ -73,7 +73,7 @@ export function setupConsoleForwarding({
   const consoleMethods = ['log', 'debug', 'info', 'warn', 'error'] as const;
 
   consoleMethods.forEach((consoleMethod) => {
-    // eslint-disable-next-line no-console
+    // oxlint-disable-next-line no-console
     console[consoleMethod] = (...args: unknown[]) => {
       // Call original console method
       originalConsole[consoleMethod](...args);
@@ -105,6 +105,6 @@ export function handleConsoleForwardMessage(
   message: ConsoleForwardMessage,
 ): void {
   const { source, method, args } = message.params;
-  // eslint-disable-next-line no-console
+  // oxlint-disable-next-line no-console
   console[method](`[${source}]`, ...args);
 }

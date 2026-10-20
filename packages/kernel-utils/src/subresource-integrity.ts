@@ -101,7 +101,7 @@ export const bytesMatchIntegrity = async (
     // The `crypto` global is what a browser realm has too, and the only place a
     // digest can come from there.
     // The bytes never come from a `SharedArrayBuffer`, so the cast is sound.
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    // oxlint-disable-next-line node/no-unsupported-features/node-builtins
     await globalThis.crypto.subtle.digest(
       algorithm,
       bytes as Uint8Array<ArrayBuffer>,

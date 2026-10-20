@@ -1003,7 +1003,7 @@ describe('ConnectionFactory', () => {
         addEventListener: vi.fn(),
         dialProtocol: vi.fn(async () => {
           // Throw a non-Error value that gets caught but doesn't set lastError properly
-          // eslint-disable-next-line @typescript-eslint/only-throw-error
+          // oxlint-disable-next-line typescript/only-throw-error
           throw null;
         }),
         getConnections: vi.fn(() => [
@@ -1449,7 +1449,7 @@ describe('ConnectionFactory', () => {
         dialProtocol: vi.fn(async () => {
           dialCount += 1;
           // Throw a falsy value to trigger the else branch in outputError
-          // eslint-disable-next-line @typescript-eslint/only-throw-error
+          // oxlint-disable-next-line typescript/only-throw-error
           throw null;
         }),
         getConnections: vi.fn(() => [

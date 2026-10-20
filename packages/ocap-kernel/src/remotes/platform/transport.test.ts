@@ -725,7 +725,7 @@ describe('transport.initTransport', () => {
       let shouldResolve = false;
       const poll = async (): Promise<Uint8Array> => {
         // Wait until stop is called
-        // eslint-disable-next-line no-unmodified-loop-condition
+        // oxlint-disable-next-line no-unmodified-loop-condition
         while (!shouldResolve) {
           await new Promise<void>((resolve) => {
             setImmediate(() => resolve());
@@ -924,7 +924,7 @@ describe('transport.initTransport', () => {
       const { abortableDelay } = await import('@metamask/kernel-utils');
 
       (abortableDelay as ReturnType<typeof vi.fn>).mockImplementation(
-        // eslint-disable-next-line @typescript-eslint/promise-function-async, @typescript-eslint/no-misused-promises
+        // oxlint-disable-next-line typescript/promise-function-async, typescript/no-misused-promises
         (_ms: number, signal?: AbortSignal) => {
           if (signal?.aborted) {
             return Promise.reject(new AbortError());

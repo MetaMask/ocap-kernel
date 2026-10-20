@@ -1,4 +1,4 @@
-/* eslint-disable n/no-sync -- existsSync is fine in tests */
+/* oxlint-disable node/no-sync -- existsSync is fine in tests */
 import {
   assertIsJsonRpcFailure,
   assertIsJsonRpcSuccess,
@@ -23,7 +23,7 @@ import { sendCommand, pingDaemon } from '../../src/commands/daemon-client.ts';
  */
 async function permissionsOf(path: string): Promise<number> {
   const { mode } = await stat(path);
-  // eslint-disable-next-line no-bitwise -- the only way to read mode bits
+  // oxlint-disable-next-line no-bitwise -- the only way to read mode bits
   return mode & 0o777;
 }
 

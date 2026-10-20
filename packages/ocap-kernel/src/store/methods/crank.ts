@@ -11,7 +11,7 @@ import type { CrankBufferItem, Savepoint, StoreContext } from '../types.ts';
  * @param kdb - The kernel database.
  * @returns The crank methods.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
   /**
    * Start a crank.

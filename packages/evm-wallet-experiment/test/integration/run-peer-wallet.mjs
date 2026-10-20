@@ -1,4 +1,4 @@
-/* eslint-disable n/no-process-exit, no-plusplus, import-x/no-unresolved */
+/* oxlint-disable node/no-process-exit, no-plusplus, import/no-unresolved */
 /**
  * Plain Node.js integration test for two-kernel peer wallet communication.
  *

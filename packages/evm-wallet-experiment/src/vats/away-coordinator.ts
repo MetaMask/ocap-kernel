@@ -895,7 +895,7 @@ export function buildRootObject(
     ])) as string;
 
     if (isEip7702Delegated(code, chainId)) {
-      // eslint-disable-next-line require-atomic-updates
+      // oxlint-disable-next-line require-atomic-updates
       smartAccountConfig = harden({
         implementation: 'stateless7702' as const,
         address: eoaAddress,
@@ -1034,7 +1034,7 @@ export function buildRootObject(
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
-    // eslint-disable-next-line require-atomic-updates
+    // oxlint-disable-next-line require-atomic-updates
     smartAccountConfig = harden({
       implementation: 'stateless7702' as const,
       address: eoaAddress,

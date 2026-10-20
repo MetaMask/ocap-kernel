@@ -58,7 +58,7 @@ class DirectNetworkService {
    * @returns The platform services.
    */
   createPlatformServices(tempPeerId: string): PlatformServices {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    // oxlint-disable-next-line typescript/no-this-alias
     const self = this;
     // Store the actual peer ID once we know it
     let actualPeerId: string | undefined;

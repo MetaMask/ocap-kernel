@@ -57,7 +57,7 @@ export function computeDelegationId(delegation: {
  * @returns A hex-encoded random salt.
  */
 export function generateSalt(): Hex {
-  // eslint-disable-next-line n/no-unsupported-features/node-builtins
+  // oxlint-disable-next-line node/no-unsupported-features/node-builtins
   if (!globalThis.crypto?.getRandomValues) {
     throw new Error(
       'generateSalt requires the "crypto" global endowment; ' +
@@ -65,7 +65,7 @@ export function generateSalt(): Hex {
     );
   }
   const bytes = new Uint8Array(32);
-  // eslint-disable-next-line n/no-unsupported-features/node-builtins
+  // oxlint-disable-next-line node/no-unsupported-features/node-builtins
   globalThis.crypto.getRandomValues(bytes);
   return toHex(bytes);
 }

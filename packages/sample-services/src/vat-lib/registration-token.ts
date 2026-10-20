@@ -1,4 +1,4 @@
-/* eslint-disable n/no-unsupported-features/node-builtins -- the crypto
+/* oxlint-disable node/no-unsupported-features/node-builtins -- the crypto
    global is "experimental" before Node 23 by ESLint's Node-builtins
    rule, but we also need to handle the SES-vat case where the
    endowment lands as a bare `crypto` Compartment global. Both code
@@ -36,4 +36,4 @@ export function makeRegistrationToken(): string {
   cryptoSource.getRandomValues(bytes);
   return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
-/* eslint-enable n/no-unsupported-features/node-builtins */
+/* oxlint-enable node/no-unsupported-features/node-builtins */

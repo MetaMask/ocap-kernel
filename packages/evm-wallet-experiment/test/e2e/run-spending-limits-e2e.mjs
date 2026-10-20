@@ -1,4 +1,4 @@
-/* eslint-disable n/no-process-exit, no-plusplus, import-x/no-unresolved, n/no-process-env */
+/* oxlint-disable node/no-process-exit, no-plusplus, import/no-unresolved, node/no-process-env */
 /**
  * Spending-limits E2E test against Sepolia.
  *
