@@ -12,7 +12,7 @@ import type { Policy, Provider } from './types.ts';
 // eslint-disable-next-line id-length
 const E = (obj: unknown) =>
   obj as Record<
-    'getBalance' | 'transfer',
+    'getBalance' | 'swap' | 'transfer',
     (...args: unknown[]) => Promise<unknown>
   >;
 
@@ -453,11 +453,7 @@ describe('scenario: callable metadata — cost varies with invocation args', () 
       },
     ];
 
-    const facade = buildUnionSection(
-      'Swap',
-      providers,
-      cheapest,
-    ) as unknown as Record<'swap', (...args: unknown[]) => Promise<unknown>>;
+    const facade = E(buildUnionSection('Swap', providers, cheapest));
 
     // swap(50): A costs 6, B costs 10.05 → A wins
     await facade.swap(50, 'FUZ', 'BIZ');

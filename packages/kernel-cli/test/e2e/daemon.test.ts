@@ -1,5 +1,8 @@
 /* eslint-disable n/no-sync -- existsSync is fine in tests */
-import type { JsonRpcResponse } from '@metamask/utils';
+import {
+  assertIsJsonRpcFailure,
+  assertIsJsonRpcSuccess,
+} from '@metamask/utils';
 import { existsSync } from 'node:fs';
 import { rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -11,24 +14,6 @@ import { sendCommand, pingDaemon } from '../../src/commands/daemon-client.ts';
 
 // NOTE: `redeem-url` is not tested here because it requires remote comms
 // infrastructure (relay + peer). See unit tests in src/commands/daemon.test.ts.
-
-/**
- * Get a response's result, or `undefined` if it is a failure.
- *
- * @param response - The response.
- * @returns The result.
- */
-const resultOf = (response: JsonRpcResponse): unknown =>
-  'result' in response ? response.result : undefined;
-
-/**
- * Get a response's error, or `undefined` if it is a success.
- *
- * @param response - The response.
- * @returns The error.
- */
-const errorOf = (response: JsonRpcResponse): unknown =>
-  'error' in response ? response.error : undefined;
 
 /**
  * Read a path's permission bits.
@@ -60,9 +45,8 @@ describe('Daemon CLI e2e', { timeout: 60_000 }, () => {
         method: 'getStatus',
       });
 
-      expect(errorOf(response)).toBeUndefined();
-      expect(resultOf(response)).toBeDefined();
-      const result = resultOf(response) as Record<string, unknown>;
+      assertIsJsonRpcSuccess(response);
+      const { result } = response;
       expect(result).toHaveProperty('vats');
       expect(result).toHaveProperty('subclusters');
       // `runLoop` is required by `KernelStatusStruct`, and `sendCommand` doesn't
@@ -78,8 +62,8 @@ describe('Daemon CLI e2e', { timeout: 60_000 }, () => {
         method: 'nonexistentMethod',
       });
 
-      expect(errorOf(response)).toBeDefined();
-      expect(errorOf(response)).toHaveProperty('code', -32601);
+      assertIsJsonRpcFailure(response);
+      expect(response.error).toHaveProperty('code', -32601);
     });
 
     it('refuses executeDBQuery without OCAP_DEV_MODE', async () => {
@@ -89,8 +73,8 @@ describe('Daemon CLI e2e', { timeout: 60_000 }, () => {
         params: { sql: 'SELECT key, value FROM kv LIMIT 5' },
       });
 
-      expect(resultOf(response)).toBeUndefined();
-      expect(errorOf(response)).toStrictEqual({
+      assertIsJsonRpcFailure(response);
+      expect(response.error).toStrictEqual({
         code: -32601,
         message:
           "Method not found: 'executeDBQuery' is served only when the daemon runs with OCAP_DEV_MODE=true",
@@ -103,7 +87,7 @@ describe('Daemon CLI e2e', { timeout: 60_000 }, () => {
         method: 'queueMessage',
         params: ['ko99999', 'someMethod', []],
       });
-      expect(errorOf(response)).toBeDefined();
+      expect(() => assertIsJsonRpcFailure(response)).not.toThrow();
     });
 
     it('writes state files to OCAP_HOME', () => {
@@ -145,8 +129,8 @@ describe('Daemon CLI e2e', { timeout: 60_000 }, () => {
         params: { sql: 'SELECT key, value FROM kv LIMIT 5' },
       });
 
-      expect(errorOf(response)).toBeUndefined();
-      expect(Array.isArray(resultOf(response))).toBe(true);
+      assertIsJsonRpcSuccess(response);
+      expect(Array.isArray(response.result)).toBe(true);
     });
   });
 

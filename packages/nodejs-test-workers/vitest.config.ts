@@ -7,6 +7,7 @@ export default defineConfig((args) => {
   return mergeConfig(
     args,
     defaultConfig,
+    // `defineProject` rejects `passWithNoTests`, a root-only option.
     defineConfig({
       test: {
         name: 'nodejs-test-workers',

@@ -18,6 +18,9 @@ import {
   runTestVats,
 } from './utils.ts';
 
+// `ERef` is not exported from the package entry point.
+type ERef = Parameters<KernelStore['erefToKref']>[1];
+
 /**
  * Make a test subcluster with vats for GC testing
  *
@@ -147,7 +150,7 @@ describe('Garbage Collection', () => {
     // Check that the object is reachable as a promise from the importer vat
     const importerKref = kernelStore.erefToKref(
       importerVatId,
-      'p-1' as Parameters<KernelStore['erefToKref']>[1],
+      'p-1' as ERef,
     ) as KRef;
     expect(kernelStore.hasCListEntry(importerVatId, importerKref)).toBe(true);
     expect(kernelStore.getRefCount(importerKref)).toBe(1);
