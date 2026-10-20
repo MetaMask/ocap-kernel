@@ -2737,6 +2737,43 @@ describe('transport.initTransport', () => {
       expect(secondWrite).toContain('hello');
     });
 
+    it('sends one handshake and reads once when concurrent sends share a dial', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      const handshakeAck = JSON.stringify({
+        method: 'handshakeAck',
+        params: { incarnationId: 'remote-incarnation-id' },
+      });
+      mockChannel.msgStream.read
+        .mockResolvedValueOnce(new TextEncoder().encode(handshakeAck))
+        .mockReturnValue(
+          new Promise<Uint8Array | undefined>(() => {
+            /* Never resolves - normal read loop */
+          }),
+        );
+
+      const { sendRemoteMessage } = await initTransport(
+        '0x1234',
+        { handshakeTimeoutMs: 50 },
+        vi.fn(),
+        undefined, // onRemoteGiveUp
+        'test-incarnation-id',
+      );
+
+      await Promise.all([
+        sendRemoteMessage('peer-1', makeTestMessage('first')),
+        sendRemoteMessage('peer-1', makeTestMessage('second')),
+      ]);
+
+      const writtenMethods = mockChannel.msgStream.write.mock.calls.map(
+        ([bytes]) =>
+          JSON.parse(new TextDecoder().decode(bytes as Uint8Array)).method,
+      );
+      expect(writtenMethods).toStrictEqual(['handshake', 'deliver', 'deliver']);
+      // The handshake's read, then a single read loop.
+      expect(mockChannel.msgStream.read).toHaveBeenCalledTimes(2);
+    });
+
     it('does not send handshake when no incarnationId provided', async () => {
       const mockChannel = createMockChannel('peer-1');
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);

@@ -175,6 +175,8 @@ export async function initTransport(
     logger,
     signal,
     maxRetryAttempts,
+    reconnectionBaseDelayMs,
+    reconnectionMaxDelayMs,
     maxMessageSizeBytes,
     directTransports,
     allowedWsHosts,
@@ -194,13 +196,40 @@ export async function initTransport(
       }
     : undefined;
 
+  // `dialIdempotent` gives every concurrent dialer of a peer the same channel.
+  // A second handshake on it waits for an ack the peer never sends, reading
+  // the peer's messages off the stream meanwhile, and closes the channel when
+  // it times out.
+  const outboundHandshakes = new WeakMap<
+    Channel,
+    ReturnType<typeof runOutboundHandshake>
+  >();
+
+  /**
+   * Perform the outbound handshake on a channel once, however many callers
+   * ask for it.
+   *
+   * @param channel - The channel to perform handshake on.
+   * @returns Object with success status and whether incarnation changed.
+   */
+  async function doOutboundHandshake(
+    channel: Channel,
+  ): ReturnType<typeof runOutboundHandshake> {
+    let handshake = outboundHandshakes.get(channel);
+    if (!handshake) {
+      handshake = runOutboundHandshake(channel);
+      outboundHandshakes.set(channel, handshake);
+    }
+    return handshake;
+  }
+
   /**
    * Perform outbound handshake and handle incarnation changes.
    *
    * @param channel - The channel to perform handshake on.
    * @returns Object with success status and whether incarnation changed.
    */
-  async function doOutboundHandshake(
+  async function runOutboundHandshake(
     channel: Channel,
   ): Promise<{ success: boolean; incarnationChanged: boolean }> {
     if (!handshakeDeps) {
@@ -328,6 +357,11 @@ export async function initTransport(
   ): void {
     const state = peerStateManager.getState(peerId);
     const previousChannel = state.channel;
+    if (previousChannel === channel) {
+      // Each caller that shared the channel's dial registers it; one read
+      // loop is enough.
+      return;
+    }
     state.channel = channel;
     peerStateManager.updateConnectionTime(peerId);
 

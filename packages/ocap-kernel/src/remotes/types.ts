@@ -211,6 +211,8 @@ export type ConnectionFactoryOptions = {
   logger: Logger;
   signal: AbortSignal;
   maxRetryAttempts?: number | undefined;
+  reconnectionBaseDelayMs?: number | undefined;
+  reconnectionMaxDelayMs?: number | undefined;
   /**
    * Maximum inbound message payload size in bytes. Used as `maxDataLength`
    * on every `lpStream` constructed for a channel — must match the
