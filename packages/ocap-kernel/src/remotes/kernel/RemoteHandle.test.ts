@@ -782,6 +782,32 @@ describe('RemoteHandle', () => {
     expect(mockKernelStore.erefToKref(remote.remoteId, roref)).toBeUndefined();
   });
 
+  // A `retireImports` and a `retireExports` that cross on the wire each name an
+  // eref the receiver has already let go of.
+  it.each([
+    { method: 'retireImports', rref: 'ro+1' },
+    { method: 'retireExports', rref: 'ro-1' },
+  ])(
+    'ignores a $method naming an rref it no longer has',
+    async ({ method, rref }) => {
+      const logger = { warn: vi.fn() } as unknown as Logger;
+      const remote = makeRemote(logger);
+      mockKernelStore.initEndpoint(remote.remoteId);
+
+      const delivery = JSON.stringify({
+        seq: 1,
+        method: 'deliver',
+        params: [method, [rref]],
+      });
+
+      expect(await remote.handleRemoteMessage(delivery)).toBeNull();
+      expect(mockKernelStore.erefToKref(remote.remoteId, rref)).toBeUndefined();
+      expect(logger.warn).toHaveBeenCalledWith(
+        `${method} names ${rref}, which is not in the c-list; skipped`,
+      );
+    },
+  );
+
   it('handleRemoteMessage handles bogus deliver', async () => {
     const remote = makeRemote();
     // Include seq for incoming message
