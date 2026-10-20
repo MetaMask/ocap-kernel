@@ -4,7 +4,6 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "allowJs": true,
-    "baseUrl": "./",
     "declaration": true,
     "skipLibCheck": true,
     "emitDeclarationOnly": true,
