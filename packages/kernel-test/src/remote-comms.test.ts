@@ -764,9 +764,15 @@ async function pokeUntil({
   isDone: () => boolean;
   poke: () => Promise<void>;
 }): Promise<void> {
-  for (let attempt = 0; attempt < 20 && !isDone(); attempt++) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    if (isDone()) {
+      return;
+    }
     await poke();
     await waitUntilQuiescent(100);
+  }
+  if (!isDone()) {
+    throw new Error('Condition still false after 20 pokes');
   }
 }
 

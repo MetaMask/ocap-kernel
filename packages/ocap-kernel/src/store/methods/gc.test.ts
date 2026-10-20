@@ -248,6 +248,16 @@ describe('GC methods', () => {
       ]);
     });
 
+    it('leaves out a remote that exports the object', () => {
+      kernelStore.setVatConfig('v2', { bundleName: 'vat2' });
+      kernelStore.setRemoteInfo('r1', { peerId: 'peer-1' });
+      const kref = kernelStore.initKernelObject('r1');
+      kernelStore.addCListEntry('r1', kref, 'ro+1');
+      kernelStore.addCListEntry('v2', kref, 'o-1');
+
+      expect(kernelStore.getImporters(kref)).toStrictEqual(['v2']);
+    });
+
     it('tells a terminated importer cleanup has not reached', () => {
       kernelStore.setVatConfig('v1', { bundleName: 'vat1' });
       const kref = kernelStore.initKernelObject('v1');

@@ -51,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **BREAKING:** `getImporters` returns `EndpointId[]`, and includes remote importers and terminated vats cleanup has not reached, so retiring a kernel object tells each of them rather than leaving it a c-list entry for the deleted kref ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))
+- **BREAKING:** `getImporters` returns `EndpointId[]`, and includes remotes and terminated vats ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))
 - **BREAKING:** `Kernel.make`'s `ioChannelFactory` option is now `ioListenerFactory`, and the exported `IOChannelFactory` type is replaced by `IOListener` and `IOListenerFactory`. A cluster config's `io` entries now create listeners; vats call `accept()` to obtain a channel instead of reading and writing the endowment directly ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
 - Attribute a failed subcluster vat launch to the specific vat by kernel id and `ClusterConfig` name (e.g. `Failed to launch vat v3 (bob)`), preserving the original error as the `cause` ([#975](https://github.com/MetaMask/ocap-kernel/pull/975))
 - **BREAKING:** Remove `VatConfig.platformConfig.fetch` — migrate to `globals: ['fetch', ...]` + `network.allowedHosts` ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
@@ -75,7 +75,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- A GC message to a remote names the object it means. It could name another object the peer held, or a phantom the peer then minted, so a drop hit the wrong object and a retirement was usually refused ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))
+- Retiring a kernel object tells remote importers and terminated vats cleanup has not reached, rather than leaving them a c-list entry for the deleted kref ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))
+- `dropExports` and `retireExports` sent to a remote name the object they mean. They could name another object the peer held, or a phantom the peer then minted, so a drop hit the wrong object and a retirement was usually refused ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))
 - Bump `@libp2p/crypto` from `5.1.14` to `5.1.23`, so remote comms start on Node 24.22 instead of throwing `Invalid JWK OKP key` ([#1185](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1185))
 - `Kernel.stop` records its last-active timestamp best-effort, so a store that can no longer persist anything does not stop it from releasing remote comms, the vat workers and the database handle ([#1094](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1094))
 - After the run loop dies committing a crank, a later write no longer persists the values that crank had cached, and `Kernel.reset` no longer throws between clearing the store and restoring the identity keys it keeps (`keySeed`, `peerId`, `ocapURLKey`), which cost the kernel its network identity ([#1094](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1094))
