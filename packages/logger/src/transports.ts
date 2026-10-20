@@ -28,7 +28,6 @@ export function makeConsoleTransport(
     if (baseLevelIdx <= logLevels[method]) {
       return (...args: unknown[]) => {
         // Ultimately, a console somewhere is an acceptable terminal for logging
-        // oxlint-disable-next-line no-console
         console[method](...args);
       };
     }

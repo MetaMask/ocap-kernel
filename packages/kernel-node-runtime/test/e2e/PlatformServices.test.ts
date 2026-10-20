@@ -17,7 +17,6 @@ describe('NodejsPlatformServices', () => {
   afterEach(async () => {
     // Terminate all workers to prevent dangling processes
     await Promise.all(services.map(async (service) => service.terminateAll()));
-    // oxlint-disable-next-line require-atomic-updates
     services.length = 0;
     vi.restoreAllMocks();
   });

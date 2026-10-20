@@ -26,7 +26,6 @@ const makeChatResult = (): ChatResult => ({
 
 const makeOkResponse = (init: {
   text?: () => Promise<string>;
-  // oxlint-disable-next-line node/no-unsupported-features/node-builtins -- Response.body type in tests
   body?: ReadableStream<Uint8Array> | null;
 }): Response =>
   ({
@@ -45,14 +44,12 @@ const makeMockFetch = (payload: unknown): typeof globalThis.fetch =>
 
 const makeSSEStream = (
   chunks: ChatStreamChunkWire[],
-  // oxlint-disable-next-line node/no-unsupported-features/node-builtins
 ): ReadableStream<Uint8Array> => {
   const encoder = new TextEncoder();
   const lines = chunks
     .map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`)
     .join('');
   const body = `${lines}data: [DONE]\n\n`;
-  // oxlint-disable-next-line node/no-unsupported-features/node-builtins
   return new ReadableStream({
     start(controller) {
       controller.enqueue(encoder.encode(body));
@@ -464,7 +461,6 @@ describe('OpenV1BaseService', () => {
 
     it('throws a descriptive error when an SSE data line is not valid JSON', async () => {
       const encoder = new TextEncoder();
-      // oxlint-disable-next-line node/no-unsupported-features/node-builtins
       const badBody = new ReadableStream({
         start(controller) {
           controller.enqueue(encoder.encode('data: not-json\n\n'));

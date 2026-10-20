@@ -87,7 +87,6 @@ main().catch((error) => {
   // live worker threads, and those keep the event loop running, so a code alone
   // would leave the daemon up with no socket and no pid file — an orphan
   // neither interlock can see.
-  // oxlint-disable-next-line node/no-process-exit -- a daemon that cannot start must not linger
   process.exit(1);
 });
 
@@ -131,7 +130,6 @@ async function main(): Promise<void> {
     setExitCode: (code) => {
       process.exitCode = code;
     },
-    // oxlint-disable-next-line node/no-process-exit -- a broken shutdown must still terminate
     exit: (code) => process.exit(code),
   });
 
@@ -286,7 +284,6 @@ function makeFileTransport(logFilePath: string, minLevel: LogLevelName) {
  *   the ones already logged by the handlers above.
  */
 function installFatalHandlers(): void {
-  /* oxlint-disable node/no-process-exit -- fatal handlers must terminate deterministically */
   process.on('uncaughtException', (error: unknown) => {
     logBestEffort(logger, 'error', 'Uncaught exception', stringify(error, 0));
     process.exit(1);
@@ -302,5 +299,4 @@ function installFatalHandlers(): void {
   process.on('exit', (code) => {
     logBestEffort(logger, 'error', `Process exiting (code=${code}).`);
   });
-  /* oxlint-enable node/no-process-exit */
 }

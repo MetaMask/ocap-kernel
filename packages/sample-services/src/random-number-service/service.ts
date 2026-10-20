@@ -18,7 +18,6 @@ let fallbackCounter = 0;
  * @returns A float in [0, 1).
  */
 function drawRandomFloat(): number {
-  // oxlint-disable-next-line node/no-unsupported-features/node-builtins
   const cryptoSource = globalThis.crypto;
   if (cryptoSource?.getRandomValues) {
     const bytes = new Uint32Array(1);

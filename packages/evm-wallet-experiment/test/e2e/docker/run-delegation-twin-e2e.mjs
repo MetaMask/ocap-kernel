@@ -1,4 +1,4 @@
-/* oxlint-disable no-plusplus, node/no-process-exit, import/no-unresolved */
+/* oxlint-disable no-plusplus */
 /**
  * Delegation-twin E2E test — runs **inside** the away container.
  *

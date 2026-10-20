@@ -1,4 +1,4 @@
-/* oxlint-disable node/no-process-env, node/no-process-exit, node/no-sync, import/no-unresolved */
+/* oxlint-disable node/no-process-env, node/no-sync */
 /**
  * Generic kernel entrypoint for Docker E2E containers.
  *

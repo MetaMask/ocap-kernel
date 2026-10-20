@@ -147,7 +147,6 @@ describe.sequential('libp2p v3 Features E2E', () => {
           bobConfig,
           reconnectOptions,
         );
-        // oxlint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
 
         const result = kunser(await recoveryPromise) as string;

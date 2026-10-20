@@ -77,6 +77,5 @@ const specification: FsSpecification = makeFsSpecification({
   toPath,
 });
 
-// oxlint-disable-next-line prefer-destructuring -- annotated for declaration emit
 export const configStruct: FsConfigStruct = specification.configStruct;
 export const { capabilityFactory } = specification;

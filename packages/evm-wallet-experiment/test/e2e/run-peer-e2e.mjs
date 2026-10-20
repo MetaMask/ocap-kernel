@@ -1,4 +1,4 @@
-/* oxlint-disable node/no-process-exit, no-plusplus, import/no-unresolved, node/no-process-env */
+/* oxlint-disable no-plusplus, node/no-process-env */
 /**
  * Full E2E peer wallet test against Sepolia.
  *

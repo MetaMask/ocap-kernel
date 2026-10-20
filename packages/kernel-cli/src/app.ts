@@ -37,7 +37,6 @@ function consoleTransport(entry: LogEntry): void {
     ...(entry.message ? [entry.message] : []),
     ...(entry.data ?? []),
   ];
-  // oxlint-disable-next-line no-console
   console[entry.level](...args);
 }
 

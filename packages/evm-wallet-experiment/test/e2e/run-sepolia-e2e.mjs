@@ -1,4 +1,4 @@
-/* oxlint-disable node/no-process-exit, import/no-unresolved, node/no-process-env */
+/* oxlint-disable node/no-process-env */
 /**
  * Sepolia E2E test for the evm-wallet subcluster.
  *

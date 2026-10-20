@@ -1,4 +1,4 @@
-/* oxlint-disable jsdoc/require-param-description, jsdoc/require-returns-description, node/no-process-exit, no-plusplus, import/no-unresolved */
+/* oxlint-disable jsdoc/require-param-description, jsdoc/require-returns-description, no-plusplus */
 /**
  * Integration test for the evm-wallet subcluster accessed via the daemon
  * JSON-RPC socket. Verifies the full stack: daemon → kernel → vats.

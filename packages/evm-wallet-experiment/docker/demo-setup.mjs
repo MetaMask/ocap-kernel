@@ -1,4 +1,4 @@
-/* oxlint-disable node/no-sync, node/no-process-env, node/no-process-exit */
+/* oxlint-disable node/no-sync, node/no-process-env */
 import { spawnSync } from 'node:child_process';
 
 import {

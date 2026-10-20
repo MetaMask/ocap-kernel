@@ -1,4 +1,4 @@
-/* oxlint-disable jsdoc/require-description, jsdoc/require-param-description, jsdoc/require-param-type, jsdoc/require-returns, node/no-process-exit, node/no-sync, no-plusplus, no-empty-function, no-negated-condition, no-unused-vars, id-denylist, require-unicode-regexp, import/no-unresolved */
+/* oxlint-disable jsdoc/require-param-description, jsdoc/require-param-type, jsdoc/require-returns, node/no-sync, no-plusplus, no-empty-function, no-negated-condition, no-unused-vars, id-denylist, require-unicode-regexp */
 /**
  * Interactive home wallet — MetaMask Mobile signs everything.
  *

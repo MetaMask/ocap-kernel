@@ -311,7 +311,6 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     if (existing) {
       return existing;
     }
-    // oxlint-disable-next-line node/no-unsupported-features/node-builtins
     const newId = globalThis.crypto.randomUUID();
     context.kv.set('incarnationId', newId);
     return newId;

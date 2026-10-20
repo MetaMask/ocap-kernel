@@ -1,4 +1,4 @@
-/* oxlint-disable node/no-process-exit, node/no-process-env */
+/* oxlint-disable node/no-process-env */
 /**
  * Aggregate E2E runner for the evm-wallet package.
  *

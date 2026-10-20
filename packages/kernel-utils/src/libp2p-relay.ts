@@ -215,7 +215,6 @@ async function generateKeyPair(
     seed = new Uint8Array(32);
     seed[0] = localId;
   } else {
-    // oxlint-disable-next-line node/no-unsupported-features/node-builtins
     seed = globalThis.crypto.getRandomValues(new Uint8Array(32));
   }
   return await generateKeyPairFromSeed('Ed25519', seed);

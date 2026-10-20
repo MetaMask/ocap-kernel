@@ -87,7 +87,6 @@ export function buildRootObject(vatPowers: TestPowers) {
       // A 16-byte buffer makes the all-zero coincidence vanishingly small
       // (2^-128); a 4-byte buffer has a ~1-in-4-billion false-negative rate.
       const buffer = new Uint8Array(16);
-      // oxlint-disable-next-line node/no-unsupported-features/node-builtins -- `crypto` here is the vat endowment, not the Node global; the rule's engines check does not apply inside a SES Compartment.
       crypto.getRandomValues(buffer);
       const hasRandomBytes = buffer.some((byte) => byte !== 0);
       tlog(`crypto: hasRandomBytes=${String(hasRandomBytes)}`);

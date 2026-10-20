@@ -1,4 +1,3 @@
-/* oxlint-disable require-atomic-updates */
 import { chromium } from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
 import type { Plugin as VitePlugin } from 'vite';

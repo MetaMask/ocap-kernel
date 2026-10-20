@@ -1,4 +1,4 @@
-/* oxlint-disable node/no-sync, node/no-process-env, node/no-process-exit, ocap/require-jsdoc */
+/* oxlint-disable node/no-sync, node/no-process-env, ocap/require-jsdoc */
 /**
  * Shared parsing + `docker compose` argv for demo stack (one home/away pair).
  * Keep delegation-mode keys in sync with `test/e2e/docker/helpers/docker-e2e-kernel-services.ts`.

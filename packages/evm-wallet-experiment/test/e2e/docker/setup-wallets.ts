@@ -1,4 +1,4 @@
-/* oxlint-disable node/no-process-env, node/no-process-exit, node/no-sync */
+/* oxlint-disable node/no-process-env, node/no-sync */
 /**
  * Host-side script to set up wallet subclusters on running Docker containers.
  *

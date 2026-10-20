@@ -22,8 +22,6 @@ const transcribeCapabilities = (capabilities: CapabilityRecord) => [
   ),
 ];
 
-/* oxlint-disable no-tabs */
-
 const treeSearchTask: ReplTranscript = [
   ...transcribeCapabilities({ end, search }),
   new InterjectionMessage('What is the oldest tree in South America?'),
@@ -132,8 +130,6 @@ const functionDefinition: ReplTranscript = [
   new ResultMessage({ value: { averageDepth: 2 } }),
   new EvaluationMessage('await end({ final: String(averageDepth) });'),
 ];
-
-/* oxlint-enable no-tabs */
 
 export const exampleTranscripts = [
   simpleSemanticTask,

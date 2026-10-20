@@ -147,7 +147,6 @@ export async function startRelayWithBookkeeping(
       .finally(() => {
         removeRelayFiles()
           .catch(() => undefined)
-          // oxlint-disable-next-line node/no-process-exit -- signal handler must force exit after cleanup
           .finally(() => process.exit(0));
       });
   };
