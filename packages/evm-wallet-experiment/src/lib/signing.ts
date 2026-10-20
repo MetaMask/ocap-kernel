@@ -4,7 +4,7 @@ import type {
   TransactionSerializableEIP7702,
   TransactionSerializableLegacy,
 } from 'viem';
-import type { HDAccount, LocalAccount } from 'viem/accounts';
+import type { HDAccount, LocalAccount, PrivateKeyAccount } from 'viem/accounts';
 
 import type {
   Address,
@@ -98,7 +98,7 @@ export async function signTransaction(options: {
  * @returns The signature as a hex string.
  */
 export async function signHash(options: {
-  account: HDAccount;
+  account: HDAccount | PrivateKeyAccount;
   hash: Hex;
 }): Promise<Hex> {
   const { account, hash } = options;
@@ -156,7 +156,7 @@ export async function signAuthorization(options: {
   account: LocalAccount;
   contractAddress: Address;
   chainId: number;
-  nonce?: number;
+  nonce?: number | undefined;
 }): Promise<SignedAuthorization> {
   return options.account.signAuthorization({
     contractAddress: options.contractAddress,
