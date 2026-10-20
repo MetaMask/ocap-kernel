@@ -1125,14 +1125,36 @@ export class RemoteHandle implements EndpointHandle {
   }
 
   /**
+   * Look up the krefs of erefs that a retirement names. A `retireImports` and a
+   * `retireExports` that cross on the wire each name an eref the receiver has
+   * already let go of, so an eref with no c-list entry is skipped rather than
+   * minted. The c-list can't tell that from an eref the peer never had (a
+   * buggy peer, or a stale one after a restart, #1179), hence the warning.
+   *
+   * @param method - The retirement, for the warning.
+   * @param erefs - The erefs it names.
+   * @returns The krefs of those still in the c-list.
+   */
+  #knownKrefs(method: string, erefs: ERef[]): KRef[] {
+    return erefs.flatMap((ref) => {
+      const kref = this.#kernelStore.erefToKref(this.remoteId, ref);
+      if (kref === undefined) {
+        this.#logger.warn(
+          `${method} names ${ref}, which is not in the c-list; skipped`,
+        );
+        return [];
+      }
+      return [kref];
+    });
+  }
+
+  /**
    * Handle a 'retireExports' delivery from the remote end.
    *
    * @param erefs - The refs of the exports to be retired.
    */
   #retireExports(erefs: ERef[]): void {
-    const krefs = erefs.map((ref) =>
-      this.#kernelStore.translateRefEtoK(this.remoteId, ref),
-    );
+    const krefs = this.#knownKrefs('retireExports', erefs);
     performRetireImports(krefs, this.remoteId, this.#kernelStore);
   }
 
@@ -1142,9 +1164,7 @@ export class RemoteHandle implements EndpointHandle {
    * @param erefs - The refs of the imports to be retired.
    */
   #retireImports(erefs: ERef[]): void {
-    const krefs = erefs.map((ref) =>
-      this.#kernelStore.translateRefEtoK(this.remoteId, ref),
-    );
+    const krefs = this.#knownKrefs('retireImports', erefs);
     performExportCleanup(krefs, true, this.remoteId, this.#kernelStore);
   }
 
