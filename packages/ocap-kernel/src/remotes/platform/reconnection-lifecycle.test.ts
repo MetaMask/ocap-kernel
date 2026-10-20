@@ -281,8 +281,7 @@ describe('reconnection-lifecycle', () => {
       expect(deps.closeChannel).toHaveBeenCalledWith(mockChannel, 'peer1');
       expect(deps.dialPeer).toHaveBeenCalledTimes(2);
       expect(deps.registerChannel).toHaveBeenCalledTimes(1);
-      // Once for the restart, so it spends no retry budget, once on success.
-      expect(deps.reconnectionManager.resetBackoff).toHaveBeenCalledTimes(2);
+      expect(deps.reconnectionManager.resetBackoff).toHaveBeenCalledTimes(1);
     });
 
     it('gives up on a peer that reports a restart on every handshake', async () => {

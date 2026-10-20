@@ -262,12 +262,12 @@ export function makeReconnectionLifecycle(
       if (handshakeResult.incarnationChanged) {
         // A send that shared this dial closes the channel on a restart. Re-dial:
         // the next handshake sees the stored incarnation and registers. The
-        // peer answered, so this attempt spends none of the retry budget.
+        // re-dial spends an attempt, so a peer that reports a restart on every
+        // handshake still runs out the retry budget.
         logger.log(
           `${peerId}:: peer restarted during reconnection, re-dialing`,
         );
         await closeChannel(channel, peerId);
-        reconnectionManager.resetBackoff(peerId);
         return null;
       }
       registerChannel(peerId, channel, 'reading channel to');
