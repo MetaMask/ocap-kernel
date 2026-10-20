@@ -25,9 +25,11 @@ const testSubcluster = {
   ),
 };
 
-// Each vat runs in its own worker thread, but the run loop delivers one item at
-// a time. So work that holds a delivery open runs one vat after another, and
-// work a vat waits on outside a delivery overlaps.
+// Each vat runs in its own worker thread, and the crank only carries messages
+// between them, so k vats doing the same work shouldn't take k times as long as
+// one. Compute can't beat the CPU, so its speed-up depends on the cores
+// available, and only its upper bound is pinned. Waits use no CPU, so k vats
+// waiting should take about as long as one on any hardware.
 describe('vat parallelism', () => {
   let kernel: Kernel;
   let roots: KRef[];
@@ -66,7 +68,7 @@ describe('vat parallelism', () => {
     await timeAll(roots, 'spin', SPIN_ITERATIONS);
   }, 60_000);
 
-  it('runs k vats computing one after another, in about k times as long', async () => {
+  it('takes no longer for k vats computing at once than for each alone, summed', async () => {
     let each = 0;
     for (const root of roots) {
       each += await timeAll([root], 'spin', SPIN_ITERATIONS);
@@ -76,10 +78,10 @@ describe('vat parallelism', () => {
     expect(
       all / each,
       `each vat alone ${each.toFixed(0)} ms in total, ${VAT_COUNT} at once ${all.toFixed(0)} ms`,
-    ).toBeGreaterThan(0.75);
+    ).toBeLessThan(1.25);
   });
 
-  it('runs k vats waiting at once, in about the time of one', async () => {
+  it('takes about as long for k vats waiting at once as for one', async () => {
     const one = await timeAll(roots.slice(0, 1), 'sleep', SLEEP_MS);
     const all = await timeAll(roots, 'sleep', SLEEP_MS);
 
