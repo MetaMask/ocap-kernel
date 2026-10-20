@@ -7,7 +7,7 @@
     "types": ["node", "ses", "vitest"]
   },
   "include": [
-    "../../vitest.config.packages.ts",
+    "../../vitest.config.ts",
     "./src/**/*.ts",
     "./src/**/*-trusted-prelude.js",
     "./test/**/*.ts",

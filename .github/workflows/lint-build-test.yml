@@ -99,6 +99,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - uses: ./.github/actions/playwright-install
       - run: yarn build
+      - run: yarn test:types
+        if: ${{ matrix.node-version == '24.x' }}
       - run: "yarn test --coverage=${{ matrix.node-version == '24.x' && 'true' || 'false' }}"
       - name: Upload coverage artifact
         if: ${{ matrix.node-version == '24.x' }}
