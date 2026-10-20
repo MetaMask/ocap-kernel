@@ -23,7 +23,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      emptyOutDir: true,
+      // `build:lib` clears `dist` and writes the declarations first.
+      emptyOutDir: false,
       outDir: 'dist',
       sourcemap: true,
       cssCodeSplit: false,

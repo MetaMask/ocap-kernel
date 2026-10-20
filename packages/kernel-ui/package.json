@@ -32,7 +32,9 @@
   ],
   "license": "(MIT OR Apache-2.0)",
   "scripts": {
-    "build": "rimraf --glob './*.tsbuildinfo' && vite build --configLoader runner --config vite.config.ts && tsc --project tsconfig.build.json",
+    "build": "yarn build:lib && yarn build:vite",
+    "build:lib": "rimraf --glob ./dist './*.tsbuildinfo' && tsc --project tsconfig.build.json",
+    "build:vite": "vite build --configLoader runner --config vite.config.ts",
     "dev": "vite build --configLoader runner --config vite.config.ts --mode development --watch",
     "build:docs": "typedoc",
     "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-ui",
