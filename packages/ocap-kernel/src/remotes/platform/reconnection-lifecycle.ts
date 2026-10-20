@@ -90,6 +90,7 @@ export function makeReconnectionLifecycle(
     maxAttempts = maxRetryAttempts ?? DEFAULT_MAX_RETRY_ATTEMPTS,
   ): Promise<void> {
     const state = peerStateManager.getState(peerId);
+    let restartSeen = false;
 
     while (reconnectionManager.isReconnecting(peerId) && !signal.aborted) {
       // Check for permanent failure before attempting
@@ -132,8 +133,18 @@ export function makeReconnectionLifecycle(
       );
 
       try {
-        const channel = await tryReconnect(state, peerId);
-        if (!channel) {
+        const result = await tryReconnect(state, peerId);
+        if (result === 'restarted') {
+          // The peer answered, so its first restart in a run resets the
+          // backoff. Later ones spend attempts, so a peer that reports a
+          // restart on every handshake still runs out the retry budget.
+          if (!restartSeen) {
+            restartSeen = true;
+            reconnectionManager.resetBackoff(peerId);
+          }
+          continue;
+        }
+        if (!result) {
           // Channel was closed and existing also died - continue retry loop
           continue;
         }
@@ -205,12 +216,13 @@ export function makeReconnectionLifecycle(
    *
    * @param state - The peer state.
    * @param peerId - The peer ID.
-   * @returns The channel if successful, null if should retry.
+   * @returns The channel if successful, `'restarted'` if the peer restarted,
+   * null if should retry.
    */
   async function tryReconnect(
     state: PeerState,
     peerId: string,
-  ): Promise<Channel | null> {
+  ): Promise<Channel | 'restarted' | null> {
     // Check connection rate limit before attempting dial
     checkConnectionRateLimit(peerId);
 
@@ -261,14 +273,12 @@ export function makeReconnectionLifecycle(
       }
       if (handshakeResult.incarnationChanged) {
         // A send that shared this dial closes the channel on a restart. Re-dial:
-        // the next handshake sees the stored incarnation and registers. The
-        // peer answered, so this attempt spends none of the retry budget.
+        // the next handshake sees the stored incarnation and registers.
         logger.log(
           `${peerId}:: peer restarted during reconnection, re-dialing`,
         );
         await closeChannel(channel, peerId);
-        reconnectionManager.resetBackoff(peerId);
-        return null;
+        return 'restarted';
       }
       registerChannel(peerId, channel, 'reading channel to');
     }

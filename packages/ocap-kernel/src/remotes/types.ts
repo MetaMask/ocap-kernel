@@ -129,6 +129,9 @@ export type RemoteCommsOptions = {
    * Base delay in milliseconds for the exponential backoff of reconnection and
    * of a send's dial retries (default: 500ms).
    * Used as the starting delay that doubles with each subsequent attempt.
+   * A send's dial retries skip `maxConnectionAttemptsPerMinute`, so with low
+   * delays a send to an unreachable peer re-dials it that fast, for as long as
+   * `maxRetryAttempts` allows (forever by default).
    */
   reconnectionBaseDelayMs?: number | undefined;
   /**

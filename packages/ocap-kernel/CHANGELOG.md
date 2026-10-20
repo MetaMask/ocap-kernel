@@ -73,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Concurrent sends to a peer that share a dial now share one handshake and one read loop on its channel. Each used to run its own handshake, and the extra ones read the peer's messages off the stream and closed the connection when they timed out ([#1188](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1188))
+- Sends to a peer no longer fail or time out after it reconnects, which happened when several sends dialed it at once ([#1188](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1188))
 - A send's dial retry follows `reconnectionBaseDelayMs` and `reconnectionMaxDelayMs`, as it already followed `maxRetryAttempts`, rather than always backing off up to 10 s ([#1188](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1188))
 - Bump `@libp2p/crypto` from `5.1.14` to `5.1.23`, so remote comms start on Node 24.22 instead of throwing `Invalid JWK OKP key` ([#1185](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1185))
 - `Kernel.stop` records its last-active timestamp best-effort, so a store that can no longer persist anything does not stop it from releasing remote comms, the vat workers and the database handle ([#1094](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1094))

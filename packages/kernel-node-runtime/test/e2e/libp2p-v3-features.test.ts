@@ -138,7 +138,7 @@ describe.sequential('libp2p v3 Features E2E', () => {
           [bobURL, 'hello', ['Alice']],
         );
 
-        // Restart kernel2 — reconnection loop delivers the queued message
+        // Restart kernel2; kernel1's ACK retransmit delivers the queued message
         const bobConfig = makeRemoteVatConfig('Bob');
         const restartResult = await restartKernelAndReloadVat(
           dbFilename2,

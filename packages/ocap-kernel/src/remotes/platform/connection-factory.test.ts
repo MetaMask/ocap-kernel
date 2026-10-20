@@ -1187,62 +1187,12 @@ describe('ConnectionFactory', () => {
       expect(onRetryCallbackCalled).toBe(true);
     });
 
-    it('defaults maxRetryAttempts to 0 when not provided', async () => {
-      let capturedRetryOptions:
-        | Parameters<
-            typeof import('@metamask/kernel-utils').retryWithBackoff
-          >[1]
-        | undefined;
-
-      // Override the mock retryWithBackoff to capture options
-      vi.doMock('@metamask/kernel-utils', () => ({
-        fromHex: (_hex: string) => new Uint8Array(_hex.length / 2),
-        calculateReconnectionBackoff,
-        retryWithBackoff: async <OperationResult>(
-          operation: () => Promise<OperationResult>,
-          options?: Parameters<
-            typeof import('@metamask/kernel-utils').retryWithBackoff
-          >[1],
-        ) => {
-          capturedRetryOptions = options;
-          return await operation();
-        },
-      }));
-
-      createLibp2p.mockImplementation(async () => ({
-        start: vi.fn(),
-        stop: vi.fn(),
-        peerId: { toString: () => 'test-peer' },
-        addEventListener: vi.fn(),
-        dialProtocol: vi.fn(async () => {
-          return {};
-        }),
-        getConnections: vi.fn(() => [
-          { remotePeer: { toString: () => 'relay1' } },
-          { remotePeer: { toString: () => 'relay2' } },
-        ]),
-        handle: vi.fn(),
-      }));
-
-      // Re-import ConnectionFactory to use the new mock
-      vi.resetModules();
-      const { ConnectionFactory } = await import('./connection-factory.ts');
-      const { Logger } = await import('@metamask/logger');
-      factory = await ConnectionFactory.make({
-        keySeed,
-        knownRelays,
-        logger: new Logger(),
-        signal: new AbortController().signal,
-      });
-
-      await factory.openChannelWithRetry('peer123');
-
-      // Verify retry was called with maxAttempts defaulting to 0 (infinite)
-      expect(capturedRetryOptions).toBeDefined();
-      expect(capturedRetryOptions).toHaveProperty('maxAttempts', 0);
-    });
-
     it.each([
+      {
+        option: 'defaults',
+        options: {},
+        expected: { maxAttempts: 0 },
+      },
       {
         option: 'maxRetryAttempts',
         options: { maxRetryAttempts: 2 },
@@ -1251,9 +1201,9 @@ describe('ConnectionFactory', () => {
       {
         option: 'the reconnection delays',
         options: { reconnectionBaseDelayMs: 10, reconnectionMaxDelayMs: 50 },
-        expected: { baseDelayMs: 10, maxDelayMs: 50 },
+        expected: { maxAttempts: 0, baseDelayMs: 10, maxDelayMs: 50 },
       },
-    ])('retries by $option when provided', async ({ options, expected }) => {
+    ])('retries with $option', async ({ options, expected }) => {
       let capturedRetryOptions:
         | Parameters<
             typeof import('@metamask/kernel-utils').retryWithBackoff
@@ -1294,17 +1244,24 @@ describe('ConnectionFactory', () => {
       vi.resetModules();
       const { ConnectionFactory } = await import('./connection-factory.ts');
       const { Logger } = await import('@metamask/logger');
+      const { signal } = new AbortController();
       factory = await ConnectionFactory.make({
         keySeed,
         knownRelays,
         logger: new Logger(),
-        signal: new AbortController().signal,
+        signal,
         ...options,
       });
 
       await factory.openChannelWithRetry('peer123');
 
-      expect(capturedRetryOptions).toMatchObject(expected);
+      expect(capturedRetryOptions).toStrictEqual({
+        ...expected,
+        jitter: true,
+        shouldRetry: expect.any(Function),
+        onRetry: expect.any(Function),
+        signal,
+      });
     });
   });
 
