@@ -27,6 +27,7 @@
       "@metamask/kernel-platforms/nodejs": [
         "./packages/kernel-platforms/src/nodejs.ts"
       ],
+      "@metamask/kernel-shims/*": ["./packages/kernel-shims/src/*.js"],
       "@metamask/kernel-store/sqlite/nodejs": [
         "./packages/kernel-store/src/sqlite/nodejs.ts"
       ],
