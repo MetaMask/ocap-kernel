@@ -36,7 +36,7 @@
     "build:lib": "rimraf --glob ./dist './*.tsbuildinfo' && tsc --project tsconfig.build.json",
     "build:vite": "vite build --configLoader runner --config vite.config.ts",
     "dev": "vite build --configLoader runner --config vite.config.ts --mode development --watch",
-    "build:docs": "typedoc",
+    "build:docs": "npx -y -p typedoc@0.28.20 -p typescript@6.0.3 typedoc",
     "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-ui",
     "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-ui",
     "clean": "rimraf --glob './*.tsbuildinfo' ./coverage ./dist ./.turbo ./logs",
@@ -89,7 +89,6 @@
     "rimraf": "^6.0.1",
     "sass": "^1.89.2",
     "turbo": "^2.9.1",
-    "typedoc": "^0.28.1",
     "typescript": "~7.0.2",
     "vite": "^8.0.6",
     "vitest": "^4.1.3"

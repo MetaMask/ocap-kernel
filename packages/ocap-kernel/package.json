@@ -36,7 +36,7 @@
   ],
   "scripts": {
     "build": "rimraf --glob ./dist './*.tsbuildinfo' && tsc --project tsconfig.build.json",
-    "build:docs": "typedoc",
+    "build:docs": "npx -y -p typedoc@0.28.20 -p typescript@6.0.3 typedoc",
     "changelog:update": "../../scripts/update-changelog.sh @metamask/ocap-kernel",
     "changelog:validate": "../../scripts/validate-changelog.sh @metamask/ocap-kernel",
     "clean": "rimraf --glob './*.tsbuildinfo' ./coverage ./dist ./.turbo ./logs",

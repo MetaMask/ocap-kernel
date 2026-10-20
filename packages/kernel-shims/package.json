@@ -32,7 +32,7 @@
   ],
   "scripts": {
     "build": "node scripts/bundle.js",
-    "build:docs": "typedoc",
+    "build:docs": "npx -y -p typedoc@0.28.20 -p typescript@6.0.3 typedoc",
     "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-shims",
     "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-shims",
     "clean": "rimraf --glob './*.tsbuildinfo' ./coverage ./dist ./.turbo ./logs",

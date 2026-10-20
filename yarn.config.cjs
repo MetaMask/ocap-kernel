@@ -199,7 +199,11 @@ module.exports = defineConfig({
 
         if (!typedocExceptions.includes(workspaceBasename)) {
           // All non-root packages must have the same "build:docs" script.
-          expectWorkspaceField(workspace, 'scripts.build:docs', 'typedoc');
+          expectWorkspaceField(
+            workspace,
+            'scripts.build:docs',
+            'npx -y -p typedoc@0.28.20 -p typescript@6.0.3 typedoc',
+          );
         }
 
         // All packages except the root must have a "clean" script that includes ./logs.

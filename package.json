@@ -80,7 +80,6 @@
     "simple-git-hooks": "^2.12.1",
     "tsx": "^4.20.6",
     "turbo": "^2.9.1",
-    "typedoc": "^0.28.1",
     "typescript": "~7.0.2",
     "vite": "^8.0.6",
     "vitest": "^4.1.3",

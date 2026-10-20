@@ -20,7 +20,7 @@
     "lint:fix": "yarn lint:oxlint --fix && oxfmt . && yarn constraints --fix && yarn lint:dependencies",
     "lint:oxfmt": "oxfmt --check .",
     "lint:oxlint": "oxlint .",
-    "build:docs": "typedoc",
+    "build:docs": "npx -y -p typedoc@0.28.20 -p typescript@6.0.3 typedoc",
     "test": "vitest run --config vitest.config.ts",
     "test:e2e:local": "vitest run --config vitest.config.e2e.ts",
     "test:e2e:local:llama-cpp": "LMS_PROVIDER=llama-cpp yarn test:e2e:local",
