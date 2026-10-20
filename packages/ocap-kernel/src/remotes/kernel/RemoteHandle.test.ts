@@ -4,6 +4,7 @@ import { makeAbortSignalMock } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { RemoteHandle } from './RemoteHandle.ts';
+import { asRRef, asRemoteId, asVatId } from '../../../test/branded.ts';
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
 import type { KernelQueue } from '../../KernelQueue.ts';
@@ -15,7 +16,7 @@ import type { RemoteComms } from '../types.ts';
 let mockKernelStore: KernelStore;
 let mockRemoteComms: RemoteComms;
 let mockKernelQueue: KernelQueue;
-const mockRemoteId = 'r0';
+const mockRemoteId = asRemoteId('r0');
 const mockRemotePeerId = 'remotePeerId';
 let mockFactory: ReturnType<typeof createMockRemotesFactory>;
 
@@ -119,10 +120,10 @@ describe('RemoteHandle', () => {
 
   it('deliverMessage calls sendRemoteMessage with correct delivery message', async () => {
     const remote = makeRemote();
-    const target: RRef = 'ro+1';
+    const target = asRRef('ro+1');
     const message: EndpointMessage = {
       methargs: { body: '["method",["arg1","arg2"]]', slots: [] },
-      result: 'rp-2',
+      result: asRRef('rp-2'),
     };
     const crankResult = await deliverAndCommit(
       remote.deliverMessage(target, message),
@@ -147,7 +148,7 @@ describe('RemoteHandle', () => {
   it('writes the delivery down before the crank commits, and sends it after', async () => {
     const remote = makeRemote();
 
-    const { afterCommit } = await remote.deliverMessage('ro+1', {
+    const { afterCommit } = await remote.deliverMessage(asRRef('ro+1'), {
       methargs: { body: '["m",[]]', slots: [] },
     } as EndpointMessage);
 
@@ -238,7 +239,7 @@ describe('RemoteHandle', () => {
 
   it('deliverDropExports calls sendRemoteMessage with correct delivery message', async () => {
     const remote = makeRemote();
-    const rrefs: RRef[] = ['ro+4', 'ro+5'];
+    const rrefs: RRef[] = [asRRef('ro+4'), asRRef('ro+5')];
 
     const crankResult = await deliverAndCommit(
       remote.deliverDropExports(rrefs),
@@ -261,7 +262,7 @@ describe('RemoteHandle', () => {
 
   it('deliverRetireExports calls sendRemoteMessage with correct delivery message', async () => {
     const remote = makeRemote();
-    const rrefs: RRef[] = ['ro+4', 'ro+5'];
+    const rrefs: RRef[] = [asRRef('ro+4'), asRRef('ro+5')];
 
     const crankResult = await deliverAndCommit(
       remote.deliverRetireExports(rrefs),
@@ -284,7 +285,7 @@ describe('RemoteHandle', () => {
 
   it('deliverRetireImports calls sendRemoteMessage with correct delivery message', async () => {
     const remote = makeRemote();
-    const rrefs: RRef[] = ['ro+4', 'ro+5'];
+    const rrefs: RRef[] = [asRRef('ro+4'), asRRef('ro+5')];
 
     const crankResult = await deliverAndCommit(
       remote.deliverRetireImports(rrefs),
@@ -526,7 +527,7 @@ describe('RemoteHandle', () => {
   it('redeemOcapURL calls sendRemoteMessage correctly and handles expected reply (success)', async () => {
     const remote = makeRemote();
     const mockOcapURL = 'as if it was a URL';
-    const mockURLResolutionRRef = 'ro+6';
+    const mockURLResolutionRRef = asRRef('ro+6');
     const mockURLResolutionKRef = 'ko1';
     const expectedReplyKey = '1';
 
@@ -609,9 +610,9 @@ describe('RemoteHandle', () => {
 
   it('takes delivery of deliver message', async () => {
     const remote = makeRemote();
-    const targetRRef = 'ro+1';
+    const targetRRef = asRRef('ro+1');
     const targetKRef = 'ko1';
-    const resultRRef = 'rp+2';
+    const resultRRef = asRRef('rp+2');
     const resultKRef = 'kp1';
     const message: EndpointMessage = {
       methargs: { body: '["method",["arg1","arg2"]]', slots: [] },
@@ -662,7 +663,7 @@ describe('RemoteHandle', () => {
 
     // Note that vat v1 does not exist; we're just pretending the test object
     // came from there (because it had to come from *somewhere*).
-    const koref = mockKernelStore.initKernelObject('v1');
+    const koref = mockKernelStore.initKernelObject(asVatId('v1'));
     mockKernelStore.initEndpoint(remote.remoteId);
 
     // Pretend this ref had earlier been imported into the test remote from our
@@ -698,7 +699,7 @@ describe('RemoteHandle', () => {
 
     // Note that vat v1 does not exist; we're just pretending the test object
     // came from there (because it had to come from *somewhere*).
-    const koref = mockKernelStore.initKernelObject('v1');
+    const koref = mockKernelStore.initKernelObject(asVatId('v1'));
     mockKernelStore.initEndpoint(remote.remoteId);
 
     // Pretend this ref had earlier been imported into the test remote from our
@@ -711,7 +712,7 @@ describe('RemoteHandle', () => {
       true,
     );
 
-    const toRetireRRef = mockKernelStore.invertRRef(roref);
+    const toRetireRRef = mockKernelStore.invertRRef(roref as RRef);
 
     const kref = mockKernelStore.translateRefEtoK(
       remote.remoteId,
@@ -743,7 +744,7 @@ describe('RemoteHandle', () => {
     const remote = makeRemote();
 
     // An object, as if it had been imported from the other end (and thus exported here)
-    const roref = 'ro+1';
+    const roref = asRRef('ro+1');
     const koref = mockKernelStore.translateRefEtoK(remote.remoteId, roref);
 
     // As if we're no longer using it (which, in fact, we weren't), which is a
@@ -850,7 +851,7 @@ describe('RemoteHandle', () => {
     // Verify reply was sent with seq/ack via sendRemoteMessage
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalled();
     const sentMessage = JSON.parse(
-      mockRemoteComms.sendRemoteMessage.mock.calls[0]?.[1] ?? '{}',
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mock.calls[0]?.[1] ?? '{}',
     );
     expect(sentMessage.method).toBe('redeemURLReply');
     expect(sentMessage.params).toStrictEqual([true, mockReplyKey, replyRRef]);
@@ -887,7 +888,7 @@ describe('RemoteHandle', () => {
     // Verify error reply was sent with seq/ack via sendRemoteMessage
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalled();
     const sentMessage = JSON.parse(
-      mockRemoteComms.sendRemoteMessage.mock.calls[0]?.[1] ?? '{}',
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mock.calls[0]?.[1] ?? '{}',
     );
     expect(sentMessage.method).toBe('redeemURLReply');
     expect(sentMessage.params).toStrictEqual([
@@ -1046,8 +1047,8 @@ describe('RemoteHandle', () => {
     const remote = makeRemote();
     const mockOcapURL1 = 'url1';
     const mockOcapURL2 = 'url2';
-    const mockURLResolutionRRef1 = 'ro+1';
-    const mockURLResolutionRRef2 = 'ro+2';
+    const mockURLResolutionRRef1 = asRRef('ro+1');
+    const mockURLResolutionRRef2 = asRRef('ro+2');
 
     // Start two concurrent redemptions
     const promise1 = remote.redeemOcapURL(mockOcapURL1);
@@ -2049,7 +2050,7 @@ describe('RemoteHandle', () => {
 
       // Seed an object export from the peer (peer-allocated eref ro+5
       // mapped to a fresh kernel object).
-      const eref = 'ro+5';
+      const eref = asRRef('ro+5');
       const kref = mockKernelStore.exportFromEndpoint(mockRemoteId, eref);
 
       // Sanity: c-list is populated in both directions before restart.

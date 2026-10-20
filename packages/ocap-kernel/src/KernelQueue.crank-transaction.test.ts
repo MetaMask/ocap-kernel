@@ -4,7 +4,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { KernelQueue } from './KernelQueue.ts';
 import { kser } from './liveslots/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
-import type { CrankResult, KernelMessage, RunQueueItem } from './types.ts';
+import type {
+  CrankResult,
+  KernelMessage,
+  RunQueueItem,
+  KRef,
+} from './types.ts';
+import { asKRef, asVatId, asVRef } from '../test/branded.ts';
 
 const STOP_RUN_LOOP = 'test: stop run loop';
 
@@ -104,10 +110,10 @@ describe('a crank whose transaction SQLite rolls back mid-delivery', () => {
       const deliver = async (): Promise<CrankResult | undefined> => {
         kdb.executeQuery('PRAGMA max_page_count = 1');
         syscall(() =>
-          kernelStore.setKernelServiceKref('big', 'x'.repeat(100_000)),
+          kernelStore.setKernelServiceKref('big', 'x'.repeat(100_000) as KRef),
         );
         kdb.executeQuery('PRAGMA max_page_count = 1073741823');
-        syscall(() => kernelStore.setKernelServiceKref('after', 'ko2'));
+        syscall(() => kernelStore.setKernelServiceKref('after', asKRef('ko2')));
         syscall(() =>
           kernelStore.makeVatStore('v1').updateKVData([['after', 'value']], []),
         );
@@ -131,7 +137,7 @@ describe('a crank whose transaction SQLite rolls back mid-delivery', () => {
         expect.stringContaining('database or disk is full'),
       );
       expect(() =>
-        kernelStore.setKernelServiceKref('later', 'ko3'),
+        kernelStore.setKernelServiceKref('later', asKRef('ko3')),
       ).not.toThrow();
     },
   );
@@ -148,7 +154,7 @@ describe('a crank whose transaction SQLite rolls back mid-delivery', () => {
     const deliver = async (): Promise<CrankResult | undefined> => {
       kdb.executeQuery('PRAGMA max_page_count = 1');
       try {
-        kernelStore.setKernelServiceKref('big', 'x'.repeat(100_000));
+        kernelStore.setKernelServiceKref('big', 'x'.repeat(100_000) as KRef);
       } catch {
         // Swallowed, as `VatSyscall` does.
       }
@@ -169,8 +175,9 @@ describe('a crank whose transaction SQLite rolls back mid-delivery', () => {
         },
       ],
     });
-    expect(kernelQueue.getRunLoopStatus().detail).toContain(
-      'database or disk is full',
+    expect(kernelQueue.getRunLoopStatus()).toHaveProperty(
+      'detail',
+      expect.stringContaining('database or disk is full'),
     );
   });
 });
@@ -185,9 +192,9 @@ describe('the reference count audit inside a crank', () => {
     const kernelStore = makeKernelStore(kdb);
     kernelStore.setRefCountAuditing(true);
     const kernelQueue = new KernelQueue(kernelStore, async () => undefined);
-    kernelStore.setVatConfig('v1', { bundleName: 'vat1' });
-    kernelStore.initEndpoint('v1');
-    const target = kernelStore.exportFromEndpoint('v1', 'o+1');
+    kernelStore.setVatConfig(asVatId('v1'), { bundleName: 'vat1' });
+    kernelStore.initEndpoint(asVatId('v1'));
+    const target = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
     kernelQueue.enqueueSend(target, {
       methargs: kser(['ping', []]),
       result: null,
@@ -197,7 +204,7 @@ describe('the reference count audit inside a crank', () => {
     const deliver = async (item: RunQueueItem): Promise<undefined> => {
       // What `KernelRouter.#deliverSend` does with the queue entry's charge.
       kernelStore.decrementRefCount(
-        (item as { target: string }).target,
+        (item as { target: KRef }).target,
         'deliver|send|target',
       );
       delivered += 1;

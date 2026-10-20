@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
+import { asRemoteId, asVatId, asVRef } from '../../../test/branded.ts';
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
 import type { KRef, EndpointId } from '../../types.ts';
 import { makeGCAction } from '../../types.ts';
@@ -14,9 +15,9 @@ describe('GC methods', () => {
 
   describe('GC actions', () => {
     it('manages all valid GC action types', () => {
-      const v1Object = kernelStore.initKernelObject('v1');
-      const v2Object = kernelStore.initKernelObject('v1');
-      const v3Object = kernelStore.initKernelObject('v2');
+      const v1Object = kernelStore.initKernelObject(asVatId('v1'));
+      const v2Object = kernelStore.initKernelObject(asVatId('v1'));
+      const v3Object = kernelStore.initKernelObject(asVatId('v2'));
 
       const validActions = [
         makeGCAction('v1' as EndpointId, 'dropExport', v1Object),
@@ -32,8 +33,8 @@ describe('GC methods', () => {
     });
 
     it('manages GC actions for remote endpoints', () => {
-      const r0Object = kernelStore.initKernelObject('r0');
-      const r1Object = kernelStore.initKernelObject('r1');
+      const r0Object = kernelStore.initKernelObject(asRemoteId('r0'));
+      const r1Object = kernelStore.initKernelObject(asRemoteId('r1'));
 
       const remoteActions = [
         makeGCAction('r0' as EndpointId, 'dropExport', r0Object),
@@ -48,15 +49,15 @@ describe('GC methods', () => {
     });
 
     it('rejects promise krefs at construction time', () => {
-      expect(() => makeGCAction('v1', 'dropExport', 'kp1' as KRef)).toThrow(
-        'GC actions only apply to objects',
-      );
+      expect(() =>
+        makeGCAction(asVatId('v1'), 'dropExport', 'kp1' as KRef),
+      ).toThrow('GC actions only apply to objects');
     });
 
     it('maintains action order when storing', () => {
-      const v1Object = kernelStore.initKernelObject('v1');
-      const v2Object = kernelStore.initKernelObject('v2');
-      const v3Object = kernelStore.initKernelObject('v3');
+      const v1Object = kernelStore.initKernelObject(asVatId('v1'));
+      const v2Object = kernelStore.initKernelObject(asVatId('v2'));
+      const v3Object = kernelStore.initKernelObject(asVatId('v3'));
 
       const actions = [
         makeGCAction('v3' as EndpointId, 'retireImport', v3Object),
@@ -78,7 +79,7 @@ describe('GC methods', () => {
 
   describe('reaping', () => {
     it('processes reap queue in order', () => {
-      const vatIds = ['v1', 'v2', 'v3'];
+      const vatIds = ['v1', 'v2', 'v3'].map(asVatId);
 
       // Schedule multiple vats for reaping
       vatIds.forEach((vatId) => kernelStore.scheduleReap(vatId));
@@ -96,9 +97,9 @@ describe('GC methods', () => {
     });
 
     it('handles duplicate reap scheduling', () => {
-      kernelStore.scheduleReap('v1');
-      kernelStore.scheduleReap('v1'); // Duplicate scheduling
-      kernelStore.scheduleReap('v2');
+      kernelStore.scheduleReap(asVatId('v1'));
+      kernelStore.scheduleReap(asVatId('v1')); // Duplicate scheduling
+      kernelStore.scheduleReap(asVatId('v2'));
 
       // Should only process v1 once
       expect(kernelStore.nextReapAction()).toStrictEqual({
@@ -115,8 +116,8 @@ describe('GC methods', () => {
     });
 
     it('schedules remote IDs for reaping', () => {
-      kernelStore.scheduleReap('r0');
-      kernelStore.scheduleReap('r1');
+      kernelStore.scheduleReap(asRemoteId('r0'));
+      kernelStore.scheduleReap(asRemoteId('r1'));
 
       expect(kernelStore.nextReapAction()).toStrictEqual({
         type: 'bringOutYourDead',
@@ -136,23 +137,25 @@ describe('GC methods', () => {
       // running. Nothing purges the reap queue when a vat dies, and unlike a GC
       // action, which `shouldProcessAction` filters on `hasCListEntry`, a reap
       // is handed back with no liveness check at all.
-      kernelStore.setVatConfig('v1', { bundleSpec: 'file:///gone.bundle' });
-      kernelStore.initEndpoint('v1');
+      kernelStore.setVatConfig(asVatId('v1'), {
+        bundleSpec: 'file:///gone.bundle',
+      });
+      kernelStore.initEndpoint(asVatId('v1'));
       const subclusterId = kernelStore.addSubcluster({
         bootstrap: 'a',
         vats: { a: { bundleSpec: 'file:///gone.bundle' } },
       });
-      kernelStore.addSubclusterVat(subclusterId, 'a', 'v1');
-      kernelStore.scheduleReap('v1');
+      kernelStore.addSubclusterVat(subclusterId, 'a', asVatId('v1'));
+      kernelStore.scheduleReap(asVatId('v1'));
 
-      kernelStore.markVatAsTerminated('v1');
-      kernelStore.deleteVat('v1');
+      kernelStore.markVatAsTerminated(asVatId('v1'));
+      kernelStore.deleteVat(asVatId('v1'));
       while (kernelStore.nextTerminatedVatCleanup()) {
         // drain
       }
       kernelStore.collectGarbage();
 
-      expect(kernelStore.isVatActive('v1')).toBe(false);
+      expect(kernelStore.isVatActive(asVatId('v1'))).toBe(false);
       expect(kernelStore.nextReapAction()).toStrictEqual({
         type: 'bringOutYourDead',
         endpointId: 'v1',
@@ -160,9 +163,9 @@ describe('GC methods', () => {
     });
 
     it('interleaves vat and remote reap scheduling', () => {
-      kernelStore.scheduleReap('v1');
-      kernelStore.scheduleReap('r0');
-      kernelStore.scheduleReap('v2');
+      kernelStore.scheduleReap(asVatId('v1'));
+      kernelStore.scheduleReap(asRemoteId('r0'));
+      kernelStore.scheduleReap(asVatId('v2'));
 
       expect(kernelStore.nextReapAction()).toStrictEqual({
         type: 'bringOutYourDead',
@@ -183,8 +186,8 @@ describe('GC methods', () => {
     });
 
     it('handles duplicate remote reap scheduling', () => {
-      kernelStore.scheduleReap('r0');
-      kernelStore.scheduleReap('r0');
+      kernelStore.scheduleReap(asRemoteId('r0'));
+      kernelStore.scheduleReap(asRemoteId('r0'));
 
       expect(kernelStore.nextReapAction()).toStrictEqual({
         type: 'bringOutYourDead',
@@ -198,19 +201,19 @@ describe('GC methods', () => {
   describe('retireKernelObjects', () => {
     it('retires objects by notifying importers', () => {
       // First, set up vat configurations so they are recognized by getVatIDs()
-      kernelStore.setVatConfig('v1', { bundleName: 'vat1' });
-      kernelStore.setVatConfig('v2', { bundleName: 'vat2' });
-      kernelStore.setVatConfig('v3', { bundleName: 'vat3' });
+      kernelStore.setVatConfig(asVatId('v1'), { bundleName: 'vat1' });
+      kernelStore.setVatConfig(asVatId('v2'), { bundleName: 'vat2' });
+      kernelStore.setVatConfig(asVatId('v3'), { bundleName: 'vat3' });
 
       // Create objects owned by v1
-      const ko1 = kernelStore.initKernelObject('v1');
-      const ko2 = kernelStore.initKernelObject('v1');
+      const ko1 = kernelStore.initKernelObject(asVatId('v1'));
+      const ko2 = kernelStore.initKernelObject(asVatId('v1'));
 
       // Set up import relationships: v2 and v3 import objects from v1
       // The key is using import direction (o-N) for the importing vats
-      kernelStore.addCListEntry('v2', ko1, 'o-1'); // v2 imports ko1 as o-1
-      kernelStore.addCListEntry('v3', ko1, 'o-2'); // v3 imports ko1 as o-2
-      kernelStore.addCListEntry('v3', ko2, 'o-3'); // v3 imports ko2 as o-3
+      kernelStore.addCListEntry(asVatId('v2'), ko1, asVRef('o-1')); // v2 imports ko1 as o-1
+      kernelStore.addCListEntry(asVatId('v3'), ko1, asVRef('o-2')); // v3 imports ko1 as o-2
+      kernelStore.addCListEntry(asVatId('v3'), ko2, asVRef('o-3')); // v3 imports ko2 as o-3
 
       // Clear any existing GC actions
       kernelStore.setGCActions(new Set());
@@ -311,12 +314,12 @@ describe('GC methods', () => {
         bootstrap: 'v1',
         vats: { v1: { bundleName: 'test' } },
       });
-      kernelStore.addSubclusterVat(subclusterId, 'v1', 'v1');
+      kernelStore.addSubclusterVat(subclusterId, 'v1', asVatId('v1'));
 
-      const ko1 = kernelStore.initKernelObject('v1');
+      const ko1 = kernelStore.initKernelObject(asVatId('v1'));
 
       // Set up basic object state
-      kernelStore.addCListEntry('v1', ko1, 'o+1');
+      kernelStore.addCListEntry(asVatId('v1'), ko1, asVRef('o+1'));
 
       // Run garbage collection
       kernelStore.collectGarbage();

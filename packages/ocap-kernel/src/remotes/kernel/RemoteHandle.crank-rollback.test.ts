@@ -3,13 +3,14 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { RemoteHandle } from './RemoteHandle.ts';
+import { asRemoteId } from '../../../test/branded.ts';
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
 import { KernelQueue } from '../../KernelQueue.ts';
 import { makeKernelStore } from '../../store/index.ts';
 import type { KRef } from '../../types.ts';
 import type { RemoteComms } from '../types.ts';
 
-const REMOTE_ID = 'r0';
+const REMOTE_ID = asRemoteId('r0');
 const PEER_ID = 'remote-peer-id';
 /** `MAX_PENDING_MESSAGES`, which RemoteHandle keeps to itself. */
 const CAPACITY = 200;

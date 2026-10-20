@@ -1,6 +1,7 @@
 import type { KernelDatabase, KVStore } from '@metamask/kernel-store';
 import { describe, it, expect, beforeEach } from 'vitest';
 
+import { asVatId, asVRef } from '../../../test/branded.ts';
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
 import type { KRef, VatConfig, VatId } from '../../types.ts';
 import { makeKernelStore } from '../index.ts';
@@ -47,7 +48,7 @@ describe('reference count audit', () => {
     kernelDatabase = makeMapKernelDatabase();
     kernelStore = makeKernelStore(kernelDatabase);
     kernelStore.markInitialized();
-    givenVats('v1', 'v2', 'v3');
+    givenVats(asVatId('v1'), asVatId('v2'), asVatId('v3'));
   });
 
   describe('auditRefCounts', () => {
@@ -63,32 +64,32 @@ describe('reference count audit', () => {
       {
         what: 'an export plus one importer',
         act: (kref: KRef) => {
-          kernelStore.translateRefKtoE('v2', kref, true);
+          kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
           return kref;
         },
       },
       {
         what: 'an export plus two importers',
         act: (kref: KRef) => {
-          kernelStore.translateRefKtoE('v2', kref, true);
-          kernelStore.translateRefKtoE('v3', kref, true);
+          kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
+          kernelStore.translateRefKtoE(asVatId('v3'), kref, true);
           return kref;
         },
       },
       {
         what: 'a dropped import',
         act: (kref: KRef) => {
-          kernelStore.translateRefKtoE('v2', kref, true);
-          kernelStore.clearReachableFlag('v2', kref);
+          kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
+          kernelStore.clearReachableFlag(asVatId('v2'), kref);
           return kref;
         },
       },
       {
         what: 'a retired import',
         act: (kref: KRef) => {
-          kernelStore.translateRefKtoE('v2', kref, true);
-          kernelStore.clearReachableFlag('v2', kref);
-          kernelStore.forgetKref('v2', kref);
+          kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
+          kernelStore.clearReachableFlag(asVatId('v2'), kref);
+          kernelStore.forgetKref(asVatId('v2'), kref);
           return kref;
         },
       },
@@ -113,22 +114,22 @@ describe('reference count audit', () => {
         },
       },
     ])('holds for $what', ({ act }) => {
-      act(kernelStore.exportFromEndpoint('v1', 'o+1'));
+      act(kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1')));
 
       expect(kernelStore.auditRefCounts()).toStrictEqual([]);
     });
 
     it('holds for an unsettled promise with importers', () => {
-      const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
-      kernelStore.translateRefKtoE('v2', kpid, true);
+      const kpid = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('p+1'));
+      kernelStore.translateRefKtoE(asVatId('v2'), kpid, true);
 
       expect(kernelStore.auditRefCounts()).toStrictEqual([]);
       expect(kernelStore.getRefCount(kpid)).toBe(3);
     });
 
     it('holds for a settled promise whose value carries a slot', () => {
-      const koid = kernelStore.exportFromEndpoint('v1', 'o+1');
-      const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
+      const koid = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+      const kpid = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('p+1'));
       kernelStore.incrementRefCount(koid, 'resolve|slot');
       kernelStore.resolveKernelPromise(kpid, false, {
         body: '#"$0"',
@@ -163,8 +164,14 @@ describe('reference count audit', () => {
     ])(
       'reports a settled promise with $what rather than throwing',
       ({ corrupt }) => {
-        const koid = kernelStore.exportFromEndpoint('v1', 'o+1');
-        const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
+        const koid = kernelStore.exportFromEndpoint(
+          asVatId('v1'),
+          asVRef('o+1'),
+        );
+        const kpid = kernelStore.exportFromEndpoint(
+          asVatId('v1'),
+          asVRef('p+1'),
+        );
         kernelStore.incrementRefCount(koid, 'resolve|slot');
         kernelStore.resolveKernelPromise(kpid, false, {
           body: '#"$0"',
@@ -185,8 +192,8 @@ describe('reference count audit', () => {
     );
 
     it('reports counts that are too low', () => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
-      kernelStore.translateRefKtoE('v2', kref, true);
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+      kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
       kernelStore.setObjectRefCount(kref, { reachable: 0, recognizable: 0 });
 
       expect(kernelStore.auditRefCounts()).toStrictEqual([
@@ -200,7 +207,7 @@ describe('reference count audit', () => {
     });
 
     it('reports counts that are too high even though nothing underflowed', () => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
       kernelStore.setObjectRefCount(kref, { reachable: 1, recognizable: 1 });
 
       expect(kernelStore.auditRefCounts()).toStrictEqual([
@@ -209,8 +216,8 @@ describe('reference count audit', () => {
     });
 
     it('reports a reference to a kref that has been deleted', () => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
-      kernelStore.translateRefKtoE('v2', kref, true);
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+      kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
       kernelStore.deleteKernelObject(kref);
 
       expect(kernelStore.auditRefCounts()).toStrictEqual([
@@ -228,8 +235,8 @@ describe('reference count audit', () => {
       { what: 'not a pair of numbers', row: 'NaN,0' },
       { what: 'a promise count on an object', row: '1' },
     ])('reports a row that is $what', ({ row }) => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
-      kernelStore.translateRefKtoE('v2', kref, true);
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+      kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
       // Written past the store's own guards, as a store drifted by an earlier
       // kernel would arrive: `getObjectRefCount` throws on all three, so
       // reading the row through it would take the whole sweep down with the
@@ -247,7 +254,7 @@ describe('reference count audit', () => {
     });
 
     it('does not mistake an owner for a referrer', () => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
 
       expect(kernelStore.getObjectRefCount(kref)).toStrictEqual({
         reachable: 0,
@@ -309,8 +316,8 @@ describe('reference count audit', () => {
         },
       },
     ])('credits $what that has not been flushed yet', ({ buffer }) => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
-      kernelStore.translateRefKtoE('v2', kref, true);
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+      kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
 
       buffer(kref);
 
@@ -330,8 +337,8 @@ describe('reference count audit', () => {
     });
 
     it('still reports a count no buffered item accounts for', () => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
-      kernelStore.translateRefKtoE('v2', kref, true);
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+      kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
       kernelStore.incrementRefCount(kref, 'queue|target');
       kernelStore.bufferCrankOutput({
         type: 'send',
@@ -353,14 +360,14 @@ describe('reference count audit', () => {
 
   describe('assertRefCountsIfAuditing', () => {
     it('does nothing while auditing is off', () => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
       kernelStore.setObjectRefCount(kref, { reachable: 9, recognizable: 9 });
 
       expect(() => kernelStore.assertRefCountsIfAuditing()).not.toThrow();
     });
 
     it('throws with the offending krefs once auditing is on', () => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
       kernelStore.setObjectRefCount(kref, { reachable: 9, recognizable: 9 });
       kernelStore.setRefCountAuditing(true);
 
@@ -370,7 +377,7 @@ describe('reference count audit', () => {
     });
 
     it('stays quiet when the counts agree', () => {
-      kernelStore.exportFromEndpoint('v1', 'o+1');
+      kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
       kernelStore.setRefCountAuditing(true);
 
       expect(() => kernelStore.assertRefCountsIfAuditing()).not.toThrow();
@@ -379,9 +386,9 @@ describe('reference count audit', () => {
 
   describe('recomputeRefCounts', () => {
     it('rebuilds counts written under the old accounting', () => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
-      kernelStore.translateRefKtoE('v2', kref, true);
-      kernelStore.translateRefKtoE('v3', kref, true);
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+      kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
+      kernelStore.translateRefKtoE(asVatId('v3'), kref, true);
       // As the pre-fix kernel would have left it: born (1,1), with neither
       // importer's c-list entry taking a reference. Two importers is the
       // smallest topology where that disagrees with the truth — with one, the
@@ -407,8 +414,8 @@ describe('reference count audit', () => {
     });
 
     it('reports references it cannot repair', () => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
-      kernelStore.translateRefKtoE('v2', kref, true);
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+      kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
       kernelStore.deleteKernelObject(kref);
 
       const { corrected, unfixable } = kernelStore.recomputeRefCounts();
@@ -419,7 +426,7 @@ describe('reference count audit', () => {
     });
 
     it('queues krefs it zeroes for collection', () => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
       kernelStore.setObjectRefCount(kref, { reachable: 1, recognizable: 1 });
 
       kernelStore.recomputeRefCounts();
@@ -434,8 +441,8 @@ describe('reference count audit', () => {
 
   describe('formatRefCountViolations', () => {
     it('names the holders behind a mismatch', () => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
-      kernelStore.translateRefKtoE('v2', kref, true);
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+      kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
       kernelStore.setObjectRefCount(kref, { reachable: 0, recognizable: 0 });
 
       expect(
@@ -446,7 +453,7 @@ describe('reference count audit', () => {
     });
 
     it('says so when a mismatch has no holders at all', () => {
-      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
       kernelStore.setObjectRefCount(kref, { reachable: 1, recognizable: 1 });
 
       expect(

@@ -1,3 +1,4 @@
+import type { Logger } from '@metamask/logger';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeErrorLogger, writeWithTimeout } from './channel-utils.ts';
@@ -6,14 +7,14 @@ import type { Channel } from '../types.ts';
 describe('channel-utils', () => {
   describe('makeErrorLogger', () => {
     it('creates an error logger function', () => {
-      const mockLogger = { log: vi.fn() };
+      const mockLogger = { log: vi.fn() } as unknown as Logger;
       const outputError = makeErrorLogger(mockLogger);
 
       expect(typeof outputError).toBe('function');
     });
 
     it('logs error with peer context when problem is provided', () => {
-      const mockLogger = { log: vi.fn() };
+      const mockLogger = { log: vi.fn() } as unknown as Logger;
       const outputError = makeErrorLogger(mockLogger);
       const error = new Error('test error');
 
@@ -25,7 +26,7 @@ describe('channel-utils', () => {
     });
 
     it('logs error without problem details when problem is null', () => {
-      const mockLogger = { log: vi.fn() };
+      const mockLogger = { log: vi.fn() } as unknown as Logger;
       const outputError = makeErrorLogger(mockLogger);
 
       outputError('peer123', 'connection failed', null);
@@ -36,7 +37,7 @@ describe('channel-utils', () => {
     });
 
     it('logs error without problem details when problem is undefined', () => {
-      const mockLogger = { log: vi.fn() };
+      const mockLogger = { log: vi.fn() } as unknown as Logger;
       const outputError = makeErrorLogger(mockLogger);
 
       outputError('peer123', 'timeout', undefined);
@@ -45,7 +46,7 @@ describe('channel-utils', () => {
     });
 
     it('handles non-Error objects as problems', () => {
-      const mockLogger = { log: vi.fn() };
+      const mockLogger = { log: vi.fn() } as unknown as Logger;
       const outputError = makeErrorLogger(mockLogger);
       const problem = { message: 'custom error' };
 
@@ -57,7 +58,7 @@ describe('channel-utils', () => {
     });
 
     it('handles string problems', () => {
-      const mockLogger = { log: vi.fn() };
+      const mockLogger = { log: vi.fn() } as unknown as Logger;
       const outputError = makeErrorLogger(mockLogger);
 
       outputError('peer789', 'reading', 'string error');

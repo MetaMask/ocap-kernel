@@ -1,8 +1,7 @@
-import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { MockInstance } from 'vitest';
+import type { Mock, MockInstance } from 'vitest';
 
 import * as gc from './garbage-collection/garbage-collection.ts';
 import { KernelQueue } from './KernelQueue.ts';
@@ -11,10 +10,12 @@ import * as types from './types.ts';
 import type {
   KRef,
   KernelMessage,
+  KernelOneResolution,
   RemoteId,
   RunLoopItem,
   RunQueueItem,
 } from './types.ts';
+import { asKRef, asVatId } from '../test/branded.ts';
 
 vi.mock('./garbage-collection/garbage-collection.ts', () => ({
   processGCActionSet: vi.fn().mockReturnValue(null),
@@ -35,7 +36,7 @@ describe('KernelQueue', () => {
   let kernelStore: KernelStore;
   let kernelQueue: KernelQueue;
   let mockPromiseKit: ReturnType<typeof makePromiseKit>;
-  let terminateVat: (vatId: string, reason?: CapData<KRef>) => Promise<void>;
+  let terminateVat: Mock<ConstructorParameters<typeof KernelQueue>[1]>;
 
   beforeEach(() => {
     mockPromiseKit = {
@@ -45,7 +46,9 @@ describe('KernelQueue', () => {
     };
     (makePromiseKit as unknown as MockInstance).mockReturnValue(mockPromiseKit);
 
-    terminateVat = vi.fn().mockResolvedValue(undefined);
+    terminateVat = vi
+      .fn<ConstructorParameters<typeof KernelQueue>[1]>()
+      .mockResolvedValue(undefined);
 
     kernelStore = {
       nextTerminatedVatCleanup: vi.fn(),
@@ -121,7 +124,7 @@ describe('KernelQueue', () => {
     it('processes items from the run queue and performs cleanup', async () => {
       const mockItem: RunQueueItem = {
         type: 'send',
-        target: 'ko123',
+        target: asKRef('ko123'),
         message: {} as KernelMessage,
       };
       (
@@ -147,7 +150,7 @@ describe('KernelQueue', () => {
     it('rolls back crank when deliver returns abort', async () => {
       const mockItem: RunQueueItem = {
         type: 'send',
-        target: 'ko123',
+        target: asKRef('ko123'),
         message: { result: 'kp99' } as KernelMessage,
       };
       (kernelStore.runQueueLength as unknown as MockInstance)
@@ -175,7 +178,7 @@ describe('KernelQueue', () => {
     it("runs a crank result's afterCommit once the crank has committed", async () => {
       const mockItem: RunQueueItem = {
         type: 'send',
-        target: 'ko123',
+        target: asKRef('ko123'),
         message: {} as KernelMessage,
       };
       (kernelStore.runQueueLength as unknown as MockInstance)
@@ -204,7 +207,7 @@ describe('KernelQueue', () => {
     it('withholds afterCommit when the delivery threw', async () => {
       const mockItem: RunQueueItem = {
         type: 'send',
-        target: 'ko123',
+        target: asKRef('ko123'),
         message: {} as KernelMessage,
       };
       (
@@ -223,7 +226,7 @@ describe('KernelQueue', () => {
     it('withholds afterCommit when ending the crank threw', async () => {
       const mockItem: RunQueueItem = {
         type: 'send',
-        target: 'ko123',
+        target: asKRef('ko123'),
         message: {} as KernelMessage,
       };
       (
@@ -249,7 +252,7 @@ describe('KernelQueue', () => {
     it("runs each crank's afterCommit once, not every later crank's", async () => {
       const mockItem: RunQueueItem = {
         type: 'send',
-        target: 'ko123',
+        target: asKRef('ko123'),
         message: {} as KernelMessage,
       };
       (kernelStore.runQueueLength as unknown as MockInstance).mockReturnValue(
@@ -277,7 +280,7 @@ describe('KernelQueue', () => {
     it('withholds afterCommit from a crank that aborted', async () => {
       const mockItem: RunQueueItem = {
         type: 'send',
-        target: 'ko123',
+        target: asKRef('ko123'),
         message: {} as KernelMessage,
       };
       (kernelStore.runQueueLength as unknown as MockInstance)
@@ -308,7 +311,7 @@ describe('KernelQueue', () => {
     it('terminates vat when deliver returns terminate', async () => {
       const mockItem: RunQueueItem = {
         type: 'send',
-        target: 'ko123',
+        target: asKRef('ko123'),
         message: {} as KernelMessage,
       };
       const terminateInfo = {
@@ -403,8 +406,12 @@ describe('KernelQueue', () => {
     it('rejects in-flight message results', async () => {
       const kit = makeRealPromiseKit();
       (makePromiseKit as unknown as MockInstance).mockReturnValueOnce(kit);
-      const resultPromise = kernelQueue.enqueueMessage('ko123', 'test', []);
-      expect(kernelQueue.subscriptions.has('kp1')).toBe(true);
+      const resultPromise = kernelQueue.enqueueMessage(
+        asKRef('ko123'),
+        'test',
+        [],
+      );
+      expect(kernelQueue.subscriptions.has(asKRef('kp1'))).toBe(true);
 
       const failure = new Error('crank exploded');
       await killRunLoop(failure);
@@ -420,7 +427,7 @@ describe('KernelQueue', () => {
       const failure = new Error('crank exploded');
       await killRunLoop(failure);
       await expect(
-        kernelQueue.enqueueMessage('ko123', 'test', []),
+        kernelQueue.enqueueMessage(asKRef('ko123'), 'test', []),
       ).rejects.toThrow('Kernel run loop died; cannot queue a message');
       expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
     });
@@ -537,8 +544,8 @@ describe('KernelQueue', () => {
     // later crank that died would skip its rollback and commit half its work.
     it('rolls back a later crank after an earlier one aborted', async () => {
       const items: RunQueueItem[] = [
-        { type: 'send', target: 'ko1', message: {} as KernelMessage },
-        { type: 'send', target: 'ko2', message: {} as KernelMessage },
+        { type: 'send', target: asKRef('ko1'), message: {} as KernelMessage },
+        { type: 'send', target: asKRef('ko2'), message: {} as KernelMessage },
       ];
       let dequeued = 0;
       (
@@ -590,20 +597,21 @@ describe('KernelQueue', () => {
       {
         teardown: 'resolvePromises',
         call: (queue: KernelQueue) =>
-          queue.resolvePromises('v1', [
-            ['kp1', true, { body: 'x', slots: [] }],
+          queue.resolvePromises(asVatId('v1'), [
+            [asKRef('kp1'), true, { body: 'x', slots: [] }],
           ]),
         didWork: () => kernelStore.resolveKernelPromise,
       },
       {
         teardown: 'enqueueNotify',
-        call: (queue: KernelQueue) => queue.enqueueNotify('v1', 'kp1'),
+        call: (queue: KernelQueue) =>
+          queue.enqueueNotify(asVatId('v1'), asKRef('kp1')),
         didWork: () => kernelStore.enqueueRun,
       },
       {
         teardown: 'enqueueSend',
         call: (queue: KernelQueue) =>
-          queue.enqueueSend('ko123', {
+          queue.enqueueSend(asKRef('ko123'), {
             methargs: { body: 'x', slots: [] },
             result: null,
           }),
@@ -641,8 +649,8 @@ describe('KernelQueue', () => {
       });
       const deliver = vi.fn().mockReturnValue(new Promise(() => undefined));
       kernelQueue.run(deliver).catch(() => undefined);
-      await kernelQueue.enqueueMessage('ko123', 'method', []);
-      expect(kernelQueue.subscriptions.has('kp1')).toBe(true);
+      await kernelQueue.enqueueMessage(asKRef('ko123'), 'method', []);
+      expect(kernelQueue.subscriptions.has(asKRef('kp1'))).toBe(true);
 
       await expect(kernelQueue.run(deliver)).rejects.toThrow(
         'run loop already started',
@@ -651,13 +659,13 @@ describe('KernelQueue', () => {
       expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
         state: 'running',
       });
-      expect(kernelQueue.subscriptions.has('kp1')).toBe(true);
+      expect(kernelQueue.subscriptions.has(asKRef('kp1'))).toBe(true);
     });
   });
 
   describe('enqueueMessage', () => {
     it('creates a message, enqueues it, and returns a promise for the result', async () => {
-      const target = 'ko123';
+      const target = asKRef('ko123');
       const method = 'test';
       const args = ['arg1', { key: 'value' }];
       const resultValue = { body: 'result', slots: [] };
@@ -693,8 +701,8 @@ describe('KernelQueue', () => {
           result: 'kp1',
         }),
       });
-      expect(kernelQueue.subscriptions.has('kp1')).toBe(true);
-      const subscription = kernelQueue.subscriptions.get('kp1');
+      expect(kernelQueue.subscriptions.has(asKRef('kp1'))).toBe(true);
+      const subscription = kernelQueue.subscriptions.get(asKRef('kp1'));
       expect(subscription).toStrictEqual({
         resolve: expect.any(Function),
         reject: expect.any(Function),
@@ -707,10 +715,13 @@ describe('KernelQueue', () => {
 
   describe('enqueueSend', () => {
     it('enqueues a send message and increments reference counts', () => {
-      const target = 'ko123';
+      const target = asKRef('ko123');
       const message: KernelMessage = {
-        methargs: { body: 'method args', slots: ['ko1', 'ko2'] },
-        result: 'kp2',
+        methargs: {
+          body: 'method args',
+          slots: [asKRef('ko1'), asKRef('ko2')],
+        },
+        result: asKRef('kp2'),
       };
       kernelQueue.enqueueSend(target, message);
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
@@ -737,7 +748,7 @@ describe('KernelQueue', () => {
     });
 
     it('handles messages without result or slots', () => {
-      const target = 'ko123';
+      const target = asKRef('ko123');
       const message: KernelMessage = {
         methargs: { body: 'method args', slots: [] },
         result: null,
@@ -758,8 +769,8 @@ describe('KernelQueue', () => {
 
   describe('enqueueNotify', () => {
     it('enqueues a notify and increments refcount', () => {
-      const endpointId = 'v1';
-      const kpid = 'kp123';
+      const endpointId = asVatId('v1');
+      const kpid = asKRef('kp123');
       kernelQueue.enqueueNotify(endpointId, kpid);
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
         kpid,
@@ -995,12 +1006,14 @@ describe('KernelQueue', () => {
   it.each([
     {
       what: 'restart',
-      enqueue: (queue: KernelQueue): void => queue.enqueueRestartVat('v1'),
+      enqueue: (queue: KernelQueue): void =>
+        queue.enqueueRestartVat(asVatId('v1')),
       item: { type: 'restartVat', vatId: 'v1' },
     },
     {
       what: 'termination',
-      enqueue: (queue: KernelQueue): void => queue.enqueueTerminateVat('v1'),
+      enqueue: (queue: KernelQueue): void =>
+        queue.enqueueTerminateVat(asVatId('v1')),
       item: { type: 'terminateVat', vatId: 'v1' },
     },
   ])(
@@ -1047,7 +1060,7 @@ describe('KernelQueue', () => {
 
   describe('enqueueRestartVat', () => {
     it('enqueues a restart request', () => {
-      kernelQueue.enqueueRestartVat('v1');
+      kernelQueue.enqueueRestartVat(asVatId('v1'));
 
       expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
         type: 'restartVat',
@@ -1056,8 +1069,14 @@ describe('KernelQueue', () => {
     });
 
     it.each([
-      ['restart', (queue: KernelQueue) => queue.enqueueRestartVat('v1')],
-      ['termination', (queue: KernelQueue) => queue.enqueueTerminateVat('v1')],
+      [
+        'restart',
+        (queue: KernelQueue) => queue.enqueueRestartVat(asVatId('v1')),
+      ],
+      [
+        'termination',
+        (queue: KernelQueue) => queue.enqueueTerminateVat(asVatId('v1')),
+      ],
     ])(
       'does not write a %s discarded before its crank ends',
       async (_, request) => {
@@ -1089,8 +1108,14 @@ describe('KernelQueue', () => {
     );
 
     it.each([
-      ['restart', (queue: KernelQueue) => queue.enqueueRestartVat('v1')],
-      ['termination', (queue: KernelQueue) => queue.enqueueTerminateVat('v1')],
+      [
+        'restart',
+        (queue: KernelQueue) => queue.enqueueRestartVat(asVatId('v1')),
+      ],
+      [
+        'termination',
+        (queue: KernelQueue) => queue.enqueueTerminateVat(asVatId('v1')),
+      ],
     ])(
       'drops a %s held by a crank that kills the run loop',
       async (_, request) => {
@@ -1121,7 +1146,7 @@ describe('KernelQueue', () => {
     it('refuses once the run loop is dead', async () => {
       await killRunLoop(new Error('crank exploded'));
 
-      expect(() => kernelQueue.enqueueRestartVat('v1')).toThrow(
+      expect(() => kernelQueue.enqueueRestartVat(asVatId('v1'))).toThrow(
         'Kernel run loop died; cannot restart a vat',
       );
       expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
@@ -1132,7 +1157,7 @@ describe('KernelQueue', () => {
     it('enqueues a termination request with its reason', () => {
       const reason = { body: 'because', slots: [] } as CapData<KRef>;
 
-      kernelQueue.enqueueTerminateVat('v1', reason);
+      kernelQueue.enqueueTerminateVat(asVatId('v1'), reason);
 
       expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
         type: 'terminateVat',
@@ -1142,7 +1167,7 @@ describe('KernelQueue', () => {
     });
 
     it('leaves the reason out when there is none', () => {
-      kernelQueue.enqueueTerminateVat('v1');
+      kernelQueue.enqueueTerminateVat(asVatId('v1'));
 
       // `toHaveBeenCalledWith` ignores an `undefined`-valued key, and the item
       // struct's `reason` is `exactOptional`, so the key has to be absent.
@@ -1154,16 +1179,16 @@ describe('KernelQueue', () => {
     it('refuses a reason that carries slots', () => {
       const reason = { body: 'because', slots: ['ko1'] } as CapData<KRef>;
 
-      expect(() => kernelQueue.enqueueTerminateVat('v1', reason)).toThrow(
-        'a termination reason cannot carry slots',
-      );
+      expect(() =>
+        kernelQueue.enqueueTerminateVat(asVatId('v1'), reason),
+      ).toThrow('a termination reason cannot carry slots');
       expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
     });
 
     it('refuses once the run loop is dead', async () => {
       await killRunLoop(new Error('crank exploded'));
 
-      expect(() => kernelQueue.enqueueTerminateVat('v1')).toThrow(
+      expect(() => kernelQueue.enqueueTerminateVat(asVatId('v1'))).toThrow(
         'Kernel run loop died; cannot terminate a vat',
       );
       expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
@@ -1208,9 +1233,9 @@ describe('KernelQueue', () => {
 
   describe('resolvePromises', () => {
     it('resolves kernel promises and buffers notifications for subscribers', () => {
-      const endpointId = 'v1';
-      const kpid = 'kp123';
-      const resolution: VatOneResolution = [
+      const endpointId = asVatId('v1');
+      const kpid = asKRef('kp123');
+      const resolution: KernelOneResolution = [
         kpid,
         false,
         { body: 'resolved value', slots: ['ko1'] } as CapData<KRef>,
@@ -1260,8 +1285,8 @@ describe('KernelQueue', () => {
     });
 
     it('handles resolutions with undefined vatId (kernel decider)', () => {
-      const kpid = 'kp123';
-      const resolution: VatOneResolution = [
+      const kpid = asKRef('kp123');
+      const resolution: KernelOneResolution = [
         kpid,
         false,
         { body: 'resolved value', slots: ['ko1'] } as CapData<KRef>,
@@ -1308,9 +1333,9 @@ describe('KernelQueue', () => {
     });
 
     it('handles promises with no subscribers', () => {
-      const endpointId = 'v1';
-      const kpid = 'kp3';
-      const resolution: VatOneResolution = [
+      const endpointId = asVatId('v1');
+      const kpid = asKRef('kp3');
+      const resolution: KernelOneResolution = [
         kpid,
         false,
         { body: 'resolved value', slots: [] } as CapData<KRef>,
@@ -1342,9 +1367,9 @@ describe('KernelQueue', () => {
     });
 
     it('throws error if a promise is already resolved', () => {
-      const endpointId = 'v1';
-      const kpid = 'kp123';
-      const resolution: VatOneResolution = [
+      const endpointId = asVatId('v1');
+      const kpid = asKRef('kp123');
+      const resolution: KernelOneResolution = [
         kpid,
         false,
         { body: 'resolved value', slots: ['ko1'] } as CapData<KRef>,
@@ -1364,10 +1389,10 @@ describe('KernelQueue', () => {
     });
 
     it('throws error if the resolver is not the decider', () => {
-      const endpointId = 'v1';
+      const endpointId = asVatId('v1');
       const wrongEndpointId = 'v2';
-      const kpid = 'kp123';
-      const resolution: VatOneResolution = [
+      const kpid = asKRef('kp123');
+      const resolution: KernelOneResolution = [
         kpid,
         false,
         { body: 'resolved value', slots: ['ko1'] } as CapData<KRef>,
@@ -1390,13 +1415,13 @@ describe('KernelQueue', () => {
   describe('abort with terminate', () => {
     it('rejects the JS subscription for the aborted send item', async () => {
       const rejectSpy = vi.fn();
-      kernelQueue.subscriptions.set('kp99', {
+      kernelQueue.subscriptions.set(asKRef('kp99'), {
         resolve: vi.fn(),
         reject: rejectSpy,
       });
       const mockItem: RunQueueItem = {
         type: 'send',
-        target: 'ko123',
+        target: asKRef('ko123'),
         message: { result: 'kp99' } as KernelMessage,
       };
       const terminateInfo = {
@@ -1421,19 +1446,19 @@ describe('KernelQueue', () => {
       await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
       expect(kernelStore.rollbackCrank).toHaveBeenCalledWith('delivery');
       expect(rejectSpy).toHaveBeenCalledWith(terminateInfo);
-      expect(kernelQueue.subscriptions.has('kp99')).toBe(false);
+      expect(kernelQueue.subscriptions.has(asKRef('kp99'))).toBe(false);
     });
 
     it('preserves the subscription when abort without terminate', async () => {
       const resolveSpy = vi.fn();
       const rejectSpy = vi.fn();
-      kernelQueue.subscriptions.set('kp99', {
+      kernelQueue.subscriptions.set(asKRef('kp99'), {
         resolve: resolveSpy,
         reject: rejectSpy,
       });
       const mockItem: RunQueueItem = {
         type: 'send',
-        target: 'ko123',
+        target: asKRef('ko123'),
         message: { result: 'kp99' } as KernelMessage,
       };
       (kernelStore.runQueueLength as unknown as MockInstance)
@@ -1450,7 +1475,7 @@ describe('KernelQueue', () => {
       (
         kernelStore.collectGarbage as unknown as MockInstance
       ).mockImplementation(() => {
-        subscribedAfterAbort = kernelQueue.subscriptions.has('kp99');
+        subscribedAfterAbort = kernelQueue.subscriptions.has(asKRef('kp99'));
         rejectedAfterAbort = rejectSpy.mock.calls.length > 0;
         throw new Error(STOP_RUN_LOOP);
       });
@@ -1659,7 +1684,7 @@ describe('KernelQueue', () => {
 
     it('leaves an external caller unanswered when the audit fires', async () => {
       const resolveSpy = vi.fn();
-      kernelQueue.subscriptions.set('kp1', {
+      kernelQueue.subscriptions.set(asKRef('kp1'), {
         resolve: resolveSpy,
         reject: vi.fn(),
       });
@@ -1701,8 +1726,8 @@ describe('KernelQueue', () => {
   describe('one-item-per-crank', () => {
     it('calls startCrank/endCrank for each delivered item', async () => {
       const items: RunQueueItem[] = [
-        { type: 'send', target: 'ko1', message: {} as KernelMessage },
-        { type: 'send', target: 'ko2', message: {} as KernelMessage },
+        { type: 'send', target: asKRef('ko1'), message: {} as KernelMessage },
+        { type: 'send', target: asKRef('ko2'), message: {} as KernelMessage },
       ];
       let dequeueCount = 0;
       (
@@ -1735,7 +1760,7 @@ describe('KernelQueue', () => {
     it('calls reject for rejected promises', async () => {
       const rejectSpy = vi.fn();
       const resolveSpy = vi.fn();
-      kernelQueue.subscriptions.set('kp1', {
+      kernelQueue.subscriptions.set(asKRef('kp1'), {
         resolve: resolveSpy,
         reject: rejectSpy,
       });
@@ -1751,7 +1776,7 @@ describe('KernelQueue', () => {
       );
       const mockItem: RunQueueItem = {
         type: 'send',
-        target: 'ko1',
+        target: asKRef('ko1'),
         message: {} as KernelMessage,
       };
       (kernelStore.runQueueLength as unknown as MockInstance)
@@ -1776,7 +1801,7 @@ describe('KernelQueue', () => {
     it('calls resolve for fulfilled promises', async () => {
       const rejectSpy = vi.fn();
       const resolveSpy = vi.fn();
-      kernelQueue.subscriptions.set('kp1', {
+      kernelQueue.subscriptions.set(asKRef('kp1'), {
         resolve: resolveSpy,
         reject: rejectSpy,
       });
@@ -1792,7 +1817,7 @@ describe('KernelQueue', () => {
       );
       const mockItem: RunQueueItem = {
         type: 'send',
-        target: 'ko1',
+        target: asKRef('ko1'),
         message: {} as KernelMessage,
       };
       (kernelStore.runQueueLength as unknown as MockInstance)
@@ -1816,7 +1841,7 @@ describe('KernelQueue', () => {
 
     it('answers a subscription whose promise was collected before the flush', async () => {
       const resolveSpy = vi.fn();
-      kernelQueue.subscriptions.set('kp1', {
+      kernelQueue.subscriptions.set(asKRef('kp1'), {
         resolve: resolveSpy,
         reject: vi.fn(),
       });
@@ -1847,8 +1872,8 @@ describe('KernelQueue', () => {
       // flush.
       const deliver = vi.fn().mockImplementation(async () => {
         kernelQueue.resolvePromises(
-          'v1',
-          [['kp1', false, fulfilledValue]],
+          asVatId('v1'),
+          [[asKRef('kp1'), false, fulfilledValue]],
           false,
         );
         return undefined;
