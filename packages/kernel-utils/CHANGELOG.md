@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `stringify` includes an `AggregateError`'s `errors`, each with its own `cause` chain ([#1094](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1094))
 
+### Fixed
+
+- Bump `@libp2p/crypto` from `5.1.14` to `5.1.23`, so `startRelay` no longer throws `Invalid JWK OKP key` on Node 24.22 ([#1185](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1185))
+
 ### Removed
 
 - **BREAKING:** Remove the CommonJS build; the package is ESM-only. Its entry points are `.js` and `.d.ts` files, formerly `.mjs`/`.cjs` and `.d.mts`/`.d.cts` ([#1186](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1186))

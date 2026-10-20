@@ -1895,22 +1895,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@libp2p/crypto@npm:5.1.14":
-  version: 5.1.14
-  resolution: "@libp2p/crypto@npm:5.1.14"
-  dependencies:
-    "@libp2p/interface": "npm:^3.1.1"
-    "@noble/curves": "npm:^2.0.1"
-    "@noble/hashes": "npm:^2.0.1"
-    multiformats: "npm:^13.4.0"
-    protons-runtime: "npm:^6.0.1"
-    uint8arraylist: "npm:^2.4.8"
-    uint8arrays: "npm:^5.1.0"
-  checksum: 10/945b98b06bd8c1b02d99df259c7d953a19c9cd277be65d975383605ea771fa3c85520cd0df1347ab865da6303be069ea8a4c6af9adfcf1b104b166a5bfa15fd4
-  languageName: node
-  linkType: hard
-
-"@libp2p/crypto@npm:^5.1.14, @libp2p/crypto@npm:^5.1.17, @libp2p/crypto@npm:^5.1.23, @libp2p/crypto@npm:^5.1.7, @libp2p/crypto@npm:^5.1.9":
+"@libp2p/crypto@npm:5.1.23, @libp2p/crypto@npm:^5.1.14, @libp2p/crypto@npm:^5.1.17, @libp2p/crypto@npm:^5.1.23, @libp2p/crypto@npm:^5.1.7, @libp2p/crypto@npm:^5.1.9":
   version: 5.1.23
   resolution: "@libp2p/crypto@npm:5.1.23"
   dependencies:
@@ -3077,7 +3062,7 @@ __metadata:
     "@endo/promise-kit": "npm:^1.2.1"
     "@libp2p/autonat": "npm:3.0.14"
     "@libp2p/circuit-relay-v2": "npm:4.1.7"
-    "@libp2p/crypto": "npm:5.1.14"
+    "@libp2p/crypto": "npm:5.1.23"
     "@libp2p/identify": "npm:4.0.14"
     "@libp2p/interface": "npm:3.3.0"
     "@libp2p/ping": "npm:3.0.14"
@@ -3253,7 +3238,7 @@ __metadata:
     "@endo/promise-kit": "npm:^1.2.1"
     "@libp2p/bootstrap": "npm:12.0.15"
     "@libp2p/circuit-relay-v2": "npm:4.1.7"
-    "@libp2p/crypto": "npm:5.1.14"
+    "@libp2p/crypto": "npm:5.1.23"
     "@libp2p/identify": "npm:4.0.14"
     "@libp2p/interface": "npm:3.3.0"
     "@libp2p/peer-id": "npm:6.0.5"
@@ -4462,7 +4447,7 @@ __metadata:
     "@endo/marshal": "npm:^1.10.0"
     "@endo/patterns": "npm:^1.9.1"
     "@endo/promise-kit": "npm:^1.2.1"
-    "@libp2p/crypto": "npm:5.1.14"
+    "@libp2p/crypto": "npm:5.1.23"
     "@libp2p/peer-id": "npm:6.0.5"
     "@metamask/eslint-config": "npm:^15.0.1"
     "@metamask/eslint-config-nodejs": "npm:^15.0.1"
