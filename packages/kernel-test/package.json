@@ -51,7 +51,7 @@
     "@endo/marshal": "^1.10.0",
     "@endo/patterns": "^1.9.1",
     "@endo/promise-kit": "^1.2.1",
-    "@libp2p/crypto": "5.1.14",
+    "@libp2p/crypto": "5.1.23",
     "@libp2p/peer-id": "6.0.5",
     "@metamask/kernel-node-runtime": "workspace:^",
     "@metamask/kernel-store": "workspace:^",
