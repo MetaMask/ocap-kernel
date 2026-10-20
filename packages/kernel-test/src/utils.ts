@@ -13,6 +13,7 @@ import type { LogEntry } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type {
   ClusterConfig,
+  KRef,
   OnRunLoopFailure,
   PlatformServices,
 } from '@metamask/ocap-kernel';
@@ -261,7 +262,7 @@ export async function runTestVats(
  */
 export async function runResume(
   kernel: Kernel,
-  rootRef: string,
+  rootRef: KRef,
 ): Promise<unknown> {
   const resumeResultRaw = await kernel.queueMessage(rootRef, 'resume', []);
   return kunser(resumeResultRaw);

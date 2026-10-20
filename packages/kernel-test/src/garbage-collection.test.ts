@@ -145,7 +145,10 @@ describe('Garbage Collection', () => {
     );
     expect(exporterReachable).toBe(true);
     // Check that the object is reachable as a promise from the importer vat
-    const importerKref = kernelStore.erefToKref(importerVatId, 'p-1') as KRef;
+    const importerKref = kernelStore.erefToKref(
+      importerVatId,
+      'p-1' as Parameters<KernelStore['erefToKref']>[1],
+    ) as KRef;
     expect(kernelStore.hasCListEntry(importerVatId, importerKref)).toBe(true);
     expect(kernelStore.getRefCount(importerKref)).toBe(1);
     // Use the object

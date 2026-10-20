@@ -1,6 +1,6 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
-import type { Baggage } from '@metamask/ocap-kernel';
+import type { Baggage, OcapURLIssuerService } from '@metamask/ocap-kernel';
 
 /**
  * Vat providing Monotony As A Service (MaaS). It just keeps relentlessly counting up. It's very boring.
@@ -36,7 +36,7 @@ export function buildRootObject(
   const myself = makeDefaultExo('root', {
     async bootstrap(
       _vats: unknown,
-      services: { ocapURLIssuerService?: unknown },
+      services: { ocapURLIssuerService?: OcapURLIssuerService },
     ) {
       // eslint-disable-next-line no-console
       console.log(`vat ${name} is bootstrap`);

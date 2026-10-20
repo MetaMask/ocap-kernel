@@ -3,6 +3,8 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 import type { TestPowers } from '../test-powers.ts';
 
+type Rejector = { foo: (shouldReject: boolean) => string };
+
 /**
  * This vat is used to test that throwing from a remotable method rejects the
  * result.
@@ -15,7 +17,7 @@ import type { TestPowers } from '../test-powers.ts';
 export function buildRootObject({ logger }: TestPowers) {
   const { log } = logger.subLogger({ tags: ['test'] });
   return makeDefaultExo('root', {
-    async bootstrap({ rejector }: { rejector: unknown }) {
+    async bootstrap({ rejector }: { rejector: Rejector }) {
       await E(rejector).foo(false).then(log);
       await E(rejector)
         .foo(true)

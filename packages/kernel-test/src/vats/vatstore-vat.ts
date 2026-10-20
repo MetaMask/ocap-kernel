@@ -2,6 +2,12 @@ import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
 
+type Peer = {
+  bump: (bumper: string) => void;
+  go: (from: string, bumpee: Peer) => string;
+  loopback: () => undefined;
+};
+
 type BaggageWithDelete = Baggage & {
   delete(key: string): void;
 };
@@ -29,7 +35,7 @@ export function buildRootObject(
   const testKey2 = 'goAway';
 
   return makeDefaultExo('root', {
-    async bootstrap(vats: { bob: unknown; carol: unknown; alice: unknown }) {
+    async bootstrap(vats: { bob: Peer; carol: Peer; alice: Peer }) {
       // eslint-disable-next-line no-console
       console.log(`vat ${name} is bootstrap`);
       if (!baggage.has(testKey1)) {
@@ -51,10 +57,11 @@ export function buildRootObject(
       // eslint-disable-next-line no-console
       console.log(`${bumper} bumps ${testKey1} from ${value} to ${value + 1}`);
     },
-    go(from: string, bumpee: unknown) {
+    go(from: string, bumpee: Peer) {
       const message = `vat ${name} got "go" from ${from}`;
       // eslint-disable-next-line no-console
       console.log(message);
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- `go` does not wait for the bump
       E(bumpee).bump(name);
       return message;
     },
