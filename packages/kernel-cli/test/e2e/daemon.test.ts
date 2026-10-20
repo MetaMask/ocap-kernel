@@ -163,9 +163,8 @@ describe('Daemon CLI e2e', { timeout: 60_000 }, () => {
     });
 
     it('purges state after stop', async () => {
-      const { deleteDaemonState } = await import(
-        '@metamask/kernel-node-runtime/daemon'
-      );
+      const { deleteDaemonState } =
+        await import('@metamask/kernel-node-runtime/daemon');
       await deleteDaemonState({
         ocapHome: daemon.ocapHome,
         socketPath: daemon.socketPath,

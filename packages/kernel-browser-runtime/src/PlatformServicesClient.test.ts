@@ -12,9 +12,8 @@ import { PlatformServicesClient } from './PlatformServicesClient.ts';
 
 vi.mock('@metamask/streams/browser', async (importOriginal) => {
   // eslint-disable-next-line @typescript-eslint/no-shadow
-  const { TestDuplexStream } = await import(
-    '@ocap/repo-tools/test-utils/streams'
-  );
+  const { TestDuplexStream } =
+    await import('@ocap/repo-tools/test-utils/streams');
 
   class MockStream extends TestDuplexStream {
     constructor() {
