@@ -10,6 +10,7 @@
     "moduleResolution": "Node16",
     "noErrorTruncation": true,
     "noUncheckedIndexedAccess": true,
+    "noUncheckedSideEffectImports": false,
     "resolveJsonModule": true,
     "rewriteRelativeImportExtensions": true,
     "strict": true,
