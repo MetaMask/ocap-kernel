@@ -17,6 +17,8 @@ import type {
 } from './types.ts';
 import { asKRef, asVatId } from '../test/branded.ts';
 
+const v1 = asVatId('v1');
+
 vi.mock('./garbage-collection/garbage-collection.ts', () => ({
   processGCActionSet: vi.fn().mockReturnValue(null),
 }));
@@ -597,15 +599,14 @@ describe('KernelQueue', () => {
       {
         teardown: 'resolvePromises',
         call: (queue: KernelQueue) =>
-          queue.resolvePromises(asVatId('v1'), [
+          queue.resolvePromises(v1, [
             [asKRef('kp1'), true, { body: 'x', slots: [] }],
           ]),
         didWork: () => kernelStore.resolveKernelPromise,
       },
       {
         teardown: 'enqueueNotify',
-        call: (queue: KernelQueue) =>
-          queue.enqueueNotify(asVatId('v1'), asKRef('kp1')),
+        call: (queue: KernelQueue) => queue.enqueueNotify(v1, asKRef('kp1')),
         didWork: () => kernelStore.enqueueRun,
       },
       {
@@ -769,7 +770,7 @@ describe('KernelQueue', () => {
 
   describe('enqueueNotify', () => {
     it('enqueues a notify and increments refcount', () => {
-      const endpointId = asVatId('v1');
+      const endpointId = v1;
       const kpid = asKRef('kp123');
       kernelQueue.enqueueNotify(endpointId, kpid);
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
@@ -1006,14 +1007,12 @@ describe('KernelQueue', () => {
   it.each([
     {
       what: 'restart',
-      enqueue: (queue: KernelQueue): void =>
-        queue.enqueueRestartVat(asVatId('v1')),
+      enqueue: (queue: KernelQueue): void => queue.enqueueRestartVat(v1),
       item: { type: 'restartVat', vatId: 'v1' },
     },
     {
       what: 'termination',
-      enqueue: (queue: KernelQueue): void =>
-        queue.enqueueTerminateVat(asVatId('v1')),
+      enqueue: (queue: KernelQueue): void => queue.enqueueTerminateVat(v1),
       item: { type: 'terminateVat', vatId: 'v1' },
     },
   ])(
@@ -1060,7 +1059,7 @@ describe('KernelQueue', () => {
 
   describe('enqueueRestartVat', () => {
     it('enqueues a restart request', () => {
-      kernelQueue.enqueueRestartVat(asVatId('v1'));
+      kernelQueue.enqueueRestartVat(v1);
 
       expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
         type: 'restartVat',
@@ -1069,14 +1068,8 @@ describe('KernelQueue', () => {
     });
 
     it.each([
-      [
-        'restart',
-        (queue: KernelQueue) => queue.enqueueRestartVat(asVatId('v1')),
-      ],
-      [
-        'termination',
-        (queue: KernelQueue) => queue.enqueueTerminateVat(asVatId('v1')),
-      ],
+      ['restart', (queue: KernelQueue) => queue.enqueueRestartVat(v1)],
+      ['termination', (queue: KernelQueue) => queue.enqueueTerminateVat(v1)],
     ])(
       'does not write a %s discarded before its crank ends',
       async (_, request) => {
@@ -1108,14 +1101,8 @@ describe('KernelQueue', () => {
     );
 
     it.each([
-      [
-        'restart',
-        (queue: KernelQueue) => queue.enqueueRestartVat(asVatId('v1')),
-      ],
-      [
-        'termination',
-        (queue: KernelQueue) => queue.enqueueTerminateVat(asVatId('v1')),
-      ],
+      ['restart', (queue: KernelQueue) => queue.enqueueRestartVat(v1)],
+      ['termination', (queue: KernelQueue) => queue.enqueueTerminateVat(v1)],
     ])(
       'drops a %s held by a crank that kills the run loop',
       async (_, request) => {
@@ -1146,7 +1133,7 @@ describe('KernelQueue', () => {
     it('refuses once the run loop is dead', async () => {
       await killRunLoop(new Error('crank exploded'));
 
-      expect(() => kernelQueue.enqueueRestartVat(asVatId('v1'))).toThrow(
+      expect(() => kernelQueue.enqueueRestartVat(v1)).toThrow(
         'Kernel run loop died; cannot restart a vat',
       );
       expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
@@ -1157,7 +1144,7 @@ describe('KernelQueue', () => {
     it('enqueues a termination request with its reason', () => {
       const reason = { body: 'because', slots: [] } as CapData<KRef>;
 
-      kernelQueue.enqueueTerminateVat(asVatId('v1'), reason);
+      kernelQueue.enqueueTerminateVat(v1, reason);
 
       expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
         type: 'terminateVat',
@@ -1167,7 +1154,7 @@ describe('KernelQueue', () => {
     });
 
     it('leaves the reason out when there is none', () => {
-      kernelQueue.enqueueTerminateVat(asVatId('v1'));
+      kernelQueue.enqueueTerminateVat(v1);
 
       // `toHaveBeenCalledWith` ignores an `undefined`-valued key, and the item
       // struct's `reason` is `exactOptional`, so the key has to be absent.
@@ -1179,16 +1166,16 @@ describe('KernelQueue', () => {
     it('refuses a reason that carries slots', () => {
       const reason = { body: 'because', slots: ['ko1'] } as CapData<KRef>;
 
-      expect(() =>
-        kernelQueue.enqueueTerminateVat(asVatId('v1'), reason),
-      ).toThrow('a termination reason cannot carry slots');
+      expect(() => kernelQueue.enqueueTerminateVat(v1, reason)).toThrow(
+        'a termination reason cannot carry slots',
+      );
       expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
     });
 
     it('refuses once the run loop is dead', async () => {
       await killRunLoop(new Error('crank exploded'));
 
-      expect(() => kernelQueue.enqueueTerminateVat(asVatId('v1'))).toThrow(
+      expect(() => kernelQueue.enqueueTerminateVat(v1)).toThrow(
         'Kernel run loop died; cannot terminate a vat',
       );
       expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
@@ -1233,7 +1220,7 @@ describe('KernelQueue', () => {
 
   describe('resolvePromises', () => {
     it('resolves kernel promises and buffers notifications for subscribers', () => {
-      const endpointId = asVatId('v1');
+      const endpointId = v1;
       const kpid = asKRef('kp123');
       const resolution: KernelOneResolution = [
         kpid,
@@ -1333,7 +1320,7 @@ describe('KernelQueue', () => {
     });
 
     it('handles promises with no subscribers', () => {
-      const endpointId = asVatId('v1');
+      const endpointId = v1;
       const kpid = asKRef('kp3');
       const resolution: KernelOneResolution = [
         kpid,
@@ -1367,7 +1354,7 @@ describe('KernelQueue', () => {
     });
 
     it('throws error if a promise is already resolved', () => {
-      const endpointId = asVatId('v1');
+      const endpointId = v1;
       const kpid = asKRef('kp123');
       const resolution: KernelOneResolution = [
         kpid,
@@ -1389,7 +1376,7 @@ describe('KernelQueue', () => {
     });
 
     it('throws error if the resolver is not the decider', () => {
-      const endpointId = asVatId('v1');
+      const endpointId = v1;
       const wrongEndpointId = 'v2';
       const kpid = asKRef('kp123');
       const resolution: KernelOneResolution = [
@@ -1872,7 +1859,7 @@ describe('KernelQueue', () => {
       // flush.
       const deliver = vi.fn().mockImplementation(async () => {
         kernelQueue.resolvePromises(
-          asVatId('v1'),
+          v1,
           [[asKRef('kp1'), false, fulfilledValue]],
           false,
         );

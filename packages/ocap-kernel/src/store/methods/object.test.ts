@@ -9,6 +9,8 @@ import type { StoreContext } from '../types.ts';
 import { getRevocationMethods } from './revocation.ts';
 import { asKRef, asRemoteId, asVatId } from '../../../test/branded.ts';
 
+const v1 = asVatId('v1');
+
 describe('object-methods', () => {
   let kv: KVStore;
   let objectStore: ReturnType<typeof getObjectMethods>;
@@ -31,7 +33,7 @@ describe('object-methods', () => {
 
   describe('initKernelObject', () => {
     it('creates a new kernel object, unreferenced', () => {
-      const owner: EndpointId = asVatId('v1');
+      const owner: EndpointId = v1;
       const koId = objectStore.initKernelObject(owner);
 
       // Check the object ID format
@@ -51,12 +53,12 @@ describe('object-methods', () => {
 
     it('initializes the revoked flag to false', () => {
       const { isRevoked } = getRevocationMethods({ kv } as StoreContext);
-      const koId = objectStore.initKernelObject(asVatId('v1'));
+      const koId = objectStore.initKernelObject(v1);
       expect(isRevoked(koId)).toBe(false);
     });
 
     it('increments the object ID counter', () => {
-      const koId1 = objectStore.initKernelObject(asVatId('v1'));
+      const koId1 = objectStore.initKernelObject(v1);
       const koId2 = objectStore.initKernelObject(asVatId('v2'));
       const koId3 = objectStore.initKernelObject(asRemoteId('r1'));
 
@@ -68,7 +70,7 @@ describe('object-methods', () => {
 
   describe('getOwner', () => {
     it('returns the owner of a kernel object', () => {
-      const owner1: EndpointId = asVatId('v1');
+      const owner1: EndpointId = v1;
       const owner2: EndpointId = asRemoteId('r2');
 
       const koId1 = objectStore.initKernelObject(owner1);
@@ -85,7 +87,7 @@ describe('object-methods', () => {
 
   describe('getRootObject', () => {
     it('returns the root object KRef for a vat', () => {
-      const vatId = asVatId('v1');
+      const vatId = v1;
       const rootKref = 'ko42';
 
       // Set up a root object entry in the KV store
@@ -107,7 +109,7 @@ describe('object-methods', () => {
 
   describe('isRootObject', () => {
     it('returns true when the KRef is the root object for the vat', () => {
-      const vatId = asVatId('v1');
+      const vatId = v1;
       const rootKref = asKRef('ko42');
 
       // Set up a root object entry in the KV store
@@ -118,7 +120,7 @@ describe('object-methods', () => {
     });
 
     it('returns false when the KRef is not the root object for the vat', () => {
-      const vatId = asVatId('v1');
+      const vatId = v1;
       const rootKref = 'ko42';
       const nonRootKref = asKRef('ko99');
 
@@ -142,7 +144,7 @@ describe('object-methods', () => {
 
   describe('deleteKernelObject', () => {
     it('removes a kernel object from storage', () => {
-      const koId = objectStore.initKernelObject(asVatId('v1'));
+      const koId = objectStore.initKernelObject(v1);
 
       // Object exists before deletion
       expect(kv.get(`${koId}.owner`)).toBeDefined();
@@ -170,7 +172,7 @@ describe('object-methods', () => {
 
   describe('getObjectRefCount', () => {
     it('returns reference counts for existing objects', () => {
-      const koId = objectStore.initKernelObject(asVatId('v1'));
+      const koId = objectStore.initKernelObject(v1);
 
       objectStore.setObjectRefCount(koId, { reachable: 1, recognizable: 2 });
 
@@ -184,7 +186,7 @@ describe('object-methods', () => {
     });
 
     it('parses reference counts correctly', () => {
-      const koId = objectStore.initKernelObject(asVatId('v1'));
+      const koId = objectStore.initKernelObject(v1);
 
       // Manually set reference counts
       kv.set(`${koId}.refCount`, '5,10');
@@ -194,7 +196,7 @@ describe('object-methods', () => {
     });
 
     it('throws when stored reachable count exceeds recognizable count', () => {
-      const koId = objectStore.initKernelObject(asVatId('v1'));
+      const koId = objectStore.initKernelObject(v1);
 
       // Manually set invalid reference counts where reachable > recognizable
       // This simulates corruption in the storage
@@ -208,7 +210,7 @@ describe('object-methods', () => {
 
   describe('setObjectRefCount', () => {
     it('sets reference counts for an object', () => {
-      const koId = objectStore.initKernelObject(asVatId('v1'));
+      const koId = objectStore.initKernelObject(v1);
 
       // Set new reference counts
       objectStore.setObjectRefCount(koId, { reachable: 3, recognizable: 5 });
@@ -222,7 +224,7 @@ describe('object-methods', () => {
     });
 
     it('allows zero reference counts', () => {
-      const koId = objectStore.initKernelObject(asVatId('v1'));
+      const koId = objectStore.initKernelObject(v1);
 
       objectStore.setObjectRefCount(koId, { reachable: 0, recognizable: 0 });
 
@@ -231,7 +233,7 @@ describe('object-methods', () => {
     });
 
     it('throws when reachable count exceeds recognizable count', () => {
-      const koId = objectStore.initKernelObject(asVatId('v1'));
+      const koId = objectStore.initKernelObject(v1);
 
       expect(() =>
         objectStore.setObjectRefCount(koId, { reachable: 5, recognizable: 3 }),
@@ -239,7 +241,7 @@ describe('object-methods', () => {
     });
 
     it('throws when counts are negative', () => {
-      const koId = objectStore.initKernelObject(asVatId('v1'));
+      const koId = objectStore.initKernelObject(v1);
 
       expect(() =>
         objectStore.setObjectRefCount(koId, { reachable: -1, recognizable: 1 }),
@@ -251,7 +253,7 @@ describe('object-methods', () => {
     });
 
     it('prevents storing and retrieving invalid reference count combinations', () => {
-      const koId = objectStore.initKernelObject(asVatId('v1'));
+      const koId = objectStore.initKernelObject(v1);
 
       // Test setting invalid counts (should throw)
       expect(() =>
@@ -274,7 +276,7 @@ describe('object-methods', () => {
   describe('integration', () => {
     it('supports the full kernel object lifecycle', () => {
       // Create an object
-      const koId = objectStore.initKernelObject(asVatId('v1'));
+      const koId = objectStore.initKernelObject(v1);
 
       // Check initial state
       expect(objectStore.getOwner(koId)).toBe('v1');
@@ -313,7 +315,7 @@ describe('object-methods', () => {
 
     it('handles multiple objects simultaneously', () => {
       // Create multiple objects with different owners
-      const koId1 = objectStore.initKernelObject(asVatId('v1'));
+      const koId1 = objectStore.initKernelObject(v1);
       const koId2 = objectStore.initKernelObject(asRemoteId('r2'));
 
       // Check owners
@@ -343,7 +345,7 @@ describe('object-methods', () => {
     });
 
     it('handles reference count patterns correctly', () => {
-      const koId = objectStore.initKernelObject(asVatId('v1'));
+      const koId = objectStore.initKernelObject(v1);
 
       // Equal reachable and recognizable
       objectStore.setObjectRefCount(koId, { reachable: 5, recognizable: 5 });

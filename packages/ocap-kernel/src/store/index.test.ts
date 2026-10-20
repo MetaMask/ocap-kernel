@@ -12,6 +12,8 @@ import {
 import { makeMapKernelDatabase } from '../../test/storage.ts';
 import type { RunQueueItem } from '../types.ts';
 
+const v1 = asVatId('v1');
+
 /**
  * Mock RunQueueItem: A stupid TS hack to allow trivial use of plain strings
  * as if they were RunQueueItems, since, for testing purposes here, all
@@ -382,7 +384,7 @@ describe('kernel store', () => {
   describe('ocap URL retention', () => {
     it('pins the target and records it', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      const kref = ks.initKernelObject(asVatId('v1'));
+      const kref = ks.initKernelObject(v1);
 
       ks.retainForOcapURL(kref);
 
@@ -392,7 +394,7 @@ describe('kernel store', () => {
 
     it('counts an issuance for each URL naming the same target, and pins it once', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      const kref = ks.initKernelObject(asVatId('v1'));
+      const kref = ks.initKernelObject(v1);
 
       ks.retainForOcapURL(kref);
       ks.retainForOcapURL(kref);
@@ -408,7 +410,7 @@ describe('kernel store', () => {
 
     it('undoes one retention of a target that several URLs name', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      const kref = ks.initKernelObject(asVatId('v1'));
+      const kref = ks.initKernelObject(v1);
       ks.retainForOcapURL(kref);
       ks.retainForOcapURL(kref);
 
@@ -433,8 +435,8 @@ describe('kernel store', () => {
 
     it('undoing the last retention clears the record entirely', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      const kref = ks.initKernelObject(asVatId('v1'));
-      const otherKref = ks.initKernelObject(asVatId('v1'));
+      const kref = ks.initKernelObject(v1);
+      const otherKref = ks.initKernelObject(v1);
       ks.retainForOcapURL(kref);
       ks.retainForOcapURL(otherKref);
 
@@ -451,7 +453,7 @@ describe('kernel store', () => {
 
     it('undoing a retention that was never taken leaves the pin alone', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      const kref = ks.initKernelObject(asVatId('v1'));
+      const kref = ks.initKernelObject(v1);
       ks.pinObject(kref);
 
       ks.undoOcapURLRetention(kref);
@@ -461,7 +463,7 @@ describe('kernel store', () => {
 
     it('releases every retention of a target at once', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      const kref = ks.initKernelObject(asVatId('v1'));
+      const kref = ks.initKernelObject(v1);
       ks.retainForOcapURL(kref);
       ks.retainForOcapURL(kref);
       ks.retainForOcapURL(kref);
@@ -478,7 +480,7 @@ describe('kernel store', () => {
 
     it('releasing retentions of a target that has none leaves other pins alone', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      const kref = ks.initKernelObject(asVatId('v1'));
+      const kref = ks.initKernelObject(v1);
       ks.pinObject(kref);
 
       ks.releaseOcapURLRetentions(kref);
@@ -488,7 +490,7 @@ describe('kernel store', () => {
 
     it('does not mistake the ocap URL cipher key for a retained object', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      const kref = ks.initKernelObject(asVatId('v1'));
+      const kref = ks.initKernelObject(v1);
       // `ocapURLKey` is a neighbour of the retention keys in key order, and
       // holds the key the tokens are encrypted with rather than a kref.
       mockKernelDatabase.kernelKVStore.set('ocapURLKey', 'some-cipher-key');
@@ -519,9 +521,9 @@ describe('kernel store', () => {
       ks.getNextVatId();
       ks.getNextVatId();
       ks.getNextRemoteId();
-      const koId = ks.initKernelObject(asVatId('v1'));
+      const koId = ks.initKernelObject(v1);
       const [kpId] = ks.initKernelPromise();
-      ks.addCListEntry(asVatId('v1'), koId, asVRef('o-1'));
+      ks.addCListEntry(v1, koId, asVRef('o-1'));
       ks.enqueueRun(tm('test message'));
       ks.reset();
       expect(ks.getNextVatId()).toBe('v1');
@@ -530,7 +532,7 @@ describe('kernel store', () => {
       expect(() => ks.getKernelPromise(kpId)).toThrow(
         `unknown kernel promise ${kpId}`,
       );
-      expect(ks.krefToEref(asVatId('v1'), koId)).toBeUndefined();
+      expect(ks.krefToEref(v1, koId)).toBeUndefined();
       expect(ks.dequeueRun()).toBeUndefined();
     });
 
@@ -540,7 +542,7 @@ describe('kernel store', () => {
       // Set up some state
       ks.getNextVatId();
       ks.getNextVatId();
-      const koId = ks.initKernelObject(asVatId('v1'));
+      const koId = ks.initKernelObject(v1);
       ks.enqueueRun(tm('test message'));
 
       // Set some custom keys that we want to preserve
@@ -582,7 +584,7 @@ describe('kernel store', () => {
 
       // Set up some state
       ks.getNextVatId();
-      const koId = ks.initKernelObject(asVatId('v1'));
+      const koId = ks.initKernelObject(v1);
 
       // Set some keys with values and some without
       mockKernelDatabase.kernelKVStore.set('existingKey', 'has-value');
@@ -611,7 +613,7 @@ describe('kernel store', () => {
 
       // Set up some state
       ks.getNextVatId();
-      const koId = ks.initKernelObject(asVatId('v1'));
+      const koId = ks.initKernelObject(v1);
       mockKernelDatabase.kernelKVStore.set('customKey', 'should-be-cleared');
 
       // Reset without except parameter
@@ -627,33 +629,31 @@ describe('kernel store', () => {
   describe('deleteVat', () => {
     it('keeps the config until the rest of the vat is gone', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      ks.setVatConfig(asVatId('v1'), { sourceSpec: 'vat.js' });
+      ks.setVatConfig(v1, { sourceSpec: 'vat.js' });
       vi.spyOn(mockKernelDatabase, 'deleteVatStore').mockImplementationOnce(
         () => {
           throw new Error('deleteVatStore failed');
         },
       );
 
-      expect(() => ks.deleteVat(asVatId('v1'))).toThrow(
-        'deleteVatStore failed',
-      );
-      expect(ks.isVatActive(asVatId('v1'))).toBe(true);
+      expect(() => ks.deleteVat(v1)).toThrow('deleteVatStore failed');
+      expect(ks.isVatActive(v1)).toBe(true);
 
-      ks.deleteVat(asVatId('v1'));
-      expect(ks.isVatActive(asVatId('v1'))).toBe(false);
+      ks.deleteVat(v1);
+      expect(ks.isVatActive(v1)).toBe(false);
     });
   });
 
   describe('cleanupTerminatedVat', () => {
     it('discards the config of a vat whose retirement did not', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      ks.setVatConfig(asVatId('v1'), { sourceSpec: 'vat.js' });
-      ks.markVatAsTerminated(asVatId('v1'));
+      ks.setVatConfig(v1, { sourceSpec: 'vat.js' });
+      ks.markVatAsTerminated(v1);
 
-      ks.cleanupTerminatedVat(asVatId('v1'));
+      ks.cleanupTerminatedVat(v1);
 
-      expect(ks.isVatActive(asVatId('v1'))).toBe(false);
-      expect(ks.isVatTerminated(asVatId('v1'))).toBe(false);
+      expect(ks.isVatActive(v1)).toBe(false);
+      expect(ks.isVatTerminated(v1)).toBe(false);
     });
   });
 

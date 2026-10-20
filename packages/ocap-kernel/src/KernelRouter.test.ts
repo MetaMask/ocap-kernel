@@ -25,6 +25,8 @@ import type {
 } from './types.ts';
 import { asKRef, asVatId } from '../test/branded.ts';
 
+const v1 = asVatId('v1');
+
 describe('KernelRouter', () => {
   // Mock dependencies
   let kernelStore: KernelStore;
@@ -39,7 +41,7 @@ describe('KernelRouter', () => {
 
   beforeEach(() => {
     // Mock EndpointHandle with more detailed return values
-    const mockCrankResult: CrankResult = { didDelivery: asVatId('v1') };
+    const mockCrankResult: CrankResult = { didDelivery: v1 };
 
     endpointHandle = {
       deliverMessage: vi.fn().mockResolvedValue(mockCrankResult),
@@ -112,7 +114,7 @@ describe('KernelRouter', () => {
     describe('send', () => {
       it('delivers a send message to a vat with an object target and returns crank results', async () => {
         // Setup the kernel store to return an owner for the target
-        const endpointId = asVatId('v1');
+        const endpointId = v1;
         const target = asKRef('ko123');
         (kernelStore.getOwner as unknown as MockInstance).mockReturnValueOnce(
           endpointId,
@@ -476,7 +478,7 @@ describe('KernelRouter', () => {
       });
 
       it('splats message with ENDPOINT_UNREACHABLE when endpoint vanishes', async () => {
-        const endpointId = asVatId('v1');
+        const endpointId = v1;
         const target = asKRef('ko123');
         (kernelStore.getOwner as unknown as MockInstance).mockReturnValueOnce(
           endpointId,
@@ -517,7 +519,7 @@ describe('KernelRouter', () => {
       });
 
       it('rejects with DELIVERY_FAILED when endpoint.deliverMessage throws', async () => {
-        const endpointId = asVatId('v1');
+        const endpointId = v1;
         const target = asKRef('ko123');
         (kernelStore.getOwner as unknown as MockInstance).mockReturnValueOnce(
           endpointId,
@@ -554,7 +556,7 @@ describe('KernelRouter', () => {
 
     describe('notify', () => {
       it('delivers a notify to a vat and returns crank results', async () => {
-        const endpointId = asVatId('v1');
+        const endpointId = v1;
         const kpid = asKRef('kp123');
         const notifyItem: RunQueueItemNotify = {
           type: 'notify',
@@ -616,7 +618,7 @@ describe('KernelRouter', () => {
       });
 
       it('returns didDelivery when promise is not in vat clist', async () => {
-        const endpointId = asVatId('v1');
+        const endpointId = v1;
         const kpid = asKRef('kp123');
         const notifyItem: RunQueueItemNotify = {
           type: 'notify',
@@ -654,7 +656,7 @@ describe('KernelRouter', () => {
       });
 
       it('returns didDelivery when no kpids to retire', async () => {
-        const endpointId = asVatId('v1');
+        const endpointId = v1;
         const kpid = asKRef('kp123');
         const notifyItem: RunQueueItemNotify = {
           type: 'notify',
@@ -695,7 +697,7 @@ describe('KernelRouter', () => {
       });
 
       it('releases only the notified promise when others are retired with it', async () => {
-        const endpointId = asVatId('v1');
+        const endpointId = v1;
         const kpid = asKRef('kp123');
         const alsoRetired = 'kp456';
         const resolved = {
@@ -722,7 +724,7 @@ describe('KernelRouter', () => {
       });
 
       it('throws if notification is for an unresolved promise', async () => {
-        const endpointId = asVatId('v1');
+        const endpointId = v1;
         const kpid = asKRef('kp123');
         const notifyItem: RunQueueItemNotify = {
           type: 'notify',
@@ -753,7 +755,7 @@ describe('KernelRouter', () => {
       ])(
         'delivers %s to a vat and returns crank results',
         async (actionType, deliverMethod) => {
-          const endpointId = asVatId('v1');
+          const endpointId = v1;
           const krefs = ['ko1', 'ko2'].map(asKRef);
           const gcAction: RunQueueItemGCAction = {
             type: actionType as GCRunQueueType,
@@ -829,7 +831,7 @@ describe('KernelRouter', () => {
       it('clears the reachable flag when delivering dropExports', async () => {
         await kernelRouter.deliver({
           type: 'dropExports',
-          endpointId: asVatId('v1'),
+          endpointId: v1,
           krefs: [asKRef('ko1'), asKRef('ko2')],
         });
 
@@ -848,7 +850,7 @@ describe('KernelRouter', () => {
         async (actionType) => {
           await kernelRouter.deliver({
             type: actionType,
-            endpointId: asVatId('v1'),
+            endpointId: v1,
             krefs: [asKRef('ko1'), asKRef('ko2')],
           });
 
@@ -865,7 +867,7 @@ describe('KernelRouter', () => {
       it('orphans the object when delivering retireExports', async () => {
         await kernelRouter.deliver({
           type: 'retireExports',
-          endpointId: asVatId('v1'),
+          endpointId: v1,
           krefs: [asKRef('ko1'), asKRef('ko2')],
         });
 
@@ -883,7 +885,7 @@ describe('KernelRouter', () => {
         async (actionType) => {
           await kernelRouter.deliver({
             type: actionType,
-            endpointId: asVatId('v1'),
+            endpointId: v1,
             krefs: [asKRef('ko1'), asKRef('ko2')],
           });
 
@@ -894,7 +896,7 @@ describe('KernelRouter', () => {
 
     describe('bringOutYourDead', () => {
       it('delivers bringOutYourDead to a vat and returns crank results', async () => {
-        const endpointId = asVatId('v1');
+        const endpointId = v1;
         const bringOutYourDeadItem: RunQueueItemBringOutYourDead = {
           type: 'bringOutYourDead',
           endpointId,
@@ -1168,7 +1170,7 @@ describe('KernelRouter', () => {
       it('still delivers to endpoints that are running', async () => {
         const result = await kernelRouter.deliver({
           type: 'bringOutYourDead',
-          endpointId: asVatId('v1'),
+          endpointId: v1,
         });
 
         expect(endpointHandle.deliverBringOutYourDead).toHaveBeenCalled();
@@ -1381,7 +1383,7 @@ describe('KernelRouter', () => {
 
         const result = await kernelRouter.deliver({
           type: 'restartVat',
-          vatId: asVatId('v1'),
+          vatId: v1,
         });
 
         expect(mockRestartVat).toHaveBeenCalledWith('v1');
@@ -1397,7 +1399,7 @@ describe('KernelRouter', () => {
 
         const result = await kernelRouter.deliver({
           type: 'terminateVat',
-          vatId: asVatId('v1'),
+          vatId: v1,
           reason,
         });
 
@@ -1408,7 +1410,7 @@ describe('KernelRouter', () => {
       it('passes no reason on when the request carried none', async () => {
         await kernelRouter.deliver({
           type: 'terminateVat',
-          vatId: asVatId('v1'),
+          vatId: v1,
         });
 
         expect(mockTerminateVat).toHaveBeenCalledWith('v1', undefined);

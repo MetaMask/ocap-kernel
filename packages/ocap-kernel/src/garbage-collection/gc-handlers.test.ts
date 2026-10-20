@@ -6,6 +6,8 @@ import type { VatConfig, VatId } from '../types.ts';
 import { performExportCleanup } from './gc-handlers.ts';
 import { asRemoteId, asRRef, asVatId, asVRef } from '../../test/branded.ts';
 
+const v1 = asVatId('v1');
+
 describe('performExportCleanup', () => {
   let kernelStore: ReturnType<typeof makeKernelStore>;
 
@@ -24,7 +26,7 @@ describe('performExportCleanup', () => {
   beforeEach(() => {
     kernelStore = makeKernelStore(makeMapKernelDatabase());
     kernelStore.markInitialized();
-    givenVats(asVatId('v1'), asVatId('v2'));
+    givenVats(v1, asVatId('v2'));
   });
 
   // `checkReachable` is what separates a retire from an abandon; the guards
@@ -37,12 +39,12 @@ describe('performExportCleanup', () => {
   it.each(actions)(
     'lets an owner give up its own export via $name',
     ({ checkReachable }) => {
-      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
-      kernelStore.clearReachableFlag(asVatId('v1'), kref);
+      const kref = kernelStore.exportFromEndpoint(v1, asVRef('o+1'));
+      kernelStore.clearReachableFlag(v1, kref);
 
-      performExportCleanup([kref], checkReachable, asVatId('v1'), kernelStore);
+      performExportCleanup([kref], checkReachable, v1, kernelStore);
 
-      expect(kernelStore.hasCListEntry(asVatId('v1'), kref)).toBe(false);
+      expect(kernelStore.hasCListEntry(v1, kref)).toBe(false);
       expect(kernelStore.getOwner(kref)).toBeUndefined();
     },
   );
@@ -50,7 +52,7 @@ describe('performExportCleanup', () => {
   it.each(actions)(
     'refuses $name for an object owned by another endpoint',
     ({ name, checkReachable }) => {
-      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+      const kref = kernelStore.exportFromEndpoint(v1, asVRef('o+1'));
       // v2 holds it as an import, which is what makes the kref nameable in a
       // syscall from v2 at all.
       kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
@@ -66,7 +68,7 @@ describe('performExportCleanup', () => {
       ).toThrow(`endpoint v2 issued ${name} for ${kref}, which is owned by v1`);
 
       expect(kernelStore.getOwner(kref)).toBe('v1');
-      expect(kernelStore.hasCListEntry(asVatId('v1'), kref)).toBe(true);
+      expect(kernelStore.hasCListEntry(v1, kref)).toBe(true);
       expect(kernelStore.hasCListEntry(asVatId('v2'), kref)).toBe(true);
     },
   );
@@ -74,7 +76,7 @@ describe('performExportCleanup', () => {
   it.each(actions)(
     'refuses $name for an import once the object has no owner',
     ({ name, checkReachable }) => {
-      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+      const kref = kernelStore.exportFromEndpoint(v1, asVRef('o+1'));
       kernelStore.translateRefKtoE(asVatId('v2'), kref, true);
       kernelStore.clearReachableFlag(asVatId('v2'), kref);
       // Deleting the object is the one path on `main` that leaves an import
@@ -100,7 +102,7 @@ describe('performExportCleanup', () => {
   it.each(actions)(
     'refuses $name for a kref the endpoint does not name',
     ({ name, checkReachable }) => {
-      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+      const kref = kernelStore.exportFromEndpoint(v1, asVRef('o+1'));
       kernelStore.deleteKernelObject(kref);
 
       expect(() =>
@@ -120,21 +122,16 @@ describe('performExportCleanup', () => {
     'refuses $name for an object the kernel owns',
     ({ name, checkReachable }) => {
       const kref = kernelStore.initKernelObject('kernel');
-      kernelStore.translateRefKtoE(asVatId('v1'), kref, true);
-      kernelStore.clearReachableFlag(asVatId('v1'), kref);
+      kernelStore.translateRefKtoE(v1, kref, true);
+      kernelStore.clearReachableFlag(v1, kref);
 
       expect(() =>
-        performExportCleanup(
-          [kref],
-          checkReachable,
-          asVatId('v1'),
-          kernelStore,
-        ),
+        performExportCleanup([kref], checkReachable, v1, kernelStore),
       ).toThrow(
         `endpoint v1 issued ${name} for ${kref}, which is owned by kernel`,
       );
 
-      expect(kernelStore.hasCListEntry(asVatId('v1'), kref)).toBe(true);
+      expect(kernelStore.hasCListEntry(v1, kref)).toBe(true);
     },
   );
 
@@ -164,7 +161,7 @@ describe('performExportCleanup', () => {
     'refuses $name from a remote that only imports the object',
     ({ name, checkReachable }) => {
       kernelStore.initEndpoint(asRemoteId('r1'));
-      const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+      const kref = kernelStore.exportFromEndpoint(v1, asVRef('o+1'));
       kernelStore.translateRefKtoE(asRemoteId('r1'), kref, true);
       kernelStore.clearReachableFlag(asRemoteId('r1'), kref);
 
@@ -178,40 +175,35 @@ describe('performExportCleanup', () => {
       ).toThrow(`endpoint r1 issued ${name} for ${kref}, which is owned by v1`);
 
       expect(kernelStore.hasCListEntry(asRemoteId('r1'), kref)).toBe(true);
-      expect(kernelStore.hasCListEntry(asVatId('v1'), kref)).toBe(true);
+      expect(kernelStore.hasCListEntry(v1, kref)).toBe(true);
     },
   );
 
   it('refuses retireExports for an object the owner still reaches', () => {
-    const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+    const kref = kernelStore.exportFromEndpoint(v1, asVRef('o+1'));
 
-    expect(() =>
-      performExportCleanup([kref], true, asVatId('v1'), kernelStore),
-    ).toThrow(`retireExports but ${kref} is still reachable`);
-    expect(kernelStore.hasCListEntry(asVatId('v1'), kref)).toBe(true);
+    expect(() => performExportCleanup([kref], true, v1, kernelStore)).toThrow(
+      `retireExports but ${kref} is still reachable`,
+    );
+    expect(kernelStore.hasCListEntry(v1, kref)).toBe(true);
   });
 
   it('abandons an export the owner still reaches', () => {
-    const kref = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+    const kref = kernelStore.exportFromEndpoint(v1, asVRef('o+1'));
 
-    performExportCleanup([kref], false, asVatId('v1'), kernelStore);
+    performExportCleanup([kref], false, v1, kernelStore);
 
-    expect(kernelStore.hasCListEntry(asVatId('v1'), kref)).toBe(false);
+    expect(kernelStore.hasCListEntry(v1, kref)).toBe(false);
     expect(kernelStore.getOwner(kref)).toBeUndefined();
   });
 
   it.each(actions)(
     'refuses $name for a promise',
     ({ name, checkReachable }) => {
-      const kpid = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('p+1'));
+      const kpid = kernelStore.exportFromEndpoint(v1, asVRef('p+1'));
 
       expect(() =>
-        performExportCleanup(
-          [kpid],
-          checkReachable,
-          asVatId('v1'),
-          kernelStore,
-        ),
+        performExportCleanup([kpid], checkReachable, v1, kernelStore),
       ).toThrow(`endpoint v1 issued invalid ${name} for ${kpid}`);
     },
   );
