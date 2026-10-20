@@ -156,11 +156,15 @@ export async function signAuthorization(options: {
   account: LocalAccount;
   contractAddress: Address;
   chainId: number;
-  nonce?: number | undefined;
+  nonce: number;
 }): Promise<SignedAuthorization> {
+  // viem types `HDAccount.signAuthorization` as optional.
+  if (!options.account.signAuthorization) {
+    throw new Error('Account cannot sign EIP-7702 authorizations');
+  }
   return options.account.signAuthorization({
     contractAddress: options.contractAddress,
     chainId: options.chainId,
-    ...(options.nonce === undefined ? {} : { nonce: options.nonce }),
+    nonce: options.nonce,
   });
 }

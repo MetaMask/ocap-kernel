@@ -118,7 +118,7 @@ type KeyringFacet = {
   signAuthorization: (options: {
     contractAddress: Address;
     chainId: number;
-    nonce?: number;
+    nonce: number;
     from?: Address;
   }) => Promise<SignedAuthorization>;
 };
