@@ -7,4 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Build as ESM only, with `.js` and `.d.ts` entry points ([#1186](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1186))
+
 [Unreleased]: https://github.com/Consensys-Incorporated/ocap-kernel/
