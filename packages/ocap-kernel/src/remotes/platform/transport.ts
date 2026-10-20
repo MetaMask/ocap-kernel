@@ -197,9 +197,8 @@ export async function initTransport(
     : undefined;
 
   // `dialIdempotent` gives every concurrent dialer of a peer the same channel.
-  // A second handshake on it waits for an ack the peer never sends, reading
-  // the peer's messages off the stream meanwhile, and closes the channel when
-  // it times out.
+  // The peer acks one handshake, so a second one reads the peer's next message
+  // instead, or times out, and its caller closes the shared channel.
   const outboundHandshakes = new WeakMap<
     Channel,
     ReturnType<typeof runOutboundHandshake>
@@ -233,14 +232,14 @@ export async function initTransport(
     channel: Channel,
   ): Promise<{ success: boolean; incarnationChanged: boolean }> {
     if (!handshakeDeps) {
-      return { success: true, incarnationChanged: false }; // No handshake configured, skip
+      return harden({ success: true, incarnationChanged: false }); // No handshake configured, skip
     }
     let result;
     try {
       result = await performOutboundHandshake(channel, handshakeDeps);
     } catch (problem) {
       outputError(channel.peerId, 'outbound handshake', problem);
-      return { success: false, incarnationChanged: false };
+      return harden({ success: false, incarnationChanged: false });
     }
     // The PSM-detected change is unreliable across receiver-side state loss;
     // the kernel-side callback (backed by persistent storage) is the
@@ -260,7 +259,7 @@ export async function initTransport(
         )) ?? false;
     } catch (problem) {
       outputError(channel.peerId, 'outbound incarnation callback', problem);
-      return { success: false, incarnationChanged: false };
+      return harden({ success: false, incarnationChanged: false });
     }
     const incarnationChanged =
       result.incarnationChanged || kernelDetectedRestart;
@@ -269,7 +268,7 @@ export async function initTransport(
         `${channel.peerId.slice(0, 8)}:: incarnation changed during outbound handshake, resetting remote state`,
       );
     }
-    return { success: true, incarnationChanged };
+    return harden({ success: true, incarnationChanged });
   }
 
   /**
@@ -358,8 +357,7 @@ export async function initTransport(
     const state = peerStateManager.getState(peerId);
     const previousChannel = state.channel;
     if (previousChannel === channel) {
-      // Each caller that shared the channel's dial registers it; one read
-      // loop is enough.
+      // Every caller that shared the channel's dial registers it.
       return;
     }
     state.channel = channel;
@@ -395,7 +393,7 @@ export async function initTransport(
     });
 
     // If we replaced an existing channel, close it to avoid leaks and stale readers.
-    if (previousChannel && previousChannel !== channel) {
+    if (previousChannel) {
       const closePromise = connectionFactory.closeChannel(
         previousChannel,
         peerId,

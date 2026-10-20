@@ -126,12 +126,14 @@ export type RemoteCommsOptions = {
    */
   maxConnectionAttemptsPerMinute?: number | undefined;
   /**
-   * Base delay in milliseconds for reconnection exponential backoff (default: 500ms).
+   * Base delay in milliseconds for the exponential backoff of reconnection and
+   * of a send's dial retries (default: 500ms).
    * Used as the starting delay that doubles with each subsequent attempt.
    */
   reconnectionBaseDelayMs?: number | undefined;
   /**
-   * Maximum delay in milliseconds for reconnection exponential backoff (default: 10s).
+   * Maximum delay in milliseconds for the exponential backoff of reconnection
+   * and of a send's dial retries (default: 10s).
    * The backoff delay is capped at this value regardless of attempt count.
    */
   reconnectionMaxDelayMs?: number | undefined;

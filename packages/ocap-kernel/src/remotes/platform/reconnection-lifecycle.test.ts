@@ -263,6 +263,27 @@ describe('reconnection-lifecycle', () => {
       );
     });
 
+    it('closes channel and re-dials when the handshake reports a restart', async () => {
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false);
+      (deps.doOutboundHandshake as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ success: true, incarnationChanged: true })
+        .mockResolvedValueOnce({ success: true, incarnationChanged: false });
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      expect(deps.closeChannel).toHaveBeenCalledTimes(1);
+      expect(deps.closeChannel).toHaveBeenCalledWith(mockChannel, 'peer1');
+      expect(deps.dialPeer).toHaveBeenCalledTimes(2);
+      expect(deps.registerChannel).toHaveBeenCalledTimes(1);
+      // Once for the restart, so it spends no retry budget, once on success.
+      expect(deps.reconnectionManager.resetBackoff).toHaveBeenCalledTimes(2);
+    });
+
     it('resets backoff on successful reconnection', async () => {
       (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
         .mockReturnValueOnce(true)
