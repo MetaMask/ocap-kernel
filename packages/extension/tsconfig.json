@@ -7,7 +7,14 @@
     "isolatedModules": true,
     "lib": ["DOM", "ES2022"],
     "noEmit": true,
-    "types": ["chrome", "ses", "vitest", "@playwright/test", "react-dom"]
+    "types": [
+      "chrome",
+      "ses",
+      "vitest",
+      "@playwright/test",
+      "react-dom",
+      "vite/client"
+    ]
   },
   "references": [
     { "path": "../kernel-browser-runtime" },
