@@ -226,11 +226,14 @@ export async function initTransport(
    * Perform outbound handshake and handle incarnation changes.
    *
    * @param channel - The channel to perform handshake on.
-   * @returns Object with success status and whether incarnation changed.
+   * @returns Object with success status, whether incarnation changed, and the
+   * incarnation the peer reported.
    */
-  async function runOutboundHandshake(
-    channel: Channel,
-  ): Promise<{ success: boolean; incarnationChanged: boolean }> {
+  async function runOutboundHandshake(channel: Channel): Promise<{
+    success: boolean;
+    incarnationChanged: boolean;
+    remoteIncarnationId?: string;
+  }> {
     if (!handshakeDeps) {
       return harden({ success: true, incarnationChanged: false }); // No handshake configured, skip
     }
@@ -268,7 +271,11 @@ export async function initTransport(
         `${channel.peerId.slice(0, 8)}:: incarnation changed during outbound handshake, resetting remote state`,
       );
     }
-    return harden({ success: true, incarnationChanged });
+    return harden({
+      success: true,
+      incarnationChanged,
+      remoteIncarnationId: result.remoteIncarnationId,
+    });
   }
 
   /**

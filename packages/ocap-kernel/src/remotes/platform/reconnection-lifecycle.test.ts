@@ -314,9 +314,14 @@ describe('reconnection-lifecycle', () => {
       const reconnectionManager = new ReconnectionManager();
       reconnectionManager.startReconnection('peer1');
       deps.reconnectionManager = reconnectionManager;
-      (deps.doOutboundHandshake as ReturnType<typeof vi.fn>).mockResolvedValue({
-        success: true,
-        incarnationChanged: true,
+      let incarnation = 0;
+      vi.spyOn(deps, 'doOutboundHandshake').mockImplementation(async () => {
+        incarnation += 1;
+        return {
+          success: true,
+          incarnationChanged: true,
+          remoteIncarnationId: `incarnation-${incarnation}`,
+        };
       });
       const attemptsAtDial: number[] = [];
       vi.spyOn(deps, 'dialPeer').mockImplementation(async () => {
@@ -334,6 +339,37 @@ describe('reconnection-lifecycle', () => {
 
       expect(deps.onRemoteGiveUp).toHaveBeenCalledWith('peer1');
       expect(attemptsAtDial).toStrictEqual([1, 1, 2, 3]);
+    });
+
+    it('spends no attempt on a restart reported again before the kernel records it', async () => {
+      const reconnectionManager = new ReconnectionManager();
+      reconnectionManager.startReconnection('peer1');
+      deps.reconnectionManager = reconnectionManager;
+      const restart = {
+        success: true,
+        incarnationChanged: true,
+        remoteIncarnationId: 'incarnation-B',
+      };
+      (deps.doOutboundHandshake as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(restart)
+        .mockResolvedValueOnce(restart)
+        .mockResolvedValueOnce(restart)
+        .mockResolvedValueOnce(restart)
+        .mockResolvedValueOnce(restart);
+      const attemptsAtDial: number[] = [];
+      vi.spyOn(deps, 'dialPeer').mockImplementation(async () => {
+        attemptsAtDial.push(reconnectionManager.getAttemptCount('peer1'));
+        return mockChannel;
+      });
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      // The backoff still grows with the attempt count.
+      expect(attemptsAtDial).toStrictEqual([1, 1, 2, 3, 4, 5]);
+      expect(deps.registerChannel).toHaveBeenCalledTimes(1);
+      expect(deps.onRemoteGiveUp).not.toHaveBeenCalled();
     });
 
     it('resets backoff on successful reconnection', async () => {
