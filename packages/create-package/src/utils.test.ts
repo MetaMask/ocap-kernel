@@ -52,9 +52,6 @@ const readFormatConfig = async (): Promise<Record<string, unknown>> => {
 
 describe('create-package/utils', () => {
   describe('readMonorepoFiles', () => {
-    const tsConfig = JSON.stringify({
-      references: [{ path: '../packages/foo' }],
-    });
     const tsConfigBuild = JSON.stringify({
       references: [{ path: '../packages/foo' }],
     });
@@ -62,8 +59,6 @@ describe('create-package/utils', () => {
     it('should read the expected monorepo files', async () => {
       (fs.readFile as Mock).mockImplementation(async (filePath: string) => {
         switch (path.basename(filePath) as MonorepoFile) {
-          case MonorepoFile.TsConfig:
-            return tsConfig;
           case MonorepoFile.TsConfigBuild:
             return tsConfigBuild;
           default:
@@ -74,7 +69,6 @@ describe('create-package/utils', () => {
       const monorepoFileData = await readMonorepoFiles();
 
       expect(monorepoFileData).toStrictEqual({
-        tsConfig: JSON.parse(tsConfig),
         tsConfigBuild: JSON.parse(tsConfigBuild),
       });
     });
@@ -89,9 +83,6 @@ describe('create-package/utils', () => {
     });
 
     const getMonorepoFileData = (): MonorepoFileData => ({
-      tsConfig: {
-        references: [{ path: './packages/bar' }],
-      },
       tsConfigBuild: {
         references: [{ path: './packages/bar' }],
       },
@@ -155,25 +146,14 @@ describe('create-package/utils', () => {
       );
 
       // Writing monorepo files
-      expect(fs.writeFile).toHaveBeenCalledTimes(2);
-      expect(oxfmtFormat).toHaveBeenCalledTimes(2);
+      expect(fs.writeFile).toHaveBeenCalledTimes(1);
+      expect(oxfmtFormat).toHaveBeenCalledTimes(1);
       const formatConfig = await readFormatConfig();
       expect(formatConfig).toHaveProperty('singleQuote');
-      expect(oxfmtFormat).toHaveBeenCalledWith(
-        expect.stringMatching(/[/\\]tsconfig\.json$/u),
-        expect.any(String),
-        formatConfig,
-      );
       expect(oxfmtFormat).toHaveBeenCalledWith(
         expect.stringMatching(/[/\\]tsconfig\.build\.json$/u),
         expect.any(String),
         formatConfig,
-      );
-      expect(fs.writeFile).toHaveBeenCalledWith(
-        expect.stringMatching(/tsconfig\.json$/u),
-        JSON.stringify({
-          references: [{ path: './packages/bar' }, { path: './packages/foo' }],
-        }),
       );
       expect(fs.writeFile).toHaveBeenCalledWith(
         expect.stringMatching(/tsconfig\.build\.json$/u),
@@ -249,9 +229,6 @@ describe('create-package/utils', () => {
       };
 
       const monorepoFileData = {
-        tsConfig: {
-          references: [{ path: './packages/bar' }],
-        },
         tsConfigBuild: {
           references: [{ path: './packages/bar' }],
         },
@@ -281,7 +258,7 @@ describe('create-package/utils', () => {
         errors: [
           {
             message: 'bad json',
-            codeframe: '  x bad json\n   ,-[tsconfig.json:1:2]',
+            codeframe: '  x bad json\n   ,-[tsconfig.build.json:1:2]',
           },
           { message: 'worse json', codeframe: null },
         ],
@@ -290,7 +267,7 @@ describe('create-package/utils', () => {
       await expect(
         finalizeAndWriteData(getPackageData(), getMonorepoFileData()),
       ).rejects.toThrow(
-        /^Failed to format .+tsconfig\.json:\n {2}x bad json\n {3},-\[tsconfig\.json:1:2\]\nworse json$/u,
+        /^Failed to format .+tsconfig\.build\.json:\n {2}x bad json\n {3},-\[tsconfig\.build\.json:1:2\]\nworse json$/u,
       );
 
       expect(fs.writeFile).not.toHaveBeenCalled();

@@ -2,21 +2,8 @@
   "extends": "../../tsconfig.packages.json",
   "compilerOptions": {
     "lib": ["ES2022"],
-    "noEmit": true,
     "types": ["vitest", "node"]
   },
-  "references": [
-    { "path": "../kernel-agents" },
-    { "path": "../kernel-shims" },
-    { "path": "../kernel-agents-repl" },
-    { "path": "../kernel-language-model-service" },
-    { "path": "../kernel-store" },
-    { "path": "../kernel-utils" },
-    { "path": "../logger" },
-    { "path": "../ocap-kernel" },
-    { "path": "../kernel-node-runtime" },
-    { "path": "../repo-tools" }
-  ],
   "include": [
     "../../vitest.config.ts",
     "./src",

@@ -277,7 +277,7 @@ export function buildRootObject(
       tlog(`Counter: 8 - 2 = ${result}`);
 
       try {
-        // @ts-expect-error Intentionally passing a string to test validation
+        // Intentionally passing a string to test validation
         counter.increment('foo');
         tlog(`ERROR: Increment with string should have failed`);
       } catch (error) {

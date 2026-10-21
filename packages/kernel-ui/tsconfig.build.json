@@ -8,8 +8,9 @@
     "skipLibCheck": true,
     "emitDeclarationOnly": true,
     "lib": ["DOM", "ES2022"],
+    "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["chrome", "react", "react-dom"]
+    "types": ["chrome", "react", "react-dom", "vite/client"]
   },
   "references": [
     { "path": "../kernel-browser-runtime/tsconfig.build.json" },

@@ -38,6 +38,7 @@ import type {
   RegistrationToken,
   ServiceDescription,
   ServiceMatch,
+  ServiceMatcher,
   ServiceQuery,
 } from '@metamask/service-discovery-types';
 
@@ -601,7 +602,7 @@ export function buildRootObject(
   // re-incarnation, the stored ref is rehydrated to the same kref.
   const publicFacet = provide('publicFacet', () =>
     makeMatcherFacet(),
-  ) as ContactPoint;
+  ) as ServiceMatcher;
 
   return makeDefaultExo('matcherVatRoot', {
     async bootstrap(_vats: Record<string, unknown>, incoming: Services) {

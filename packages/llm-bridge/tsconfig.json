@@ -4,7 +4,6 @@
     "lib": ["ES2022"],
     "types": ["node", "vitest"]
   },
-  "references": [{ "path": "../repo-tools" }],
   "include": [
     "../../vitest.config.ts",
     "./src",

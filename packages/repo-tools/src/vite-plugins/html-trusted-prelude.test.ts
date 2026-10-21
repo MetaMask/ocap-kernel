@@ -9,7 +9,7 @@ vi.mock('oxfmt', async (importOriginal) => {
 });
 
 const transform = async (html: string): Promise<string> => {
-  const { transformIndexHtml } = htmlTrustedPrelude() as {
+  const { transformIndexHtml } = htmlTrustedPrelude() as unknown as {
     transformIndexHtml: (html: string) => Promise<string>;
   };
   return transformIndexHtml(html);

@@ -173,14 +173,14 @@ vi.mock('@multiformats/multiaddr', () => ({
     ]);
     let idx = 0;
     while (idx < segments.length) {
-      const name = segments[idx];
+      const name = segments[idx]!;
       const code = PROTO_CODES[name];
       if (code === undefined) {
         idx += 1;
         continue;
       }
       if (valuedProtos.has(name) && idx + 1 < segments.length) {
-        components.push({ code, name, value: segments[idx + 1] });
+        components.push({ code, name, value: segments[idx + 1]! });
         idx += 2;
       } else {
         components.push({ code, name });

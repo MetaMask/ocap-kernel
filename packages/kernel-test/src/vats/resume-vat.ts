@@ -6,6 +6,12 @@ import type { Baggage } from '@metamask/ocap-kernel';
 import { unwrapTestLogger } from '../test-powers.ts';
 import type { TestPowers } from '../test-powers.ts';
 
+type Peer = {
+  intro: (bootVat: unknown) => void;
+  greet: (greeting: string) => string;
+  loopback: () => undefined;
+};
+
 /**
  * Build function for generic test vat.
  *
@@ -55,7 +61,7 @@ export function buildRootObject(
   tlog(`start count: ${startCount}`);
 
   const me = makeDefaultExo('root', {
-    async bootstrap(vats: { bob: unknown; carol: unknown }) {
+    async bootstrap(vats: { bob: Peer; carol: Peer }) {
       tlog(`bootstrap()`);
       // Explanation for the following bit of gymnastics: we'd like to save
       // `vats` itself in the baggage, but we can't because the entry for our
@@ -95,7 +101,7 @@ export function buildRootObject(
       if (baggage.has('vats')) {
         // I am the bootstrap vat
         tlog(`resumed vat is bootstrap`);
-        const vats = baggage.get('vats') as { bob: unknown; carol: unknown };
+        const vats = baggage.get('vats') as { bob: Peer; carol: Peer };
         const pGreetB = E(vats.bob).greet(`hello again from ${name}`);
         const pGreetC = E(vats.carol).greet(`hello again from ${name}`);
         const [greetB, greetC] = await Promise.all([pGreetB, pGreetC]);
@@ -106,7 +112,7 @@ export function buildRootObject(
       if (baggage.has('bootVat')) {
         // I am Bob or Carol
         tlog(`resumed vat is not bootstrap`);
-        const bootVat = baggage.get('bootVat');
+        const bootVat = baggage.get('bootVat') as Peer;
         const greetBack = await E(bootVat).greet(`hello boot vat from ${name}`);
         tlog(`boot vat returns greeting with '${greetBack}'`);
         await E(bootVat).loopback();

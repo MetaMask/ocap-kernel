@@ -1,6 +1,6 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
-import type { Kernel } from '@metamask/ocap-kernel';
+import type { Kernel, KRef } from '@metamask/ocap-kernel';
 import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -66,7 +66,7 @@ async function readLine(socket: net.Socket): Promise<string> {
  */
 async function makeIoKernel(
   socketPath: string,
-): Promise<{ kernel: Kernel; rootKref: string }> {
+): Promise<{ kernel: Kernel; rootKref: KRef }> {
   const kernelDatabase = await makeSQLKernelDatabase({
     dbFilename: ':memory:',
   });
