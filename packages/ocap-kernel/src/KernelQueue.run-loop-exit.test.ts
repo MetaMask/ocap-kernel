@@ -11,9 +11,11 @@ import type {
   CrankResult,
   EndpointMessage,
   PlatformServices,
+  KRef,
 } from './types.ts';
 import { VatHandle } from './vats/VatHandle.ts';
 import { VatSyscall } from './vats/VatSyscall.ts';
+import { asVatId } from '../test/branded.ts';
 
 /*
  * Invariant M2: each kind of caller waiting on queued work is rejected, not
@@ -71,7 +73,7 @@ async function setUp() {
             return {
               didDelivery: vatId,
               terminate: {
-                vatId: 'v404',
+                vatId: asVatId('v404'),
                 reject: true,
                 info: makeFatalKernelError('INTERNAL_ERROR', 'exploded'),
               },
@@ -99,8 +101,8 @@ async function setUp() {
   });
   return {
     kernel,
-    waiterRoot: vatRootKrefs.waiter as string,
-    doomedRoot: vatRootKrefs.doomed as string,
+    waiterRoot: vatRootKrefs.waiter as KRef,
+    doomedRoot: vatRootKrefs.doomed as KRef,
     received,
   };
 }

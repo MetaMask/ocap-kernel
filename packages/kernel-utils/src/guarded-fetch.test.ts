@@ -530,7 +530,7 @@ describe('makeGuardedFetch', () => {
 
       const response = await guarded(
         `http://localhost:${server.port}/`,
-        init as RequestInit,
+        init as unknown as RequestInit,
       );
 
       expect(await response.text()).toBe('landed');
@@ -822,7 +822,7 @@ describe('makeGuardedFetch', () => {
     const scriptFetch = (...responses: Response[]) => {
       const remaining = [...responses];
       return vi.fn(
-        async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        async (_input: Parameters<typeof fetch>[0], _init?: RequestInit) =>
           remaining.shift() as Response,
       );
     };
@@ -1219,7 +1219,7 @@ describe('makeGuardedFetch', () => {
 
       const response = await guarded(`http://localhost:${start.port}/start`, {
         method: 'POST',
-        body: makeBody() as RequestInit['body'],
+        body: makeBody() as NonNullable<RequestInit['body']>,
       });
 
       expect(await response.text()).toBe('landed');

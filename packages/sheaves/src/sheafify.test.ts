@@ -20,7 +20,10 @@ import type {
 // HandledPromise (which is not available in the test environment).
 // eslint-disable-next-line id-length
 const E = (obj: unknown) =>
-  obj as Record<string, (...args: unknown[]) => Promise<unknown>>;
+  obj as Record<
+    'f' | 'getBalance' | 'transfer' | typeof GET_DESCRIPTION,
+    (...args: unknown[]) => Promise<unknown>
+  >;
 
 // Sheafify and build a section over the union guard of all providers. Used by
 // tests that exercise dispatch behavior without caring which guard variant is
@@ -167,10 +170,10 @@ describe('sheafify', () => {
         yield candidates[0]!;
       },
     );
-    const guard = wallet[GET_INTERFACE_GUARD]();
+    const guard = (wallet as Section)[GET_INTERFACE_GUARD]?.();
     expect(guard).toBeDefined();
 
-    const { methodGuards } = getInterfaceGuardPayload(guard);
+    const { methodGuards } = getInterfaceGuardPayload(guard!);
     expect(methodGuards).toHaveProperty('getBalance');
   });
 
@@ -322,10 +325,10 @@ describe('sheafify', () => {
         yield candidates[0]!;
       },
     );
-    const guard = wallet[GET_INTERFACE_GUARD]();
+    const guard = (wallet as Section)[GET_INTERFACE_GUARD]?.();
     expect(guard).toBeDefined();
 
-    const { methodGuards } = getInterfaceGuardPayload(guard);
+    const { methodGuards } = getInterfaceGuardPayload(guard!);
     expect(methodGuards).toHaveProperty('getBalance');
   });
 
@@ -904,7 +907,9 @@ describe('getSection with explicit guard', () => {
       getBalance: M.call(M.string()).returns(M.number()),
     });
 
-    const schema = { getBalance: { description: 'Get account balance.' } };
+    const schema = {
+      getBalance: { description: 'Get account balance.', args: {} },
+    };
 
     const section = sheafify({
       name: 'Wallet',

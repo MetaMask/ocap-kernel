@@ -27,8 +27,8 @@ function makeMapKVStoreInternal(map: Map<string, string>): KVStore {
   let lastNextKeyIndex: number = -1;
 
   return {
-    get(key: string): string | undefined {
-      return map.get(key);
+    get<Value extends string = string>(key: string): Value | undefined {
+      return map.get(key) as Value | undefined;
     },
     getNextKey(key: string): string | undefined {
       keyCache ??= Array.from(map.keys()).sort();
@@ -55,12 +55,12 @@ function makeMapKVStoreInternal(map: Map<string, string>): KVStore {
         }
       }
     },
-    getRequired(key: string): string {
+    getRequired<Value extends string = string>(key: string): Value {
       const result = map.get(key);
       if (result === undefined) {
         throw Error(`No value found for key ${key}.`);
       }
-      return result;
+      return result as Value;
     },
     set(key: string, value: string): void {
       map.set(key, value);

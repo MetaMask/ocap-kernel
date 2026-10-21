@@ -3,20 +3,7 @@
   "compilerOptions": {
     "allowJs": true,
     "lib": ["ES2022"],
-    "noEmit": true,
     "types": ["vitest"]
   },
-  "references": [
-    { "path": "../kernel-agents" },
-    { "path": "../kernel-store" },
-    { "path": "../kernel-utils" },
-    { "path": "../kernel-node-runtime" },
-    { "path": "../kernel-platforms" },
-    { "path": "../nodejs-test-workers" },
-    { "path": "../ocap-kernel" },
-    { "path": "../remote-iterables" },
-    { "path": "../streams" },
-    { "path": "../repo-tools" }
-  ],
   "include": ["../../vitest.config.ts", "./src", "./vitest.config.ts"]
 }

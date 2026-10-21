@@ -6,12 +6,12 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { fromHex, waitUntilQuiescent } from '@metamask/kernel-utils';
 import { makeKernelStore, kunser, Kernel } from '@metamask/ocap-kernel';
 import type {
-  KernelStore,
   ClusterConfig,
+  KernelStore,
   KRef,
   PlatformServices,
-  RemoteMessageHandler,
   RemoteCommsOptions,
+  RemoteMessageHandler,
   VatId,
 } from '@metamask/ocap-kernel';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -139,6 +139,11 @@ class DirectNetworkService {
 
       async reconnectPeer(_peerId: string, _hints: string[] = []) {
         // Mock implementation - in direct network, connections are always available
+        return Promise.resolve();
+      },
+
+      async resetAllBackoffs() {
+        // The direct network has no backoff to reset
         return Promise.resolve();
       },
 
@@ -341,7 +346,7 @@ describe('Remote Communications (Integration Tests)', () => {
     // Launch sender vat on kernel1
     const senderConfig = makeSenderSubclusterConfig('Sender1');
     await runTestVats(kernel1, senderConfig);
-    const senderRootRef = kernelStore1.getRootObject('v1') as KRef;
+    const senderRootRef = kernelStore1.getRootObject('v1' as VatId) as KRef;
 
     // Launch receiver vat on kernel2
     const receiverConfig = makeReceiverSubclusterConfig('Receiver2');
@@ -381,7 +386,7 @@ describe('Remote Communications (Integration Tests)', () => {
     })) as { targetURL: string; bystanderURL: string };
 
     // Obtain the kernel-level KRef so we can later revoke it via the public API
-    const targetRootRef = kernelStore1.getRootObject('v1') as KRef;
+    const targetRootRef = kernelStore1.getRootObject('v1' as VatId) as KRef;
     const targetCapdata = await kernel1.queueMessage(
       targetRootRef,
       'getTarget',
@@ -402,7 +407,7 @@ describe('Remote Communications (Integration Tests)', () => {
         },
       },
     });
-    const senderRootRef = kernelStore2.getRootObject('v1') as KRef;
+    const senderRootRef = kernelStore2.getRootObject('v1' as VatId) as KRef;
 
     // step 2: B can invoke the target before revocation
     const beforeResult = await kernel2.queueMessage(
@@ -466,7 +471,9 @@ describe('Remote Communications (Integration Tests)', () => {
       // Launch client vat on kernel1
       const clientConfig = makeMaasClientConfig('client1', true);
       await runTestVats(clientKernel, clientConfig);
-      const clientRootRef = localKernelStore1.getRootObject('v1') as KRef;
+      const clientRootRef = localKernelStore1.getRootObject(
+        'v1' as VatId,
+      ) as KRef;
 
       // Launch server vat on kernel2
       const serverConfig = makeMaasServerConfig('server2', true);
@@ -586,7 +593,7 @@ describe('Remote Communications (Integration Tests)', () => {
         makeReceiverSubclusterConfig('Receiver'),
       )) as BootstrapResult;
       await victim.queueMessage(
-        victimStore.getRootObject('v1') as KRef,
+        victimStore.getRootObject('v1' as VatId) as KRef,
         'sendMessage',
         [receiver.ocapURL, 'hello', ['once']],
       );

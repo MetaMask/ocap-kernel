@@ -3,7 +3,7 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { startRelay } from '@metamask/kernel-utils/libp2p';
 import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
-import type { KRef } from '@metamask/ocap-kernel';
+import type { KRef, VatId } from '@metamask/ocap-kernel';
 import { delay } from '@ocap/repo-tools/test-utils';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -214,7 +214,7 @@ describe.sequential('Remote Communications E2E', () => {
         const clientConfig = makeMaasClientConfig('client1', true);
         let clientKernel = kernel1;
         await runTestVats(clientKernel, clientConfig);
-        const clientRootRef = kernelStore1.getRootObject('v1') as KRef;
+        const clientRootRef = kernelStore1.getRootObject('v1' as VatId) as KRef;
 
         // Launch server vat on kernel2
         const serverConfig = makeMaasServerConfig('server2', true);

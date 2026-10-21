@@ -6,6 +6,8 @@ import type { Baggage } from '@metamask/ocap-kernel';
 import { unwrapTestLogger } from '../test-powers.ts';
 import type { TestPowers } from '../test-powers.ts';
 
+type Worker = { resume: () => string };
+
 /**
  * Build function for a persistent coordinator vat.
  *
@@ -27,13 +29,13 @@ export function buildRootObject(
   const tlog = (message: string): void => logger(`${name}: ${message}`);
 
   let workCount: number;
-  let workers: { worker1?: unknown; worker2?: unknown };
+  let workers: { worker1?: Worker; worker2?: Worker };
 
   if (baggage.has('workCount')) {
     workCount = baggage.get('workCount') as number;
     workers = baggage.get('workers') as {
-      worker1?: unknown;
-      worker2?: unknown;
+      worker1?: Worker;
+      worker2?: Worker;
     };
     tlog(`resumed with work count: ${workCount}`);
   } else {
@@ -44,7 +46,7 @@ export function buildRootObject(
   }
 
   return makeDefaultExo('coordinator', {
-    async bootstrap(vats: { worker1: unknown; worker2: unknown }) {
+    async bootstrap(vats: { worker1: Worker; worker2: Worker }) {
       tlog(`bootstrap called`);
       if (!baggage.has('workers')) {
         // Store worker references for persistence

@@ -211,7 +211,12 @@ describe('narrowInterfaceGuard', () => {
     expect(callKind).toBe('async');
   });
 
-  it.each([
+  it.each<{
+    scenario: string;
+    makeGuard: () => InterfaceGuard;
+    delta: NarrowingDelta;
+    message: string;
+  }>([
     {
       scenario: 'names a method the base does not have',
       makeGuard: makeBaseGuard,
@@ -505,7 +510,7 @@ describe('makeAbsorbingDelta', () => {
 
 describe('toDisjunctiveDelta', () => {
   it('copies each row, so changing the input later changes nothing', () => {
-    const delta = { read: [M.eq('a')] };
+    const delta: { read: Pattern[] } = { read: [M.eq('a')] };
 
     const lifted = toDisjunctiveDelta(delta);
     delta.read[0] = M.any();

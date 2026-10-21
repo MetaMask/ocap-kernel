@@ -105,7 +105,7 @@ export type DaemonCaller = {
  */
 export function makeDaemonCaller(options: {
   cliPath: string;
-  ocapHome?: string;
+  ocapHome?: string | undefined;
   timeoutMs: number;
 }): DaemonCaller {
   const { cliPath, ocapHome, timeoutMs } = options;

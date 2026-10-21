@@ -2,7 +2,9 @@ import type { KVStore } from '@metamask/kernel-store';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { getBaseMethods } from './base.ts';
+import { asKRef, asRemoteId, asVatId } from '../../../test/branded.ts';
 import { makeMapKVStore } from '../../../test/storage.ts';
+import type { KRef } from '../../types.ts';
 
 describe('base-methods', () => {
   let kv: KVStore;
@@ -15,32 +17,36 @@ describe('base-methods', () => {
 
   describe('getSlotKey', () => {
     it('generates correct slot keys', () => {
-      expect(baseStore.getSlotKey('v1', 'ko123')).toBe('v1.c.ko123');
-      expect(baseStore.getSlotKey('r2', 'kp456')).toBe('r2.c.kp456');
+      expect(baseStore.getSlotKey(asVatId('v1'), asKRef('ko123'))).toBe(
+        'v1.c.ko123',
+      );
+      expect(baseStore.getSlotKey(asRemoteId('r2'), asKRef('kp456'))).toBe(
+        'r2.c.kp456',
+      );
     });
   });
 
   describe('refCountKey', () => {
     it('generates correct reference count keys', () => {
-      expect(baseStore.refCountKey('ko1')).toBe('ko1.refCount');
-      expect(baseStore.refCountKey('kp42')).toBe('kp42.refCount');
-      expect(baseStore.refCountKey('v7')).toBe('v7.refCount');
+      expect(baseStore.refCountKey(asKRef('ko1'))).toBe('ko1.refCount');
+      expect(baseStore.refCountKey(asKRef('kp42'))).toBe('kp42.refCount');
+      expect(baseStore.refCountKey('v7' as KRef)).toBe('v7.refCount');
     });
   });
 
   describe('getOwnerKey', () => {
     it('generates correct owner keys', () => {
-      expect(baseStore.getOwnerKey('ko1')).toBe('ko1.owner');
-      expect(baseStore.getOwnerKey('kp42')).toBe('kp42.owner');
-      expect(baseStore.getOwnerKey('v7')).toBe('v7.owner');
+      expect(baseStore.getOwnerKey(asKRef('ko1'))).toBe('ko1.owner');
+      expect(baseStore.getOwnerKey(asKRef('kp42'))).toBe('kp42.owner');
+      expect(baseStore.getOwnerKey('v7' as KRef)).toBe('v7.owner');
     });
   });
 
   describe('getRevokedKey', () => {
     it('generates correct revoked keys', () => {
-      expect(baseStore.getRevokedKey('ko1')).toBe('ko1.revoked');
-      expect(baseStore.getRevokedKey('kp42')).toBe('kp42.revoked');
-      expect(baseStore.getRevokedKey('v7')).toBe('v7.revoked');
+      expect(baseStore.getRevokedKey(asKRef('ko1'))).toBe('ko1.revoked');
+      expect(baseStore.getRevokedKey(asKRef('kp42'))).toBe('kp42.revoked');
+      expect(baseStore.getRevokedKey('v7' as KRef)).toBe('v7.revoked');
     });
   });
 

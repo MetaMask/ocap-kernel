@@ -96,7 +96,7 @@ describe('PlatformServicesClient', () => {
     });
 
     it('rejects pending promises for error replies', async () => {
-      const resultP = client.launch('v0', makeVatConfig());
+      const resultP = client.launch('v0' as VatId, makeVatConfig());
 
       await stream.receiveInput(
         makeMessageEvent('m1', {
@@ -175,7 +175,7 @@ describe('PlatformServicesClient', () => {
 
     describe('launch', () => {
       it('resolves with a duplex stream when receiving a launch reply', async () => {
-        const vatId: VatId = 'v0';
+        const vatId = 'v0' as VatId;
         const vatConfig = makeVatConfig();
         const result = client.launch(vatId, vatConfig);
 
@@ -187,7 +187,7 @@ describe('PlatformServicesClient', () => {
       });
 
       it('throws an error when receiving reply without a port', async () => {
-        const vatId: VatId = 'v0';
+        const vatId = 'v0' as VatId;
         const vatConfig = makeVatConfig();
         const launchP = client.launch(vatId, vatConfig);
         const reply = makeNullReply('m1');
@@ -206,7 +206,7 @@ describe('PlatformServicesClient', () => {
         );
 
         // Call launch before starting the client
-        const launchPromise = newClient.launch('v0', makeVatConfig());
+        const launchPromise = newClient.launch('v0' as VatId, makeVatConfig());
 
         // Now send the launch reply
         await delay(10);
@@ -219,7 +219,7 @@ describe('PlatformServicesClient', () => {
 
     describe('terminate', () => {
       it('resolves when receiving a terminate reply', async () => {
-        const result = client.terminate('v0');
+        const result = client.terminate('v0' as VatId);
         await stream.receiveInput(makeNullReply('m1'));
         await delay(10);
 

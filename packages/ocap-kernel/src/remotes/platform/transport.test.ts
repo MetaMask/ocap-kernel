@@ -2740,7 +2740,7 @@ describe('transport.initTransport', () => {
       // Verify handshake was sent (first write)
       expect(mockChannel.msgStream.write).toHaveBeenCalled();
       const { calls } = mockChannel.msgStream.write.mock;
-      const firstWrite = new TextDecoder().decode(calls[0][0] as Uint8Array);
+      const firstWrite = new TextDecoder().decode(calls[0]?.[0] as Uint8Array);
       const handshakeMsg = JSON.parse(firstWrite);
       expect(handshakeMsg).toStrictEqual({
         method: 'handshake',
@@ -2748,7 +2748,7 @@ describe('transport.initTransport', () => {
       });
 
       // Second write should be the actual message
-      const secondWrite = new TextDecoder().decode(calls[1][0] as Uint8Array);
+      const secondWrite = new TextDecoder().decode(calls[1]?.[0] as Uint8Array);
       expect(secondWrite).toContain('hello');
     });
 
@@ -2863,7 +2863,7 @@ describe('transport.initTransport', () => {
       // Should only have the actual message, no handshake
       expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(1);
       const writeCall = new TextDecoder().decode(
-        mockChannel.msgStream.write.mock.calls[0][0] as Uint8Array,
+        mockChannel.msgStream.write.mock.calls[0]?.[0] as Uint8Array,
       );
       const parsedMsg = JSON.parse(writeCall);
       expect(parsedMsg.method).not.toBe('handshake');
@@ -2918,7 +2918,7 @@ describe('transport.initTransport', () => {
         expect(mockInboundChannel.msgStream.write).toHaveBeenCalled();
       });
       const ackWrite = new TextDecoder().decode(
-        mockInboundChannel.msgStream.write.mock.calls[0][0] as Uint8Array,
+        mockInboundChannel.msgStream.write.mock.calls[0]?.[0] as Uint8Array,
       );
       const ackMsg = JSON.parse(ackWrite);
       expect(ackMsg).toStrictEqual({

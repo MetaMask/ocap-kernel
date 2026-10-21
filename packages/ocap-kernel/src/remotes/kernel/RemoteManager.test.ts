@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import * as remoteComms from './remote-comms.ts';
 import { RemoteManager } from './RemoteManager.ts';
+import { asRRef, asRemoteId } from '../../../test/branded.ts';
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
 import type { KernelQueue } from '../../KernelQueue.ts';
@@ -509,12 +510,12 @@ describe('RemoteManager', () => {
       const established = remoteManager.establishRemote('peer123');
       expect([
         remoteManager.hasRemote(established.remoteId),
-        remoteManager.hasRemote('r999'),
+        remoteManager.hasRemote(asRemoteId('r999')),
       ]).toStrictEqual([true, false]);
     });
 
     it('throws error when getting non-existent remote by ID', () => {
-      expect(() => remoteManager.getRemote('r999')).toThrow(
+      expect(() => remoteManager.getRemote(asRemoteId('r999'))).toThrow(
         'Remote not found: r999',
       );
     });
@@ -784,7 +785,7 @@ describe('RemoteManager', () => {
       // Set up a promise where the remote is the decider
       const [kpid] = kernelStore.initKernelPromise();
       kernelStore.setPromiseDecider(kpid, remoteId);
-      kernelStore.addCListEntry(remoteId, kpid, 'rp+1');
+      kernelStore.addCListEntry(remoteId, kpid, asRRef('rp+1'));
 
       const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');
 
@@ -902,7 +903,7 @@ describe('RemoteManager', () => {
 
       const [kpid] = kernelStore.initKernelPromise();
       kernelStore.setPromiseDecider(kpid, remoteId);
-      kernelStore.addCListEntry(remoteId, kpid, 'rp+1');
+      kernelStore.addCListEntry(remoteId, kpid, asRRef('rp+1'));
       kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
 
       const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');

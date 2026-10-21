@@ -205,7 +205,7 @@ export function buildRootObject(
       return client.sponsorUserOperation({
         userOp: options.userOp as never,
         entryPointAddress: options.entryPoint,
-        context: options.context,
+        ...(options.context === undefined ? {} : { context: options.context }),
       });
     },
 
