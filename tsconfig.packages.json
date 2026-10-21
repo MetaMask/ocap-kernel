@@ -8,18 +8,17 @@
      * uncompiled source code for packages that live in this repo.
      */
     "paths": {
-      "@metamask/*": ["../*/src"],
+      "@metamask/*": ["./packages/*/src"],
       "@ocap/kernel-language-model-service/open-v1/nodejs": [
-        "../kernel-language-model-service/src/open-v1/nodejs.ts"
+        "./packages/kernel-language-model-service/src/open-v1/nodejs.ts"
       ],
       "@metamask/kernel-store/sqlite/nodejs": [
-        "../kernel-store/src/sqlite/nodejs.ts"
+        "./packages/kernel-store/src/sqlite/nodejs.ts"
       ],
       "@metamask/kernel-store/sqlite/wasm": [
-        "../kernel-store/src/sqlite/wasm.ts"
+        "./packages/kernel-store/src/sqlite/wasm.ts"
       ],
-      "@metamask/logger/file-transport": ["../logger/src/file-transport.ts"],
-      "@ocap/*": ["../*/src"]
+      "@ocap/*": ["./packages/*/src"]
     }
   }
 }

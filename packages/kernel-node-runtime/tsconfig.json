@@ -2,7 +2,6 @@
   "extends": "../../tsconfig.packages.json",
   "compilerOptions": {
     "allowJs": true,
-    "baseUrl": "./",
     "isolatedModules": true,
     "lib": ["ES2022"],
     "types": ["node", "ses", "vitest"]
