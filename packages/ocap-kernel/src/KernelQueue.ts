@@ -120,6 +120,9 @@ export class KernelQueue {
   /** What peers have sent, waiting for a crank to take delivery of it. */
   readonly #arrivedFromRemotes: PeerArrival[] = [];
 
+  /** How many arrivals each waiting restart has had taken ahead of it. */
+  readonly #takenAhead = new WeakMap<PeerArrival, number>();
+
   /** Whether the last pick between arrivals and the run queue was an arrival. */
   #tookArrivalLast = false;
 
@@ -685,7 +688,10 @@ export class KernelQueue {
    * One that arrives while a restart of the peer waits to be recorded is taken
    * ahead of it, against the incarnation that sent it: the transport reads
    * nothing from the new incarnation until then, so what arrives was read late
-   * off the old one's channel.
+   * off the old one's channel. An incarnation that has ended left no more than
+   * `MAX_ARRIVALS_PER_REMOTE` unacknowledged, and past that many one is
+   * refused, or a peer still sending on that channel would hold the restart,
+   * and every arrival behind it, back for as long as it sends.
    *
    * @param options - Options bag.
    * @param options.remoteId - The remote the message came from.
@@ -695,7 +701,8 @@ export class KernelQueue {
    * @param options.highestReceivedSeq - The highest sequence number from this
    * remote that a committed crank has taken.
    * @returns False if the remote already has `MAX_ARRIVALS_PER_REMOTE`
-   * uncommitted arrivals waiting and this one was refused.
+   * uncommitted arrivals waiting, or its waiting restart has had that many
+   * taken ahead of it, and this one was refused.
    */
   acceptRemoteInbound({
     remoteId,
@@ -734,16 +741,22 @@ export class KernelQueue {
       seq,
       message,
     };
-    const restart = this.#arrivedFromRemotes.findIndex(
+    const index = this.#arrivedFromRemotes.findIndex(
       (item) =>
         item.type === 'peerIncarnation' &&
         item.peerId === peerId &&
         item.restart,
     );
-    if (restart === -1) {
+    const restart = this.#arrivedFromRemotes[index];
+    if (restart === undefined) {
       this.#arrivedFromRemotes.push(arrival);
     } else {
-      this.#arrivedFromRemotes.splice(restart, 0, arrival);
+      const ahead = (this.#takenAhead.get(restart) ?? 0) + 1;
+      if (ahead > MAX_ARRIVALS_PER_REMOTE) {
+        return false;
+      }
+      this.#takenAhead.set(restart, ahead);
+      this.#arrivedFromRemotes.splice(index, 0, arrival);
     }
     this.#wakeRunLoop();
     return true;

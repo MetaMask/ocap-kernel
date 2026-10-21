@@ -1045,6 +1045,41 @@ describe('KernelQueue', () => {
       expect(arrive({ seq: 201 })).toBe(false);
     });
 
+    it('takes no more than 200 arrivals ahead of one waiting restart', async () => {
+      kernelQueue.acceptPeerIncarnation({
+        peerId: 'peer-r1',
+        incarnation: 'incarnation-B',
+        restart: true,
+      });
+      arrive({ seq: 1 });
+      let refused: number | undefined;
+      const delivered: RunLoopItem[] = [];
+      // A peer still sending on the old channel, one message per crank.
+      const deliver = vi.fn(async (item: RunLoopItem) => {
+        delivered.push(item);
+        if (item.type !== 'remoteInbound' || delivered.length > 300) {
+          throw new Error(STOP_RUN_LOOP);
+        }
+        const next = item.seq + 1;
+        if (!arrive({ seq: next, highestReceivedSeq: item.seq })) {
+          refused = next;
+        }
+        return {};
+      });
+
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
+
+      expect({
+        refused,
+        delivered: delivered.length,
+        last: delivered.at(-1),
+      }).toStrictEqual({
+        refused: 201,
+        delivered: 201,
+        last: change('incarnation-B'),
+      });
+    });
+
     it('counts each remote against its own share', async () => {
       for (let seq = 1; seq <= 200; seq += 1) {
         arrive({ seq });
