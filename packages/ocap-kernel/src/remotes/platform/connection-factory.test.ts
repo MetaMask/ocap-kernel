@@ -39,9 +39,7 @@ vi.mock('@libp2p/websockets', () => ({ webSockets: () => ({}) }));
 vi.mock('@libp2p/webtransport', () => ({ webTransport: () => ({}) }));
 vi.mock('@libp2p/ping', () => ({ ping: () => ({}) }));
 
-const generateKeyPairFromSeed = vi.fn(async () => ({
-  /* private key */
-}));
+const generateKeyPairFromSeed = vi.fn(async () => ({/* private key */}));
 vi.mock('@libp2p/crypto/keys', () => ({
   generateKeyPairFromSeed,
 }));

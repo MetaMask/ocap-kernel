@@ -368,8 +368,8 @@ describe('ObjectRegistry Component', () => {
       expandVat(container, 'TestVat1', 'vat1');
       const revokeButton = screen.getByTestId('revoke-button-kref1');
       expect(revokeButton).toBeInTheDocument();
-      expect(revokeButton?.textContent).toStrictEqual(expectedText);
-      expect(revokeButton)[expectEnabled ? 'toBeEnabled' : 'toBeDisabled']();
+      expect(revokeButton.textContent).toStrictEqual(expectedText);
+      expect(revokeButton).toHaveProperty('disabled', !expectEnabled);
     },
   );
 

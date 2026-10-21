@@ -203,6 +203,7 @@ export const join = async <Joined extends Methods = Methods>({
   name,
   refs: refsOrPromises,
 }: JoinOptions): Promise<Guarded<Joined>> => {
+  // oxlint-disable-next-line typescript/await-thenable -- An `object` may be a promise.
   const refs = await Promise.all(refsOrPromises);
   const records = refs.map((ref) => provenance.get(ref));
   const minted = records.filter(

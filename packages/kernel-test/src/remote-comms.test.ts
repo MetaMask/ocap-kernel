@@ -788,6 +788,7 @@ function listObjectCList(
   for (const refPrefix of ['ko', 'ro']) {
     const prefix = `${cListPrefix}${refPrefix}`;
     let key = kernelKVStore.getNextKey(prefix);
+    // oxlint-disable-next-line no-unmodified-loop-condition -- the condition reads key, which the loop advances
     while (key?.startsWith(prefix)) {
       entries[key.slice(cListPrefix.length)] = kernelKVStore.getRequired(key);
       key = kernelKVStore.getNextKey(key);

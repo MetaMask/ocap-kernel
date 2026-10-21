@@ -1,7 +1,8 @@
 import { execa } from 'execa';
 import { promises as fs } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { format as prettierFormat } from 'prettier';
+import { format as oxfmtFormat } from 'oxfmt';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock, MockInstance } from 'vitest';
 
@@ -24,7 +25,7 @@ vi.mock('execa', () => ({
   execa: vi.fn(),
 }));
 
-vi.mock('prettier', () => ({
+vi.mock('oxfmt', () => ({
   format: vi.fn(),
 }));
 
@@ -32,6 +33,22 @@ vi.mock('./fs-utils.ts', () => ({
   readAllFiles: vi.fn(),
   writeFiles: vi.fn(),
 }));
+
+const readFormatConfig = async (): Promise<Record<string, unknown>> => {
+  const {
+    $schema: _schema,
+    ignorePatterns: _ignorePatterns,
+    overrides: _overrides,
+    associations: _associations,
+    ...config
+  } = JSON.parse(
+    await readFile(
+      path.resolve(import.meta.dirname, '../../../.oxfmtrc.json'),
+      'utf8',
+    ),
+  ) as Record<string, unknown>;
+  return config;
+};
 
 describe('create-package/utils', () => {
   describe('readMonorepoFiles', () => {
@@ -110,7 +127,12 @@ describe('create-package/utils', () => {
         getReadFilesResult(),
       );
 
-      (prettierFormat as Mock).mockImplementation((input) => input);
+      (oxfmtFormat as Mock).mockImplementation(
+        async (_filePath: string, input: string) => ({
+          code: input,
+          errors: [],
+        }),
+      );
 
       await finalizeAndWriteData(packageData, monorepoFileData);
 
@@ -134,7 +156,19 @@ describe('create-package/utils', () => {
 
       // Writing monorepo files
       expect(fs.writeFile).toHaveBeenCalledTimes(2);
-      expect(prettierFormat).toHaveBeenCalledTimes(2);
+      expect(oxfmtFormat).toHaveBeenCalledTimes(2);
+      const formatConfig = await readFormatConfig();
+      expect(formatConfig).toHaveProperty('singleQuote');
+      expect(oxfmtFormat).toHaveBeenCalledWith(
+        expect.stringMatching(/[/\\]tsconfig\.json$/u),
+        expect.any(String),
+        formatConfig,
+      );
+      expect(oxfmtFormat).toHaveBeenCalledWith(
+        expect.stringMatching(/[/\\]tsconfig\.build\.json$/u),
+        expect.any(String),
+        formatConfig,
+      );
       expect(fs.writeFile).toHaveBeenCalledWith(
         expect.stringMatching(/tsconfig\.json$/u),
         JSON.stringify({
@@ -177,7 +211,12 @@ describe('create-package/utils', () => {
         getReadFilesResult(),
       );
 
-      (prettierFormat as Mock).mockImplementation((input) => input);
+      (oxfmtFormat as Mock).mockImplementation(
+        async (_filePath: string, input: string) => ({
+          code: input,
+          errors: [],
+        }),
+      );
 
       (execa as Mock)
         .mockResolvedValueOnce(undefined)
@@ -222,10 +261,40 @@ describe('create-package/utils', () => {
 
       await expect(
         finalizeAndWriteData(packageData, monorepoFileData),
-      ).rejects.toThrowError(/^The package directory already exists:/u);
+      ).rejects.toThrow(/^The package directory already exists:/u);
 
       expect(fs.mkdir).not.toHaveBeenCalled();
       expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('throws if formatting a monorepo file fails', async () => {
+      (fs.access as Mock).mockRejectedValueOnce(
+        Object.assign(new Error(), {
+          code: 'ENOENT',
+        }),
+      );
+      (fsUtils.readAllFiles as Mock).mockResolvedValueOnce(
+        getReadFilesResult(),
+      );
+      (oxfmtFormat as Mock).mockResolvedValueOnce({
+        code: '',
+        errors: [
+          {
+            message: 'bad json',
+            codeframe: '  x bad json\n   ,-[tsconfig.json:1:2]',
+          },
+          { message: 'worse json', codeframe: null },
+        ],
+      });
+
+      await expect(
+        finalizeAndWriteData(getPackageData(), getMonorepoFileData()),
+      ).rejects.toThrow(
+        /^Failed to format .+tsconfig\.json:\n {2}x bad json\n {3},-\[tsconfig\.json:1:2\]\nworse json$/u,
+      );
+
+      expect(fs.writeFile).not.toHaveBeenCalled();
+      expect(execa).not.toHaveBeenCalled();
     });
 
     it('handles errors from fs.exists', async () => {
@@ -236,7 +305,7 @@ describe('create-package/utils', () => {
 
       await expect(
         finalizeAndWriteData(packageData, monorepoFileData),
-      ).rejects.toThrowError(/^foo$/u);
+      ).rejects.toThrow(/^foo$/u);
     });
   });
 });

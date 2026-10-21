@@ -252,7 +252,7 @@ export async function runTestVats(
 }
 
 /**
- * Send the `resume message to the root of one of the test vats.
+ * Send the `resume` message to the root of one of the test vats.
  *
  * @param kernel - Our kernel.
  * @param rootRef - KRef of the object to which the message is sent.

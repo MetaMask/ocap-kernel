@@ -105,9 +105,11 @@ describe('virtual objects functionality', async () => {
     );
     await waitUntilQuiescent();
     const counterRef = counterResult.slots[0] as KRef;
-    const incrementResult = await kernel.queueMessage(counterRef, 'increment', [
-      5,
-    ]);
+    const incrementResult = await kernel.queueMessage(
+      counterRef,
+      'increment',
+      [5],
+    );
     // Verify the increment result
     expect(kunser(incrementResult)).toBe(47);
     await waitUntilQuiescent();

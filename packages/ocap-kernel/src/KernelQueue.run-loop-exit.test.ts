@@ -140,16 +140,18 @@ async function waitThrough(
   return settlement;
 }
 
+async function explodeInCrank({ kernel, doomedRoot }: Harness): Promise<void> {
+  kernel.queueMessage(doomedRoot, 'explode', []).catch(() => undefined);
+  await vi.waitFor(async () =>
+    expect((await kernel.getStatus()).runLoop.state).toBe('failed'),
+  );
+}
+
 describe('a queueMessage caller the vat has not answered', () => {
   it.each([
     [
       'is rejected when the run loop dies in a crank',
-      async ({ kernel, doomedRoot }: Harness): Promise<void> => {
-        kernel.queueMessage(doomedRoot, 'explode', []).catch(() => undefined);
-        await vi.waitFor(async () =>
-          expect((await kernel.getStatus()).runLoop.state).toBe('failed'),
-        );
-      },
+      explodeInCrank,
       'rejected',
     ],
     // Only because terminating the vat rejects the promises it decides;
