@@ -47,6 +47,15 @@ Lint using `yarn lint` or `yarn lint:fix` from the root.
 Note that the root package `test` script, as well as those of many packages, require
 `yarn build` to be run first.
 
+### Editor setup
+
+The repository uses TypeScript 7, whose package ships a native compiler and language
+server (`tsc --lsp`) in place of `tsserver`. VS Code's built-in TypeScript support cannot
+load it and falls back to its bundled TypeScript version. To use the workspace version,
+install the
+[TypeScript (Native Preview)](https://marketplace.visualstudio.com/items?itemName=TypeScriptTeam.native-preview)
+extension.
+
 ### Writing tests
 
 The kernel's code relies extensively on SES / lockdown. Many Agoric packages fail if

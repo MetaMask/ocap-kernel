@@ -199,7 +199,11 @@ module.exports = defineConfig({
 
         if (!typedocExceptions.includes(workspaceBasename)) {
           // All non-root packages must have the same "build:docs" script.
-          expectWorkspaceField(workspace, 'scripts.build:docs', 'typedoc');
+          expectWorkspaceField(
+            workspace,
+            'scripts.build:docs',
+            'npx -y -p typedoc@0.28.20 -p typescript@6.0.3 typedoc',
+          );
         }
 
         // All packages except the root must have a "clean" script that includes ./logs.
@@ -329,7 +333,7 @@ module.exports = defineConfig({
       if (isChildWorkspace) {
         workspace.unset('packageManager');
       } else {
-        expectWorkspaceField(workspace, 'packageManager', 'yarn@4.12.0');
+        expectWorkspaceField(workspace, 'packageManager', 'yarn@4.18.1');
       }
 
       expectWorkspaceField(workspace, 'engines.node', '>=22');
