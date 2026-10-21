@@ -30,7 +30,6 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/tsconfig.base.json",
         "$TURBO_ROOT$/tsconfig.packages.json",
-        "$TURBO_ROOT$/tsconfig.packages.typecheck.json",
         "$TURBO_ROOT$/vitest.config.ts"
       ],
       "outputs": []

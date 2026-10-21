@@ -278,7 +278,7 @@ module.exports = defineConfig({
         expectWorkspaceField(
           workspace,
           'scripts.test:types',
-          'tsc --project tsconfig.typecheck.json',
+          'tsc --project tsconfig.json',
         );
       }
 
