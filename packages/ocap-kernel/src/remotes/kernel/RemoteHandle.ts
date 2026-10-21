@@ -20,7 +20,7 @@ import type {
   KernelOneResolution,
   CrankResult,
 } from '../../types.ts';
-import { insistERef } from '../../types.ts';
+import { insistERef, isRRef } from '../../types.ts';
 import type { RemoteComms } from '../types.ts';
 
 /** How long to wait for ACK before retransmitting (ms). */
@@ -719,10 +719,21 @@ export class RemoteHandle implements EndpointHandle {
    * {@link #flushTransmitQueue} holds back until this one has gone.
    *
    * @param messageBase - The delivery to make.
+   * @param options - Options bag.
+   * @param options.exemptFromCapacityLimit - Whether the pending queue's
+   * capacity limit does not apply. A GC delivery is exempt: refusing one would
+   * stop the run loop, and the remote's c-list bounds how many there can be.
    * @returns This handle's crank result, carrying the send.
    */
-  #deliverToPeer(messageBase: Delivery): CrankResult {
-    const persisted = this.#persistRemoteCommand(messageBase);
+  #deliverToPeer(
+    messageBase: Delivery,
+    {
+      exemptFromCapacityLimit = false,
+    }: { exemptFromCapacityLimit?: boolean } = {},
+  ): CrankResult {
+    const persisted = this.#persistRemoteCommand(messageBase, {
+      exemptFromCapacityLimit,
+    });
     return {
       ...this.#myCrankResult,
       afterCommit: async () => this.#transmitRemoteCommand(persisted),
@@ -768,7 +779,7 @@ export class RemoteHandle implements EndpointHandle {
    * @param messageBase - The message, before its sequence number and ack.
    * @param options - Options bag.
    * @param options.exemptFromCapacityLimit - Whether the pending queue's
-   * capacity limit does not apply, for a reply that must not fail.
+   * capacity limit does not apply.
    * @returns What transmitting it needs.
    */
   #persistRemoteCommand(
@@ -1038,10 +1049,10 @@ export class RemoteHandle implements EndpointHandle {
    * @returns the crank result.
    */
   async deliverDropExports(erefs: ERef[]): Promise<CrankResult> {
-    return this.#deliverToPeer({
-      method: 'deliver',
-      params: ['dropExports', erefs],
-    });
+    return this.#deliverToPeer(
+      { method: 'deliver', params: ['dropExports', erefs] },
+      { exemptFromCapacityLimit: true },
+    );
   }
 
   /**
@@ -1051,10 +1062,10 @@ export class RemoteHandle implements EndpointHandle {
    * @returns the crank result.
    */
   async deliverRetireExports(erefs: ERef[]): Promise<CrankResult> {
-    return this.#deliverToPeer({
-      method: 'deliver',
-      params: ['retireExports', erefs],
-    });
+    return this.#deliverToPeer(
+      { method: 'deliver', params: ['retireExports', erefs] },
+      { exemptFromCapacityLimit: true },
+    );
   }
 
   /**
@@ -1064,10 +1075,10 @@ export class RemoteHandle implements EndpointHandle {
    * @returns the crank result.
    */
   async deliverRetireImports(erefs: ERef[]): Promise<CrankResult> {
-    return this.#deliverToPeer({
-      method: 'deliver',
-      params: ['retireImports', erefs],
-    });
+    return this.#deliverToPeer(
+      { method: 'deliver', params: ['retireImports', erefs] },
+      { exemptFromCapacityLimit: true },
+    );
   }
 
   /**
@@ -1118,10 +1129,40 @@ export class RemoteHandle implements EndpointHandle {
    * @param erefs - The refs of the exports to be dropped.
    */
   #dropExports(erefs: ERef[]): void {
-    const krefs = erefs.map((ref) =>
-      this.#kernelStore.translateRefEtoK(this.remoteId, ref),
-    );
+    const krefs = this.#knownKrefs('dropExports', erefs);
     performDropImports(krefs, this.remoteId, this.#kernelStore);
+  }
+
+  /**
+   * Look up the krefs of the objects a GC delivery names. It can name an rref
+   * the receiver has already let go of, as when a `retireImports` and a
+   * `retireExports` cross on the wire, so one with no c-list entry is skipped
+   * rather than minted. The c-list can't tell that from an rref it never had,
+   * hence the warning.
+   *
+   * @param method - The GC delivery.
+   * @param erefs - The rrefs it names.
+   * @returns The krefs of those still in the c-list.
+   */
+  #knownKrefs(
+    method: 'dropExports' | 'retireExports' | 'retireImports',
+    erefs: ERef[],
+  ): KRef[] {
+    // The peer's exports are `ro+N` here, and ours to it `ro-N`.
+    const prefix = method === 'retireImports' ? 'ro+' : 'ro-';
+    return erefs.flatMap((ref) => {
+      if (!isRRef(ref) || !ref.startsWith(prefix)) {
+        throw Error(`${method} names ${String(ref)}, which is not ${prefix}N`);
+      }
+      const kref = this.#kernelStore.erefToKref(this.remoteId, ref);
+      if (kref === undefined) {
+        this.#logger.warn(
+          `${this.#peerId.slice(0, 8)}:: ${method} names ${ref}, which is not in the c-list; skipped`,
+        );
+        return [];
+      }
+      return [kref];
+    });
   }
 
   /**
@@ -1130,9 +1171,7 @@ export class RemoteHandle implements EndpointHandle {
    * @param erefs - The refs of the exports to be retired.
    */
   #retireExports(erefs: ERef[]): void {
-    const krefs = erefs.map((ref) =>
-      this.#kernelStore.translateRefEtoK(this.remoteId, ref),
-    );
+    const krefs = this.#knownKrefs('retireExports', erefs);
     performRetireImports(krefs, this.remoteId, this.#kernelStore);
   }
 
@@ -1142,9 +1181,7 @@ export class RemoteHandle implements EndpointHandle {
    * @param erefs - The refs of the imports to be retired.
    */
   #retireImports(erefs: ERef[]): void {
-    const krefs = erefs.map((ref) =>
-      this.#kernelStore.translateRefEtoK(this.remoteId, ref),
-    );
+    const krefs = this.#knownKrefs('retireImports', erefs);
     performExportCleanup(krefs, true, this.remoteId, this.#kernelStore);
   }
 

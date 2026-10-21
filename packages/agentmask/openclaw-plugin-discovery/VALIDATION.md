@@ -305,7 +305,7 @@ juggling required):
 
 ```bash
 openclaw config set 'plugins.entries.discovery.config.ocapHome' "$HOME/.ocap-consumer"
-openclaw config set 'plugins.entries.discovery.config.ocapCliPath' '/abs/path/to/ocap-kernel/packages/kernel-cli/dist/app.mjs'
+openclaw config set 'plugins.entries.discovery.config.ocapCliPath' '/abs/path/to/ocap-kernel/packages/kernel-cli/dist/app.js'
 openclaw config set 'plugins.entries.discovery.config.matcherUrl' 'ocap:…'
 ```
 

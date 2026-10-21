@@ -483,6 +483,7 @@ describe('KernelQueue', () => {
         message:
           'Run loop died and its crank could not be rolled back: Error: database is gone',
         cause: crankError,
+        errors: [crankError, rollbackError],
       });
       expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
         state: 'failed',
@@ -1317,9 +1318,10 @@ describe('KernelQueue', () => {
     });
 
     it('keeps the crank error when ending the crank fails too', async () => {
+      const endCrankError = new Error('commit failed');
       (kernelStore.endCrank as unknown as MockInstance).mockImplementation(
         () => {
-          throw new Error('commit failed');
+          throw endCrankError;
         },
       );
 
@@ -1331,17 +1333,14 @@ describe('KernelQueue', () => {
         target: 'ko123',
         message: {} as KernelMessage,
       });
-      const deliver = vi.fn().mockRejectedValue(new Error('crank exploded'));
+      const crankError = new Error('crank exploded');
+      const deliver = vi.fn().mockRejectedValue(crankError);
 
-      let thrown: Error | undefined;
-      try {
-        await kernelQueue.run(deliver);
-      } catch (error) {
-        thrown = error as Error;
-      }
-
-      expect(thrown?.message).toContain('commit failed');
-      expect((thrown?.cause as Error).message).toBe('crank exploded');
+      await expect(kernelQueue.run(deliver)).rejects.toMatchObject({
+        message: expect.stringContaining('commit failed'),
+        cause: crankError,
+        errors: [crankError, endCrankError],
+      });
     });
 
     it('reports a failed end of an otherwise healthy crank', async () => {
@@ -1638,6 +1637,78 @@ describe('KernelQueue', () => {
       await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
 
       expect(resolveSpy).toHaveBeenCalledWith(fulfilledValue);
+    });
+  });
+
+  describe('GC actions for an offline endpoint', () => {
+    it("passes run's isOffline to processGCActionSet", async () => {
+      const isOffline = vi.fn();
+      (gc.processGCActionSet as unknown as MockInstance).mockImplementationOnce(
+        () => {
+          throw new Error(STOP_RUN_LOOP);
+        },
+      );
+
+      await expect(kernelQueue.run(vi.fn(), { isOffline })).rejects.toThrow(
+        STOP_RUN_LOOP,
+      );
+
+      expect(gc.processGCActionSet).toHaveBeenCalledWith(kernelStore, {
+        isOffline,
+      });
+    });
+
+    it('wakes a parked run loop to look at them again', async () => {
+      let wake!: () => void;
+      const parked = new Promise<void>((resolve) => {
+        wake = resolve;
+      });
+      (makePromiseKit as unknown as MockInstance).mockReturnValueOnce({
+        promise: parked,
+        resolve: wake,
+        reject: vi.fn(),
+      });
+      (gc.processGCActionSet as unknown as MockInstance)
+        .mockReturnValueOnce(null)
+        .mockImplementationOnce(() => {
+          throw new Error(STOP_RUN_LOOP);
+        });
+
+      const running = kernelQueue.run(vi.fn());
+      await vi.waitFor(() =>
+        expect(gc.processGCActionSet).toHaveBeenCalledOnce(),
+      );
+      kernelQueue.recheckGCActions();
+
+      await expect(running).rejects.toThrow(STOP_RUN_LOOP);
+      expect(gc.processGCActionSet).toHaveBeenCalledTimes(2);
+    });
+
+    it('does nothing to a run loop in the middle of a crank', async () => {
+      let finishDelivery!: () => void;
+      const deliver = vi.fn(
+        async () =>
+          new Promise<undefined>((resolve) => {
+            finishDelivery = () => resolve(undefined);
+          }),
+      );
+      (gc.processGCActionSet as unknown as MockInstance)
+        .mockReturnValueOnce({
+          type: 'dropExports',
+          endpointId: 'v1',
+          krefs: ['ko1'],
+        })
+        .mockImplementationOnce(() => {
+          throw new Error(STOP_RUN_LOOP);
+        });
+
+      const running = kernelQueue.run(deliver);
+      await vi.waitFor(() => expect(deliver).toHaveBeenCalledOnce());
+      kernelQueue.recheckGCActions();
+      finishDelivery();
+
+      await expect(running).rejects.toThrow(STOP_RUN_LOOP);
+      expect(gc.processGCActionSet).toHaveBeenCalledTimes(2);
     });
   });
 

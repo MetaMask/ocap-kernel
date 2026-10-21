@@ -1,7 +1,8 @@
+import { makePromiseKit } from '@endo/promise-kit';
 import { VatNotFoundError } from '@metamask/kernel-errors';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
-import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import { delay, waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { DuplexStream } from '@metamask/streams';
 import type { Mocked, MockInstance } from 'vitest';
@@ -16,6 +17,7 @@ import type {
   PlatformServices,
   ClusterConfig,
   CrankResult,
+  EndpointId,
   RunQueueItem,
 } from './types.ts';
 import { VatHandle } from './vats/VatHandle.ts';
@@ -40,12 +42,19 @@ const mocks = vi.hoisted(() => {
     #deliver: ((item: RunQueueItem) => Promise<unknown>) | undefined;
 
     // Like the real run loop, this settles only if the kernel dies.
-    run = vi.fn(async (deliver: (item: RunQueueItem) => Promise<unknown>) => {
-      this.#deliver = deliver;
-      return new Promise<never>((_resolve, reject) => {
-        this.#rejectRunLoop = reject;
-      });
-    });
+    run = vi.fn(
+      async (
+        deliver: (item: RunQueueItem) => Promise<unknown>,
+        _options?: { isOffline?: (endpointId: EndpointId) => boolean },
+      ) => {
+        this.#deliver = deliver;
+        return new Promise<never>((_resolve, reject) => {
+          this.#rejectRunLoop = reject;
+        });
+      },
+    );
+
+    recheckGCActions = vi.fn();
 
     /**
      * Fail the run loop, in the order the real `KernelQueue.run` does: the
@@ -156,6 +165,8 @@ const mocks = vi.hoisted(() => {
 
     initRemoteComms = vi.fn().mockResolvedValue(undefined);
 
+    hasRemote = vi.fn().mockReturnValue(false);
+
     closeConnection = vi.fn().mockResolvedValue(undefined);
 
     reconnectPeer = vi.fn().mockResolvedValue(undefined);
@@ -241,6 +252,7 @@ describe('Kernel', () => {
           config: vatConfig,
           init: vi.fn(),
           terminate: vi.fn().mockResolvedValue(undefined),
+          expectClose: vi.fn(),
           handleMessage: vi.fn(),
           deliverMessage: vi.fn(),
           deliverNotify: vi.fn(),
@@ -856,6 +868,47 @@ describe('Kernel', () => {
       expect(workerTerminateAllMock).toHaveBeenCalledOnce();
     });
 
+    it('tells each vat its channel is closing only once the crank it waits for has ended', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      const crank = makePromiseKit<void>();
+      mocks.KernelQueue.lastInstance.waitForCrank.mockReturnValueOnce(
+        crank.promise,
+      );
+
+      const stopping = kernel.stop();
+      await delay(0);
+      const closingEarly = vatHandles[0]?.expectClose.mock.calls.length;
+      crank.resolve();
+      await stopping;
+
+      expect({
+        closingEarly,
+        closing: vatHandles[0]?.expectClose.mock.calls.length,
+      }).toStrictEqual({ closingEarly: 0, closing: 1 });
+    });
+
+    it('tells each vat its channel is closing before stopping remote comms', async () => {
+      const stopRemoteCommsMock = vi
+        .spyOn(mockPlatformServices, 'stopRemoteComms')
+        .mockResolvedValue(undefined);
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+
+      await kernel.stop();
+
+      const [expectClose] =
+        vatHandles[0]?.expectClose.mock.invocationCallOrder ?? [];
+      const [stopRemoteComms] = stopRemoteCommsMock.mock.invocationCallOrder;
+      expect(expectClose).toBeLessThan(stopRemoteComms as number);
+    });
+
     it('waits for crank before stopping', async () => {
       const kernel = await Kernel.make(
         mockPlatformServices,
@@ -885,6 +938,39 @@ describe('Kernel', () => {
       const timestamp = Number(stored);
       expect(timestamp).toBeGreaterThanOrEqual(before);
       expect(timestamp).toBeLessThanOrEqual(after);
+    });
+
+    it('releases everything even if the timestamp cannot be written', async () => {
+      const stopRemoteCommsMock = vi
+        .spyOn(mockPlatformServices, 'stopRemoteComms')
+        .mockResolvedValue(undefined);
+      const workerTerminateAllMock = vi
+        .spyOn(mockPlatformServices, 'terminateAll')
+        .mockResolvedValue(undefined);
+      const closeSpy = vi.spyOn(mockKernelDatabase, 'close');
+      const logger = new Logger('test');
+      const logErrorSpy = vi.spyOn(logger, 'error');
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+        { logger },
+      );
+      const refusal = new Error('refusing further writes on this connection');
+      vi.spyOn(mockKernelDatabase.kernelKVStore, 'set').mockImplementation(
+        () => {
+          throw refusal;
+        },
+      );
+
+      await kernel.stop();
+
+      expect(stopRemoteCommsMock).toHaveBeenCalledOnce();
+      expect(workerTerminateAllMock).toHaveBeenCalledOnce();
+      expect(closeSpy).toHaveBeenCalledOnce();
+      expect(logErrorSpy).toHaveBeenCalledWith(
+        'could not record last active time',
+        refusal,
+      );
     });
   });
 
@@ -1327,6 +1413,62 @@ describe('Kernel', () => {
   });
 
   describe('remote communications', () => {
+    it('holds GC actions back for a remote with no handle', async () => {
+      await Kernel.make(mockPlatformServices, mockKernelDatabase);
+      mocks.RemoteManager.lastInstance.hasRemote.mockImplementation(
+        (remoteId: string) => remoteId === 'r2',
+      );
+      const isOffline =
+        mocks.KernelQueue.lastInstance.run.mock.calls[0]?.[1]?.isOffline;
+
+      expect(
+        (['r1', 'r2', 'v1'] as EndpointId[]).map((endpointId) =>
+          isOffline?.(endpointId),
+        ),
+      ).toStrictEqual([true, false, false]);
+    });
+
+    describe('initRemoteComms()', () => {
+      it('wakes the run loop for GC actions once the remotes are up', async () => {
+        const kernel = await Kernel.make(
+          mockPlatformServices,
+          mockKernelDatabase,
+        );
+        let remotesUp = false;
+        mocks.RemoteManager.lastInstance.initRemoteComms.mockImplementationOnce(
+          async () => {
+            await Promise.resolve();
+            remotesUp = true;
+          },
+        );
+        const remotesUpAtRecheck: boolean[] = [];
+        mocks.KernelQueue.lastInstance.recheckGCActions.mockImplementationOnce(
+          () => remotesUpAtRecheck.push(remotesUp),
+        );
+
+        await kernel.initRemoteComms();
+
+        expect(remotesUpAtRecheck).toStrictEqual([true]);
+      });
+
+      it('wakes the run loop even when restoring the remotes fails', async () => {
+        const kernel = await Kernel.make(
+          mockPlatformServices,
+          mockKernelDatabase,
+        );
+        mocks.RemoteManager.lastInstance.initRemoteComms.mockRejectedValueOnce(
+          new Error('restore failed'),
+        );
+
+        await expect(kernel.initRemoteComms()).rejects.toThrow(
+          'restore failed',
+        );
+        expect(
+          mocks.KernelQueue.lastInstance.recheckGCActions,
+        ).toHaveBeenCalledOnce();
+      });
+    });
+
     describe('closeConnection()', () => {
       it('closes connection via RemoteManager', async () => {
         const kernel = await Kernel.make(

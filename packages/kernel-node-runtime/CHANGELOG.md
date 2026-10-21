@@ -24,8 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING:** Drop `platformOptions.fetch` from `makeNodeJsVatSupervisor` ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
   - `fetch` is now a vat endowment; stub `globalThis.fetch` directly if needed
 
+### Removed
+
+- **BREAKING:** Remove the CommonJS build; the package is ESM-only. Its entry points are `.js` and `.d.ts` files, formerly `.mjs`/`.cjs` and `.d.mts`/`.d.cts` ([#1186](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1186))
+
 ### Fixed
 
+- A vat worker that exits after its handshake has its channel failed with its exit code, so the kernel notices the vat is gone and says why ([#1161](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1161))
+- An uncaught exception in a vat worker is logged instead of crashing the kernel's process, including one raised while the worker is being stopped ([#1161](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1161))
+- A vat worker that exits during the handshake fails its launch instead of leaving it pending ([#1161](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1161))
+- `NodejsPlatformServices.terminate` resolves at once for a vat with no worker instead of throwing, and so does a second call for a worker the first is still stopping, instead of leaving the first waiting forever ([#1100](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1100))
 - `NodejsPlatformServices.terminate` forgets a worker that fails to stop, so the vat's next worker is no longer refused as a duplicate, and kills the worker even when its channel will not close ([#1149](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1149))
 - The RPC socket server refuses to bind a Unix socket that has a live listener, rather than unlinking it and orphaning the previous owner; stale socket files with no listener are still cleaned up automatically ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 

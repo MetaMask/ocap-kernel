@@ -144,32 +144,20 @@ module.exports = defineConfig({
 
         if (!isPrivate && !exportsExceptions.includes(workspaceBasename)) {
           // The entrypoints for all published packages must be the same.
-          expectWorkspaceField(workspace, 'module', './dist/index.mjs');
-          expectWorkspaceField(workspace, 'main', './dist/index.cjs');
-          expectWorkspaceField(workspace, 'types', './dist/index.d.cts');
+          workspace.unset('module');
+          expectWorkspaceField(workspace, 'main', './dist/index.js');
+          expectWorkspaceField(workspace, 'types', './dist/index.d.ts');
 
           // The exports for all published packages must be the same.
-          // CommonJS
           expectWorkspaceField(
             workspace,
-            'exports["."].require.default',
-            './dist/index.cjs',
+            'exports["."].default',
+            './dist/index.js',
           );
           expectWorkspaceField(
             workspace,
-            'exports["."].require.types',
-            './dist/index.d.cts',
-          );
-          // ESM
-          expectWorkspaceField(
-            workspace,
-            'exports["."].import.default',
-            './dist/index.mjs',
-          );
-          expectWorkspaceField(
-            workspace,
-            'exports["."].import.types',
-            './dist/index.d.mts',
+            'exports["."].types',
+            './dist/index.d.ts',
           );
 
           // Published packages must not have side effects.
@@ -286,16 +274,17 @@ module.exports = defineConfig({
       }
 
       if (!buildExceptions.includes(workspaceBasename)) {
-        const enforceTsBridge = (currentValue) =>
-          typeof currentValue === 'string' && currentValue.includes('ts-bridge')
-            ? 'ts-bridge --project tsconfig.build.json --no-references --clean'
+        const enforceTsc = (currentValue) =>
+          typeof currentValue === 'string' &&
+          currentValue.includes('tsc --project')
+            ? `rimraf --glob ./dist './*.tsbuildinfo' && tsc --project tsconfig.build.json`
             : currentValue;
 
-        expectWorkspaceField(workspace, 'scripts.build', enforceTsBridge);
+        expectWorkspaceField(workspace, 'scripts.build', enforceTsc);
         expectOptionalWorkspaceField(
           workspace,
           'scripts.build:lib',
-          enforceTsBridge,
+          enforceTsc,
         );
       }
 

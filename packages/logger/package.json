@@ -20,35 +20,22 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./file-transport": {
-      "import": {
-        "types": "./dist/file-transport.d.mts",
-        "default": "./dist/file-transport.mjs"
-      },
-      "require": {
-        "types": "./dist/file-transport.d.cts",
-        "default": "./dist/file-transport.cjs"
-      }
+      "types": "./dist/file-transport.d.ts",
+      "default": "./dist/file-transport.js"
     },
     "./package.json": "./package.json"
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.cts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "files": [
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
+    "build": "rimraf --glob ./dist './*.tsbuildinfo' && tsc --project tsconfig.build.json",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @metamask/logger",
     "changelog:update": "../../scripts/update-changelog.sh @metamask/logger",
@@ -68,7 +55,7 @@
   "dependencies": {
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/streams": "workspace:^",
-    "@metamask/utils": "^11.12.1"
+    "@metamask/utils": "^12.0.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",
@@ -78,8 +65,6 @@
     "@metamask/eslint-config-typescript": "^15.0.1",
     "@metamask/kernel-shims": "workspace:^",
     "@ocap/repo-tools": "workspace:^",
-    "@ts-bridge/cli": "^0.6.3",
-    "@ts-bridge/shims": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",

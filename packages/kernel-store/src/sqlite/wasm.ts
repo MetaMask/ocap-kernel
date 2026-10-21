@@ -1,16 +1,15 @@
 import { Logger } from '@metamask/logger';
 import type {
   Database as SqliteDatabase,
+  PreparedStatement,
   Sqlite3Static,
 } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
-import {
-  DEFAULT_DB_FILENAME,
-  assertSafeIdentifier,
-  SQL_QUERIES,
-} from './common.ts';
+import { DEFAULT_DB_FILENAME, SQL_QUERIES } from './common.ts';
 import { getDBFolder } from './env.ts';
+import { makeTransactionMethods } from './transactions.ts';
+import type { TransactionMethods } from './transactions.ts';
 import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
 
 export type Database = SqliteDatabase & {
@@ -19,7 +18,7 @@ export type Database = SqliteDatabase & {
    * back on its own after an error such as SQLITE_FULL or SQLITE_IOERR.
    */
   readonly inTransaction: boolean;
-  // stack of active savepoint names
+  // savepoint names, innermost last
   _spStack: string[];
 };
 
@@ -70,9 +69,14 @@ export async function initDB(
  * Makes a {@link KVStore} on top of a SQLite database
  *
  * @param db - The (open) database to use.
+ * @param options - Options for the store.
+ * @param options.guardWrite - The transaction methods' write guard.
  * @returns A key/value store using the given database.
  */
-function makeKVStore(db: Database): KVStore {
+function makeKVStore(
+  db: Database,
+  { guardWrite }: Pick<TransactionMethods, 'guardWrite'>,
+): KVStore {
   db.exec(SQL_QUERIES.CREATE_TABLE);
 
   const sqlKVGet = db.prepare(SQL_QUERIES.GET);
@@ -170,8 +174,8 @@ function makeKVStore(db: Database): KVStore {
     getNextKey: kvGetNextKey,
     getRequired: <Value extends string = string>(key: string) =>
       kvGet(key, true) as Value,
-    set: kvSet,
-    delete: kvDelete,
+    set: guardWrite(kvSet),
+    delete: guardWrite(kvDelete),
   };
 }
 
@@ -193,7 +197,43 @@ export async function makeSQLKernelDatabase({
   const db = await initDB(dbFilename ?? DEFAULT_DB_FILENAME, logger);
 
   logger?.debug('Initializing kernel store');
-  const kvStore = makeKVStore(db);
+
+  const sqlBeginTransaction = db.prepare(SQL_QUERIES.BEGIN_TRANSACTION);
+  const sqlCommitTransaction = db.prepare(SQL_QUERIES.COMMIT_TRANSACTION);
+  const sqlAbortTransaction = db.prepare(SQL_QUERIES.ABORT_TRANSACTION);
+
+  /**
+   * Step and reset a prepared statement.
+   *
+   * @param statement - The statement to run.
+   */
+  function runStatement(statement: PreparedStatement): void {
+    // A COMMIT that fails and leaves the transaction open stays busy until it
+    // is reset, and a busy statement keeps a read lock past the ROLLBACK that
+    // ends the transaction.
+    try {
+      statement.step();
+    } finally {
+      statement.reset();
+    }
+  }
+
+  const {
+    guardWrite,
+    beginIfNeeded,
+    commitIfNeeded,
+    createSavepoint,
+    rollbackSavepoint,
+    releaseSavepoint,
+  } = makeTransactionMethods({
+    db,
+    begin: () => runStatement(sqlBeginTransaction),
+    commit: () => runStatement(sqlCommitTransaction),
+    abort: () => runStatement(sqlAbortTransaction),
+    logger,
+  });
+
+  const kvStore = makeKVStore(db, { guardWrite });
 
   db.exec(SQL_QUERIES.CREATE_TABLE_VS);
 
@@ -203,77 +243,14 @@ export async function makeSQLKernelDatabase({
   const sqlVatstoreSet = db.prepare(SQL_QUERIES.SET_VS);
   const sqlVatstoreDelete = db.prepare(SQL_QUERIES.DELETE_VS);
   const sqlVatstoreDeleteAll = db.prepare(SQL_QUERIES.DELETE_VS_ALL);
-  const sqlBeginTransaction = db.prepare(SQL_QUERIES.BEGIN_TRANSACTION);
-  const sqlCommitTransaction = db.prepare(SQL_QUERIES.COMMIT_TRANSACTION);
-  const sqlAbortTransaction = db.prepare(SQL_QUERIES.ABORT_TRANSACTION);
-
-  /**
-   * Begin a transaction if not already in one
-   *
-   * @returns True if a new transaction was started, false if already in one
-   */
-  function beginIfNeeded(): boolean {
-    if (db.inTransaction) {
-      return false;
-    }
-    sqlBeginTransaction.step();
-    sqlBeginTransaction.reset();
-    // Any name still here died with a transaction SQLite ended, and would keep
-    // `commitIfNeeded` from ever committing this one.
-    db._spStack.length = 0;
-    return true;
-  }
-
-  /**
-   * Commit a transaction if one is active and no savepoints remain
-   */
-  function commitIfNeeded(): void {
-    if (db.inTransaction && db._spStack.length === 0) {
-      sqlCommitTransaction.step();
-      sqlCommitTransaction.reset();
-    }
-  }
-
-  /**
-   * Rollback a transaction
-   */
-  function rollbackIfNeeded(): void {
-    if (db.inTransaction) {
-      sqlAbortTransaction.step();
-      sqlAbortTransaction.reset();
-      db._spStack.length = 0;
-    }
-  }
-
-  /**
-   * Safely mutate the database with proper transaction management
-   *
-   * @param mutator - Function that performs the database mutations
-   */
-  function safeMutate(mutator: () => void): void {
-    const startedTx = beginIfNeeded();
-    try {
-      mutator();
-      if (startedTx) {
-        commitIfNeeded();
-      }
-    } catch (error) {
-      if (startedTx) {
-        rollbackIfNeeded();
-      }
-      throw error;
-    }
-  }
 
   /**
    * Delete everything from the database.
    */
   function kvClear(): void {
     logger?.debug('clearing all kernel state');
-    sqlKVClear.step();
-    sqlKVClear.reset();
-    sqlKVClearVS.step();
-    sqlKVClearVS.reset();
+    runStatement(sqlKVClear);
+    runStatement(sqlKVClearVS);
   }
 
   /**
@@ -338,29 +315,33 @@ export async function makeSQLKernelDatabase({
      * @param deletes - A set of keys that have been deleted.
      */
     function updateKVData(sets: [string, string][], deletes: string[]): void {
-      safeMutate(() => {
-        for (const [key, value] of sets) {
-          try {
-            sqlVatstoreSet.bind([vatID, key, value]);
-            sqlVatstoreSet.step();
-          } finally {
-            sqlVatstoreSet.reset();
-          }
+      // A statement that throws leaves a transaction this began open, for
+      // `guardWrite` to discard.
+      const startedTx = beginIfNeeded();
+      for (const [key, value] of sets) {
+        try {
+          sqlVatstoreSet.bind([vatID, key, value]);
+          sqlVatstoreSet.step();
+        } finally {
+          sqlVatstoreSet.reset();
         }
-        for (const value of deletes) {
-          try {
-            sqlVatstoreDelete.bind([vatID, value]);
-            sqlVatstoreDelete.step();
-          } finally {
-            sqlVatstoreDelete.reset();
-          }
+      }
+      for (const value of deletes) {
+        try {
+          sqlVatstoreDelete.bind([vatID, value]);
+          sqlVatstoreDelete.step();
+        } finally {
+          sqlVatstoreDelete.reset();
         }
-      });
+      }
+      if (startedTx) {
+        commitIfNeeded();
+      }
     }
 
     return {
       getKVData,
-      updateKVData,
+      updateKVData: guardWrite(updateKVData),
     };
   }
 
@@ -378,81 +359,12 @@ export async function makeSQLKernelDatabase({
     }
   }
 
-  /**
-   * Create a savepoint in the database.
-   *
-   * @param name - The name of the savepoint.
-   */
-  function createSavepoint(name: string): void {
-    // We must be in a transaction when creating the savepoint or releasing it
-    // later will cause an autocommit.
-    // See https://github.com/Agoric/agoric-sdk/issues/8423
-    beginIfNeeded();
-    assertSafeIdentifier(name);
-    const query = SQL_QUERIES.CREATE_SAVEPOINT.replace('%NAME%', name);
-    db.exec(query);
-    db._spStack.push(name);
-  }
-
-  /**
-   * Rollback to a savepoint in the database.
-   *
-   * @param name - The name of the savepoint.
-   */
-  function rollbackSavepoint(name: string): void {
-    assertSafeIdentifier(name);
-    const idx = db._spStack.lastIndexOf(name);
-    if (idx < 0) {
-      throw new Error(`No such savepoint: ${name}`);
-    }
-    const query = SQL_QUERIES.ROLLBACK_SAVEPOINT.replace('%NAME%', name);
-    try {
-      db.exec(query);
-    } catch (error) {
-      // Left as it was, the savepoint stays on the stack and the transaction open
-      // with nothing to ever commit or abort it, so every later write on this
-      // connection joins it, reports success, and vanishes on close. Discarding
-      // the whole transaction is safe: it begins with the outermost savepoint, so
-      // it holds only what this rollback was abandoning anyway.
-      db._spStack.length = 0;
-      try {
-        rollbackIfNeeded();
-      } catch {
-        // The rollback failure below is the one worth reporting.
-      }
-      throw error;
-    }
-    db._spStack.splice(idx);
-    if (db._spStack.length === 0) {
-      rollbackIfNeeded();
-    }
-  }
-
-  /**
-   * Release a savepoint in the database.
-   *
-   * @param name - The name of the savepoint.
-   */
-  function releaseSavepoint(name: string): void {
-    assertSafeIdentifier(name);
-    const idx = db._spStack.lastIndexOf(name);
-    if (idx < 0) {
-      throw new Error(`No such savepoint: ${name}`);
-    }
-    const query = SQL_QUERIES.RELEASE_SAVEPOINT.replace('%NAME%', name);
-    db.exec(query);
-    db._spStack.splice(idx);
-    if (db._spStack.length === 0) {
-      commitIfNeeded();
-    }
-  }
-
   return {
     kernelKVStore: kvStore,
-    clear: kvClear,
+    clear: guardWrite(kvClear),
     executeQuery,
     makeVatStore,
-    deleteVatStore,
+    deleteVatStore: guardWrite(deleteVatStore),
     createSavepoint,
     rollbackSavepoint,
     releaseSavepoint,
