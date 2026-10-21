@@ -43,6 +43,7 @@ describe('a GC action for a remote that is offline', () => {
       invokeKernelService: () => undefined,
       restartVat: async () => undefined,
       terminateVat: async () => undefined,
+      applyIncarnationChange: () => ({}),
     });
 
     let sends = 0;

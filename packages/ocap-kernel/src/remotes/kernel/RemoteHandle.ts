@@ -130,7 +130,8 @@ function countPending(window: SeqWindow): number {
  * the handshake that found the restart queued the crank that empties this
  * remote's queue and rejects its promises as `PEER_RESTARTED`, and a give-up
  * would get there first, as `CONNECTION_LOST` and outside any crank. The ACK
- * timer stays armed, so a restart no crank records still ends in a give-up.
+ * timer stays armed, so a restart no crank has recorded by the last retry
+ * still ends in a give-up.
  *
  * @param error - What the send threw.
  * @returns True if the peer restarted.
@@ -246,10 +247,10 @@ export class RemoteHandle implements RemoteEndpointHandle {
 
   /**
    * Set from when a handshake finds the peer restarted until the crank that
-   * records it commits or rolls back. Everything this handle would send
-   * meanwhile belongs to the incarnation that has ended, and a handshake that
-   * finishes after the commit would let it through to the one that replaced
-   * it.
+   * records it commits, or the kernel discards that crank with its store.
+   * Everything this handle would send meanwhile belongs to the incarnation
+   * that has ended, and a handshake that finishes after the commit would let
+   * it through to the one that replaced it.
    */
   #heldForRestart: boolean = false;
 
@@ -1457,9 +1458,7 @@ export class RemoteHandle implements RemoteEndpointHandle {
 
     // Against memory, not the store. The run loop finishes a crank's
     // post-commit work, which moves memory, before it starts the next, so the
-    // two agree here except where a peer restart's reset was rolled back: the
-    // store then has the old incarnation's receipts back, and would take the
-    // new incarnation's first messages for duplicates.
+    // two agree here.
     if (command.seq <= this.#highestReceivedSeq) {
       this.#persistAcknowledged();
       this.#logger.log(
@@ -1645,12 +1644,9 @@ export class RemoteHandle implements RemoteEndpointHandle {
   }
 
   /**
-   * Convenience wrapper that runs the persisted and in-memory phases
-   * back-to-back. Use only outside a crank:
-   * {@link RemoteManager.applyIncarnationChange} calls
-   * {@link persistPeerRestart} inside its crank and {@link finalizePeerRestart}
-   * after the commit, so a rollback can't leave the in-memory view
-   * inconsistent with the persisted view.
+   * Run {@link persistPeerRestart} and {@link finalizePeerRestart} back to
+   * back, for tests: the kernel splits them around the commit of the crank
+   * that records the restart.
    */
   handlePeerRestart(): void {
     this.persistPeerRestart();
@@ -1658,8 +1654,9 @@ export class RemoteHandle implements RemoteEndpointHandle {
   }
 
   /**
-   * Send nothing to the peer until {@link finalizePeerRestart}, letting go of
-   * the sends already waiting their turn.
+   * Send nothing to the peer until {@link finalizePeerRestart} or
+   * {@link releaseRestartHold}, letting go of the sends already waiting their
+   * turn.
    */
   holdForRestart(): void {
     this.#heldForRestart = true;
@@ -1667,9 +1664,8 @@ export class RemoteHandle implements RemoteEndpointHandle {
   }
 
   /**
-   * Send again after the crank recording a restart rolled back. The store
-   * still holds the old incarnation, so the next handshake finds the restart
-   * again.
+   * Send again, for a kernel that discarded the crank recording the restart
+   * along with its store.
    */
   releaseRestartHold(): void {
     this.#heldForRestart = false;
@@ -1678,10 +1674,9 @@ export class RemoteHandle implements RemoteEndpointHandle {
   /**
    * Apply the in-memory side of a peer restart: cancel timers, reject
    * in-flight URL redemption promises, and reset sequence counters. Must be
-   * called after {@link persistPeerRestart} and after the caller's crank has
-   * committed, with nothing awaited in between: a send whose turn comes there
-   * finds the queue emptied in the store but not yet retired here, and writes
-   * a message of the incarnation that has ended.
+   * called once the crank that ran {@link persistPeerRestart} has committed;
+   * until then {@link holdForRestart} keeps off the wire the sends the store
+   * no longer has.
    */
   finalizePeerRestart(): void {
     const pendingCount = this.#getPendingCount();

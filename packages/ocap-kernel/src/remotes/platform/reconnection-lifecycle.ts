@@ -12,7 +12,11 @@ import type { Logger } from '@metamask/logger';
 import type { ErrorLogger } from './channel-utils.ts';
 import type { PeerStateManager, PeerState } from './peer-state-manager.ts';
 import type { ReconnectionManager } from './reconnection.ts';
-import type { Channel, OnRemoteGiveUp } from '../types.ts';
+import type {
+  Channel,
+  OnRemoteGiveUp,
+  OutboundHandshakeResult,
+} from '../types.ts';
 
 /**
  * Dependencies for creating a reconnection lifecycle handler.
@@ -39,11 +43,7 @@ export type ReconnectionLifecycleDeps = {
     errorContext?: string,
   ) => void;
   /** Perform outbound handshake. */
-  doOutboundHandshake: (channel: Channel) => Promise<{
-    success: boolean;
-    incarnationChanged: boolean;
-    remoteIncarnationId?: string | undefined;
-  }>;
+  doOutboundHandshake: (channel: Channel) => Promise<OutboundHandshakeResult>;
 };
 
 /**
@@ -93,8 +93,8 @@ export function makeReconnectionLifecycle(
   ): Promise<void> {
     const state = peerStateManager.getState(peerId);
     let budget = maxAttempts;
-    let restartSeen = false;
     let restartedAs: string | undefined;
+    let repeats = 0;
 
     while (reconnectionManager.isReconnecting(peerId) && !signal.aborted) {
       // Check for permanent failure before attempting
@@ -139,20 +139,18 @@ export function makeReconnectionLifecycle(
       try {
         const result = await tryReconnect(state, peerId);
         if (result !== null && 'restartedAs' in result) {
-          if (!restartSeen) {
+          if (restartedAs === undefined) {
             // The peer answered, so its first restart in a run resets the
             // backoff.
-            restartSeen = true;
             reconnectionManager.resetBackoff(peerId);
           } else if (
-            budget > 0 &&
-            result.restartedAs !== undefined &&
-            result.restartedAs === restartedAs
+            result.restartedAs === restartedAs &&
+            repeats < maxAttempts
           ) {
-            // The kernel reports a restart until it has recorded it, so the
-            // same one again spends no attempt, though its backoff still grows.
-            // A peer that restarts on every handshake still runs out the
-            // retry budget.
+            // The kernel reports a restart until its crank records it, so the
+            // same incarnation again spends no attempt, though its backoff
+            // still grows, and only as many times as the budget allows.
+            repeats += 1;
             budget += 1;
           }
           restartedAs = result.restartedAs;
@@ -236,7 +234,7 @@ export function makeReconnectionLifecycle(
   async function tryReconnect(
     state: PeerState,
     peerId: string,
-  ): Promise<Channel | { restartedAs: string | undefined } | null> {
+  ): Promise<Channel | { restartedAs: string } | null> {
     // Check connection rate limit before attempting dial
     checkConnectionRateLimit(peerId);
 
@@ -286,7 +284,8 @@ export function makeReconnectionLifecycle(
         return null;
       }
       if (handshakeResult.incarnationChanged) {
-        // A send that shared this dial closes the channel on a restart.
+        // Closed, not registered: a send sharing this dial closes it on the
+        // same verdict.
         logger.log(
           `${peerId}:: peer restarted during reconnection, re-dialing`,
         );

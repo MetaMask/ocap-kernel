@@ -16,6 +16,15 @@ export type Channel = {
   peerId: string;
 };
 
+/**
+ * What an outbound handshake found. A restart comes with the incarnation the
+ * peer reported.
+ */
+export type OutboundHandshakeResult =
+  | { success: false; incarnationChanged: false }
+  | { success: true; incarnationChanged: false; remoteIncarnationId?: string }
+  | { success: true; incarnationChanged: true; remoteIncarnationId: string };
+
 export type RemoteMessageHandler = (
   from: string,
   message: string,
@@ -54,8 +63,8 @@ export type OnRemoteGiveUp = (peerId: string) => void;
  * receiver-side state loss.
  *
  * The kernel resets its RemoteHandle state and records the new incarnation in
- * a crank of its own, so a handshake that completes before that crank commits
- * reports the restart again.
+ * a crank of its own, so a handshake that completes before that crank records
+ * it reports the restart again.
  *
  * @param peerId - The peer ID that completed the handshake.
  * @param observedIncarnation - The incarnationId the peer reported.

@@ -206,7 +206,7 @@ async function abortACrankWhile(
         .deliverInbound(item.message);
     }
     if (item.type === 'peerIncarnation') {
-      return await remoteManager.applyIncarnationChange(item);
+      return remoteManager.applyIncarnationChange(item);
     }
     // Recorded only for the types the rows observe; anything new must be wired
     // to its real handler before a row can say what it did.
@@ -382,13 +382,16 @@ describe('a writer acting while a crank aborts', () => {
       expect(await onIncarnationChange(PEER_ID, 'incarnation-B')).toBe(true);
       expect(kernelStore.getPeerIncarnation(PEER_ID)).toBe('incarnation-A');
     });
+    const { state, value } = kernelStore.getKernelPromise(kpid);
     expect({
       incarnation: kernelStore.getPeerIncarnation(PEER_ID),
-      state: kernelStore.getKernelPromise(kpid).state,
+      state,
+      reason: value?.body,
       notified: notified(delivered, kpid),
     }).toStrictEqual({
       incarnation: 'incarnation-B',
       state: 'rejected',
+      reason: expect.stringContaining('[KERNEL:PEER_RESTARTED]'),
       notified: ['v3'],
     });
   });

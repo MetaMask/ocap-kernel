@@ -425,15 +425,16 @@ export const RunQueueItemStruct = union([
 export type RunQueueItem = Infer<typeof RunQueueItemStruct>;
 
 /**
- * Everything the run loop takes a crank for. What a peer sends, a message or an
- * incarnation change, is held in memory and never written to the run queue, so
- * it is not a {@link RunQueueItem} and the store's queue methods do not accept
- * one.
+ * What a peer sends, a message or an incarnation change. Held in memory and
+ * never written to the run queue, so it is not a {@link RunQueueItem} and the
+ * store's queue methods do not accept one.
  */
-export type RunLoopItem =
-  | RunQueueItem
+export type PeerArrival =
   | RunQueueItemRemoteInbound
   | RunQueueItemPeerIncarnation;
+
+/** Everything the run loop takes a crank for. */
+export type RunLoopItem = RunQueueItem | PeerArrival;
 
 /**
  * Assert that a value is a valid kernel message.

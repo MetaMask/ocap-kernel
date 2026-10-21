@@ -859,37 +859,41 @@ describe('KernelQueue', () => {
       ).toThrow('Kernel run loop died');
     });
 
-    it("keeps a peer's messages and its incarnation change in the order they arrived", async () => {
+    /**
+     * The run loop item an incarnation change becomes.
+     *
+     * @param incarnation - The incarnation the peer reported.
+     * @param peerId - The peer.
+     * @returns The item.
+     */
+    const change = (incarnation: string, peerId = 'peer-r1'): RunLoopItem => ({
+      type: 'peerIncarnation',
+      peerId,
+      incarnation,
+    });
+
+    it('takes what a peer sends while its incarnation change waits ahead of the change', async () => {
       arrive({ seq: 47 });
       kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
-      arrive({ seq: 1, highestReceivedSeq: 47 });
+      arrive({ seq: 3, remoteId: 'r2' });
+      arrive({ seq: 48 });
 
-      const delivered = await deliverItems(3);
-
-      // Order is what keeps the incarnations apart: the message ahead of the
-      // change belongs to the incarnation that ended and is recorded against
-      // it, the one behind it to the incarnation that started.
-      expect(delivered).toStrictEqual([
+      expect(await deliverItems(4)).toStrictEqual([
         arrival(47),
-        {
-          type: 'peerIncarnation',
-          peerId: 'peer-r1',
-          incarnation: 'incarnation-B',
-        },
-        arrival(1),
+        arrival(48),
+        change('incarnation-B'),
+        arrival(3, 'r2'),
       ]);
     });
 
-    it("holds a new incarnation's message numbered like one of the old incarnation's", async () => {
+    it('drops a copy of a message sent again while its incarnation change waits', async () => {
       arrive({ seq: 1 });
       kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
 
-      expect(arrive({ seq: 1, highestReceivedSeq: 1 })).toBe(true);
-      const delivered = await deliverItems(3);
-      expect(delivered.map((item) => item.type)).toStrictEqual([
-        'remoteInbound',
-        'peerIncarnation',
-        'remoteInbound',
+      expect(arrive({ seq: 1 })).toBe(true);
+      expect(await deliverItems(2)).toStrictEqual([
+        arrival(1),
+        change('incarnation-B'),
       ]);
     });
 
@@ -898,8 +902,28 @@ describe('KernelQueue', () => {
       arrive({ seq: 3, remoteId: 'r2', highestReceivedSeq: 5 });
       arrive({ seq: 6, remoteId: 'r2', highestReceivedSeq: 5 });
 
-      const delivered = await deliverItems(2);
-      expect(delivered.at(-1)).toStrictEqual(arrival(6, 'r2'));
+      expect(await deliverItems(2)).toStrictEqual([
+        change('incarnation-B'),
+        arrival(6, 'r2'),
+      ]);
+    });
+
+    it('finds the incarnation a peer reported last in a change still waiting', async () => {
+      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
+      kernelQueue.acceptPeerIncarnation('peer-r2', 'incarnation-X');
+      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-C');
+
+      expect({
+        r1: kernelQueue.waitingIncarnation('peer-r1'),
+        r2: kernelQueue.waitingIncarnation('peer-r2'),
+        r3: kernelQueue.waitingIncarnation('peer-r3'),
+      }).toStrictEqual({
+        r1: 'incarnation-C',
+        r2: 'incarnation-X',
+        r3: undefined,
+      });
+      await deliverItems(3);
+      expect(kernelQueue.waitingIncarnation('peer-r1')).toBeUndefined();
     });
 
     it('discards every arrival', async () => {
@@ -947,6 +971,19 @@ describe('KernelQueue', () => {
     it('holds 200 arrivals from a remote and refuses the next', () => {
       const held = Array.from({ length: 200 }, (_, index) =>
         arrive({ seq: index + 1 }),
+      );
+
+      expect(held.every(Boolean)).toBe(true);
+      expect(arrive({ seq: 201 })).toBe(false);
+    });
+
+    it('refuses the 201st arrival from a remote whose incarnation change waits', () => {
+      for (let seq = 1; seq <= 100; seq += 1) {
+        arrive({ seq });
+      }
+      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
+      const held = Array.from({ length: 100 }, (_, index) =>
+        arrive({ seq: index + 101 }),
       );
 
       expect(held.every(Boolean)).toBe(true);

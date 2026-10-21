@@ -52,6 +52,7 @@ import type {
   Channel,
   OnRemoteGiveUp,
   OnIncarnationChange,
+  OutboundHandshakeResult,
   RemoteCommsOptions,
 } from '../types.ts';
 
@@ -229,11 +230,9 @@ export async function initTransport(
    * @returns Object with success status, whether incarnation changed, and the
    * incarnation the peer reported.
    */
-  async function runOutboundHandshake(channel: Channel): Promise<{
-    success: boolean;
-    incarnationChanged: boolean;
-    remoteIncarnationId?: string;
-  }> {
+  async function runOutboundHandshake(
+    channel: Channel,
+  ): Promise<OutboundHandshakeResult> {
     if (!handshakeDeps) {
       return harden({ success: true, incarnationChanged: false }); // No handshake configured, skip
     }
@@ -692,9 +691,9 @@ export async function initTransport(
           }
           if (handshakeResult.incarnationChanged) {
             // Peer restarted: close this freshly-dialed channel without
-            // registering it. Subsequent sends re-dial. Registering here
-            // would let concurrent in-flight sends bypass the handshake check
-            // and write pre-restart payloads on the same channel.
+            // registering it. Registering here would let concurrent in-flight
+            // sends bypass the handshake check and write pre-restart payloads
+            // on the same channel.
             try {
               await connectionFactory.closeChannel(channel, targetPeerId);
             } catch (closeError) {

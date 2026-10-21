@@ -270,7 +270,11 @@ describe('reconnection-lifecycle', () => {
         .mockReturnValueOnce(true)
         .mockReturnValueOnce(false);
       (deps.doOutboundHandshake as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce({ success: true, incarnationChanged: true })
+        .mockResolvedValueOnce({
+          success: true,
+          incarnationChanged: true,
+          remoteIncarnationId: 'incarnation-B',
+        })
         .mockResolvedValueOnce({ success: true, incarnationChanged: false });
 
       const lifecycle = makeReconnectionLifecycle(deps);
@@ -299,7 +303,11 @@ describe('reconnection-lifecycle', () => {
       });
       (
         deps.doOutboundHandshake as ReturnType<typeof vi.fn>
-      ).mockResolvedValueOnce({ success: true, incarnationChanged: true });
+      ).mockResolvedValueOnce({
+        success: true,
+        incarnationChanged: true,
+        remoteIncarnationId: 'incarnation-B',
+      });
 
       const lifecycle = makeReconnectionLifecycle(deps);
 
@@ -366,11 +374,46 @@ describe('reconnection-lifecycle', () => {
 
       await lifecycle.attemptReconnection('peer1');
 
-      // The backoff still grows with the attempt count.
       expect(attemptsAtDial).toStrictEqual([1, 1, 2, 3, 4, 5]);
       expect(deps.registerChannel).toHaveBeenCalledTimes(1);
       expect(deps.onRemoteGiveUp).not.toHaveBeenCalled();
     });
+
+    it.each([
+      { maxAttempts: 3, dials: [1, 1, 2, 3, 4, 5, 6], gaveUp: true },
+      { maxAttempts: 0, dials: [1, 1, 2, 3, 4, 5, 6, 7, 8, 9], gaveUp: false },
+    ])(
+      'gives back no more attempts than a budget of $maxAttempts to a restart the kernel never records',
+      async ({ maxAttempts, dials, gaveUp }) => {
+        const reconnectionManager = new ReconnectionManager();
+        reconnectionManager.startReconnection('peer1');
+        deps.reconnectionManager = reconnectionManager;
+        (
+          deps.doOutboundHandshake as ReturnType<typeof vi.fn>
+        ).mockResolvedValue({
+          success: true,
+          incarnationChanged: true,
+          remoteIncarnationId: 'incarnation-B',
+        });
+        const attemptsAtDial: number[] = [];
+        vi.spyOn(deps, 'dialPeer').mockImplementation(async () => {
+          attemptsAtDial.push(reconnectionManager.getAttemptCount('peer1'));
+          if (attemptsAtDial.length === 10) {
+            reconnectionManager.stopReconnection('peer1');
+          }
+          return mockChannel;
+        });
+
+        const lifecycle = makeReconnectionLifecycle(deps);
+
+        await lifecycle.attemptReconnection('peer1', maxAttempts);
+
+        expect({
+          dials: attemptsAtDial,
+          gaveUp: vi.mocked(deps.onRemoteGiveUp).mock.calls.length > 0,
+        }).toStrictEqual({ dials, gaveUp });
+      },
+    );
 
     it('resets backoff on successful reconnection', async () => {
       (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)

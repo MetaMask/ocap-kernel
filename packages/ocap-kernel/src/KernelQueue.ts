@@ -11,11 +11,11 @@ import type {
   KRef,
   KernelMessage,
   KernelOneResolution,
+  PeerArrival,
   RemoteId,
   RunLoopStatus,
   RunLoopItem,
   RunQueueItem,
-  RunQueueItemPeerIncarnation,
   RunQueueItemRemoteInbound,
   RunQueueItemNotify,
   RunQueueItemRestartVat,
@@ -118,10 +118,7 @@ export class KernelQueue {
   #runLoopState: RunLoopState = { state: 'idle' };
 
   /** What peers have sent, waiting for a crank to take delivery of it. */
-  readonly #arrivedFromRemotes: (
-    | RunQueueItemRemoteInbound
-    | RunQueueItemPeerIncarnation
-  )[] = [];
+  readonly #arrivedFromRemotes: PeerArrival[] = [];
 
   /** Whether the last pick between arrivals and the run queue was an arrival. */
   #tookArrivalLast = false;
@@ -413,10 +410,7 @@ export class KernelQueue {
    *
    * @returns The arrival, or undefined if none is waiting.
    */
-  #takeArrival():
-    | RunQueueItemRemoteInbound
-    | RunQueueItemPeerIncarnation
-    | undefined {
+  #takeArrival(): PeerArrival | undefined {
     const arrival = this.#arrivedFromRemotes.shift();
     this.#tookArrivalLast = arrival !== undefined;
     return arrival;
@@ -685,11 +679,13 @@ export class KernelQueue {
    * would fill the remote's share and turn away messages it has yet to send.
    * So a copy of a message waiting, or of one a committed crank has taken, is
    * not held, and a copy held before its original committed stops taking a
-   * slot once it has. A
-   * refused message is lost if a later one is taken first, since that one's
-   * acknowledgement covers it. Behind a change of the peer's incarnation still
-   * waiting, its messages are the new incarnation's, numbered from 1 again, and
-   * only they are compared.
+   * slot once it has. A refused message is lost if a later one is taken first,
+   * since that one's acknowledgement covers it.
+   *
+   * One that arrives while a change of the peer's incarnation waits was read
+   * late off the channel of the incarnation that is ending: the transport reads
+   * nothing from the new one until the change is recorded. So it is taken ahead
+   * of the change, against the incarnation that sent it.
    *
    * @param options - Options bag.
    * @param options.remoteId - The remote the message came from.
@@ -715,65 +711,47 @@ export class KernelQueue {
     highestReceivedSeq: number;
   }): boolean {
     this.assertRunLoopAlive('accept a remote message');
-    const since = this.#afterIncarnationChange(peerId);
-    const floor = since > 0 ? 0 : highestReceivedSeq;
-    if (seq <= floor) {
+    if (seq <= highestReceivedSeq) {
       return true;
     }
-    const held = this.#arrivedFromRemotes
-      .slice(since)
-      .filter(
-        (item): item is RunQueueItemRemoteInbound =>
-          item.type === 'remoteInbound' &&
-          item.remoteId === remoteId &&
-          item.peerId === peerId &&
-          item.seq > floor,
-      );
+    const held = this.#arrivedFromRemotes.filter(
+      (item): item is RunQueueItemRemoteInbound =>
+        item.type === 'remoteInbound' &&
+        item.remoteId === remoteId &&
+        item.peerId === peerId &&
+        item.seq > highestReceivedSeq,
+    );
     if (held.some((item) => item.seq === seq)) {
       return true;
     }
     if (held.length >= MAX_ARRIVALS_PER_REMOTE) {
       return false;
     }
-    this.#arrivedFromRemotes.push({
+    const arrival: RunQueueItemRemoteInbound = {
       type: 'remoteInbound',
       remoteId,
       peerId,
       seq,
       message,
-    });
+    };
+    const change = this.#arrivedFromRemotes.findIndex(
+      (item) => item.type === 'peerIncarnation' && item.peerId === peerId,
+    );
+    if (change === -1) {
+      this.#arrivedFromRemotes.push(arrival);
+    } else {
+      this.#arrivedFromRemotes.splice(change, 0, arrival);
+    }
     this.#wakeRunLoop();
     return true;
   }
 
   /**
-   * Find where a peer's arrivals from its current incarnation begin.
+   * Accept a peer's incarnation change, for the run loop to carry out in a
+   * crank of its own, behind everything the peer sent before it.
    *
    * @param peerId - The peer.
-   * @returns The index just past the last change of its incarnation waiting,
-   * or 0 if none is waiting.
-   */
-  #afterIncarnationChange(peerId: string): number {
-    for (let index = this.#arrivedFromRemotes.length; index > 0; index -= 1) {
-      const item = this.#arrivedFromRemotes[index - 1];
-      if (item?.type === 'peerIncarnation' && item.peerId === peerId) {
-        return index;
-      }
-    }
-    return 0;
-  }
-
-  /**
-   * Accept a peer's incarnation change, for the run loop to carry out in a
-   * crank of its own.
-   *
-   * Held with the arrivals, and behind any this peer has already sent: the
-   * messages ahead of it belong to the incarnation that is ending and are its
-   * to account for, and the ones behind it to the incarnation that is
-   * starting.
-   *
-   * @param peerId - The peer that restarted.
-   * @param incarnation - The incarnation it now reports.
+   * @param incarnation - The incarnation it reports.
    */
   acceptPeerIncarnation(peerId: string, incarnation: string): void {
     this.assertRunLoopAlive('accept a peer incarnation change');
@@ -783,6 +761,23 @@ export class KernelQueue {
       incarnation,
     });
     this.#wakeRunLoop();
+  }
+
+  /**
+   * Find the incarnation a peer reported last, in a change still waiting for
+   * its crank.
+   *
+   * @param peerId - The peer.
+   * @returns The incarnation, or undefined if no change of it is waiting.
+   */
+  waitingIncarnation(peerId: string): string | undefined {
+    let incarnation: string | undefined;
+    for (const item of this.#arrivedFromRemotes) {
+      if (item.type === 'peerIncarnation' && item.peerId === peerId) {
+        incarnation = item.incarnation;
+      }
+    }
+    return incarnation;
   }
 
   /**

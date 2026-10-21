@@ -40,13 +40,6 @@ const GC_DELIVERY = {
   [Type in GCRunQueueType]: `deliver${Capitalize<Type>}` & keyof EndpointHandle;
 };
 
-/**
- * Every run loop item the router routes. A peer's incarnation change is not a
- * delivery to an endpoint and is carried out by the kernel instead, so leaving
- * it out is what keeps the exhaustiveness check below honest.
- */
-type RoutedRunLoopItem = Exclude<RunLoopItem, RunQueueItemPeerIncarnation>;
-
 type MessageRoute = {
   endpointId?: EndpointId | 'kernel';
   target: KRef;
@@ -62,6 +55,7 @@ type KernelRouterOptions = {
     vatId: VatId,
     reason?: CapData<KRef>,
   ) => Promise<CrankResult | undefined>;
+  applyIncarnationChange: (item: RunQueueItemPeerIncarnation) => CrankResult;
   logger?: Logger;
 };
 
@@ -99,6 +93,14 @@ export class KernelRouter {
     reason?: CapData<KRef>,
   ) => Promise<CrankResult | undefined>;
 
+  /**
+   * A function that records a peer's incarnation change, for the crank that
+   * carries out one the handshake queued.
+   */
+  readonly #applyIncarnationChange: (
+    item: RunQueueItemPeerIncarnation,
+  ) => CrankResult;
+
   /** The logger, if any. */
   readonly #logger: Logger | undefined;
 
@@ -112,6 +114,7 @@ export class KernelRouter {
    * @param options.invokeKernelService - A function that calls a method on a kernel service object.
    * @param options.restartVat - A function that replaces a vat's worker.
    * @param options.terminateVat - A function that ends a vat.
+   * @param options.applyIncarnationChange - A function that records a peer's incarnation change.
    * @param options.logger - The logger. If not provided, no logging will be done.
    */
   constructor({
@@ -121,6 +124,7 @@ export class KernelRouter {
     invokeKernelService,
     restartVat,
     terminateVat,
+    applyIncarnationChange,
     logger,
   }: KernelRouterOptions) {
     this.#kernelStore = kernelStore;
@@ -129,6 +133,7 @@ export class KernelRouter {
     this.#invokeKernelService = invokeKernelService;
     this.#restartVat = restartVat;
     this.#terminateVat = terminateVat;
+    this.#applyIncarnationChange = applyIncarnationChange;
     this.#logger = logger;
   }
 
@@ -150,7 +155,7 @@ export class KernelRouter {
    * @param item - The message/notification to deliver.
    * @returns The crank outcome.
    */
-  async deliver(item: RoutedRunLoopItem): Promise<CrankResult | undefined> {
+  async deliver(item: RunLoopItem): Promise<CrankResult | undefined> {
     switch (item.type) {
       case 'send':
         return await this.#deliverSend(item);
@@ -168,6 +173,8 @@ export class KernelRouter {
         return await this.#restartVat(item.vatId);
       case 'terminateVat':
         return await this.#terminateVat(item.vatId, item.reason);
+      case 'peerIncarnation':
+        return this.#applyIncarnationChange(item);
       default:
         // @ts-expect-error Runtime does not respect "never".
         Fail`unsupported or unknown run queue item type ${item.type}`;

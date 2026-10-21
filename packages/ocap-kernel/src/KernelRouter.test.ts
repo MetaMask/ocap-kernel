@@ -15,6 +15,7 @@ import type {
   RunQueueItemGCAction,
   RunQueueItemBringOutYourDead,
   RunQueueItemRemoteInbound,
+  RunQueueItemPeerIncarnation,
   EndpointId,
   GCRunQueueType,
   CrankResult,
@@ -34,6 +35,9 @@ describe('KernelRouter', () => {
   let mockRestartVat: Mock<(vatId: VatId) => Promise<CrankResult | undefined>>;
   let mockTerminateVat: Mock<
     (vatId: VatId, reason?: CapData<KRef>) => Promise<CrankResult | undefined>
+  >;
+  let mockApplyIncarnationChange: Mock<
+    (item: RunQueueItemPeerIncarnation) => CrankResult
   >;
 
   beforeEach(() => {
@@ -95,6 +99,7 @@ describe('KernelRouter', () => {
     const mockInvokeKernelService = vi.fn();
     mockRestartVat = vi.fn(async () => undefined);
     mockTerminateVat = vi.fn(async () => undefined);
+    mockApplyIncarnationChange = vi.fn(() => ({}));
 
     // Create the router to test
     kernelRouter = new KernelRouter({
@@ -104,6 +109,7 @@ describe('KernelRouter', () => {
       invokeKernelService: mockInvokeKernelService,
       restartVat: mockRestartVat,
       terminateVat: mockTerminateVat,
+      applyIncarnationChange: mockApplyIncarnationChange,
     });
   });
 
@@ -1392,6 +1398,38 @@ describe('KernelRouter', () => {
         await kernelRouter.deliver({ type: 'terminateVat', vatId: 'v1' });
 
         expect(mockTerminateVat).toHaveBeenCalledWith('v1', undefined);
+      });
+    });
+
+    describe('peerIncarnation', () => {
+      it('hands a queued incarnation change to the remote manager', async () => {
+        const item: RunQueueItemPeerIncarnation = {
+          type: 'peerIncarnation',
+          peerId: 'peer-1',
+          incarnation: 'incarnation-B',
+        };
+        const crankResult = { afterCommit: async () => undefined };
+        mockApplyIncarnationChange.mockReturnValueOnce(crankResult);
+
+        const result = await kernelRouter.deliver(item);
+
+        expect(mockApplyIncarnationChange).toHaveBeenCalledWith(item);
+        expect(result).toBe(crankResult);
+      });
+
+      it('lets a failure to record the change reach the run loop', async () => {
+        const failure = new Error('refcount underflow');
+        mockApplyIncarnationChange.mockImplementationOnce(() => {
+          throw failure;
+        });
+
+        await expect(
+          kernelRouter.deliver({
+            type: 'peerIncarnation',
+            peerId: 'peer-1',
+            incarnation: 'incarnation-B',
+          }),
+        ).rejects.toThrow(failure);
       });
     });
   });
