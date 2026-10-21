@@ -1920,7 +1920,7 @@ describe('RemoteHandle', () => {
       expect(sendCalls).toHaveLength(2);
     });
 
-    it('aborts retransmit and fires give-up when sendRemoteMessage signals peer restart', async () => {
+    it('stops retransmitting at a peer restart and gives up only when the retries run out', async () => {
       const onGiveUp = vi.fn();
       const remote = RemoteHandle.make({
         remoteId: mockRemoteId,
@@ -1953,9 +1953,33 @@ describe('RemoteHandle', () => {
       fireLastAckTimer();
       await drainSends();
 
-      // Only iteration 1 runs before the terminal error short-circuits.
       expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledTimes(1);
+      expect(onGiveUp).not.toHaveBeenCalled();
+
+      // The first expiry was retry 1 of MAX_RETRIES (3); the fourth gives up.
+      for (let expiry = 2; expiry <= 4; expiry += 1) {
+        fireLastAckTimer();
+        await drainSends();
+      }
       expect(onGiveUp).toHaveBeenCalledWith(mockRemotePeerId);
+    });
+
+    it('sends no standalone ACK while held for a restart', async () => {
+      const remote = makeRemote();
+      await receiveAndRunCrank(
+        remote,
+        JSON.stringify({
+          seq: 1,
+          method: 'deliver',
+          params: ['bringOutYourDead'],
+        }),
+      );
+      remote.holdForRestart();
+
+      // The delayed-ACK timer, the only one armed.
+      fireLastAckTimer();
+      await drainSends();
+      expect(mockRemoteComms.sendRemoteMessage).not.toHaveBeenCalled();
     });
 
     it('logs and continues on transient send errors', async () => {
@@ -1993,12 +2017,6 @@ describe('RemoteHandle', () => {
 
   describe('first-send terminal errors', () => {
     it.each([
-      [
-        'PeerRestartedError',
-        Object.assign(new Error('peer restarted'), {
-          name: 'PeerRestartedError',
-        }),
-      ],
       [
         'IntentionalCloseError',
         Object.assign(new Error('intentional close'), {
@@ -2041,6 +2059,71 @@ describe('RemoteHandle', () => {
         expect(onGiveUp).toHaveBeenCalledWith(mockRemotePeerId);
       },
     );
+
+    it('leaves a peer restart to the incarnation crank', async () => {
+      const onGiveUp = vi.fn();
+      const remote = RemoteHandle.make({
+        remoteId: mockRemoteId,
+        peerId: mockRemotePeerId,
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        remoteComms: mockRemoteComms,
+        ackTimeoutMs: 100,
+        onGiveUp,
+      });
+
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mockRejectedValueOnce(
+        Object.assign(new Error('peer restarted'), {
+          name: 'PeerRestartedError',
+        }),
+      );
+
+      const redeem = remote.redeemOcapURL('ocap:something@peer,relay');
+      await drainSends();
+      expect(onGiveUp).not.toHaveBeenCalled();
+
+      remote.finalizePeerRestart();
+      await expect(redeem).rejects.toThrow('Remote peer restarted');
+    });
+  });
+
+  describe('restart hold', () => {
+    it('sends nothing while held, and sends again once the restart is handled', async () => {
+      const remote = makeRemote();
+      remote.holdForRestart();
+
+      await deliverAndCommit(remote.deliverBringOutYourDead());
+      expect(mockRemoteComms.sendRemoteMessage).not.toHaveBeenCalled();
+
+      remote.handlePeerRestart();
+      await deliverAndCommit(remote.deliverBringOutYourDead());
+      expect(sentStrings().map((sent) => JSON.parse(sent).seq)).toStrictEqual([
+        1,
+      ]);
+    });
+
+    it('retires the sends waiting their turn, which a release does not revive', async () => {
+      const remote = makeRemote();
+      let finishFirst!: () => void;
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mockImplementationOnce(
+        async () =>
+          new Promise<undefined>((resolve) => {
+            finishFirst = () => resolve(undefined);
+          }),
+      );
+      await deliverAndCommit(remote.deliverBringOutYourDead());
+      await deliverAndCommit(remote.deliverBringOutYourDead());
+      expect(sentStrings()).toHaveLength(1);
+
+      remote.holdForRestart();
+      remote.releaseRestartHold();
+      finishFirst();
+      await drainSends();
+      expect(sentStrings()).toHaveLength(1);
+
+      await deliverAndCommit(remote.deliverBringOutYourDead());
+      expect(sentStrings()).toHaveLength(2);
+    });
   });
 
   describe('handlePeerRestart c-list teardown', () => {

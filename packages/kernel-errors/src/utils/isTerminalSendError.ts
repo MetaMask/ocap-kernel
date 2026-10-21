@@ -20,7 +20,7 @@ const TERMINAL_NAMES: ReadonlySet<string> = new Set([
 /**
  * Whether a thrown send-side error is a terminal verdict from the transport
  * (peer restart, intentional close, network stopped). Recipients should
- * abort retransmit and reject pending state instead of retrying.
+ * abort retransmit instead of retrying.
  *
  * @param error - The error thrown by `sendRemoteMessage`.
  * @returns True if the error is a terminal verdict.

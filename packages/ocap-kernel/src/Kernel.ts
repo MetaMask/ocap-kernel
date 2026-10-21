@@ -691,6 +691,7 @@ export class Kernel {
     await this.#kernelQueue.waitForCrank();
     this.#kernelStore.clear();
     this.#kernelQueue.discardArrivals();
+    this.#remoteManager.releaseRestartHolds();
     this.#vatManager.abandonQueuedWork(
       new Error('Kernel storage was cleared; queued work was abandoned'),
     );
@@ -896,6 +897,7 @@ export class Kernel {
       this.#subclusterManager.clearSystemSubclusters();
       this.#resetKernelState();
       this.#kernelQueue.discardArrivals();
+      this.#remoteManager.releaseRestartHolds();
       this.#vatManager.abandonQueuedWork(
         new Error('Kernel was reset; queued work was abandoned'),
       );

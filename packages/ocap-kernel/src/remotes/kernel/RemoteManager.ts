@@ -220,11 +220,26 @@ export class RemoteManager {
     if (stored === observedIncarnation) {
       return false;
     }
+    // Held before the crank is queued, so its commit cannot come first and
+    // leave the hold on.
+    if (stored !== undefined) {
+      this.#remotesByPeer.get(peerId)?.holdForRestart();
+    }
     // Answered from what the store already says, because the transport needs
     // it to finish the handshake and cannot wait for a crank. The writes it
     // implies are queued, and ordered against anything this peer has sent.
     this.#kernelQueue.acceptPeerIncarnation(peerId, observedIncarnation);
     return stored !== undefined;
+  }
+
+  /**
+   * Let every remote send again, for a kernel discarding the queued
+   * incarnation changes that would have released them.
+   */
+  releaseRestartHolds(): void {
+    for (const remote of this.#remotesByPeer.values()) {
+      remote.releaseRestartHold();
+    }
   }
 
   /**
@@ -236,6 +251,23 @@ export class RemoteManager {
   async applyIncarnationChange(
     item: RunQueueItemPeerIncarnation,
   ): Promise<CrankResult> {
+    try {
+      return this.#recordIncarnationChange(item);
+    } catch (error) {
+      // The crank rolls back, so nothing records the restart the handshake put
+      // the remote on hold for.
+      this.#remotesByPeer.get(item.peerId)?.releaseRestartHold();
+      throw error;
+    }
+  }
+
+  /**
+   * The work of {@link applyIncarnationChange}.
+   *
+   * @param item - The change, as accepted at handshake time.
+   * @returns The crank outcome, carrying the work that follows the commit.
+   */
+  #recordIncarnationChange(item: RunQueueItemPeerIncarnation): CrankResult {
     const { peerId, incarnation } = item;
     // Remote comms stopped while the change waited its turn, and took the
     // remote's handle with them, so the cleanup the change implies cannot run.

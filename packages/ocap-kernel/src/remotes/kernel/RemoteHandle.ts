@@ -1,7 +1,10 @@
 import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
-import { isTerminalSendError } from '@metamask/kernel-errors';
+import {
+  isTerminalSendError,
+  PeerRestartedError,
+} from '@metamask/kernel-errors';
 import { Logger } from '@metamask/logger';
 
 import {
@@ -122,6 +125,20 @@ function countPending(window: SeqWindow): number {
   return hasPending(window) ? window.nextSendSeq - window.startSeq + 1 : 0;
 }
 
+/**
+ * Whether a send failed because the peer restarted. Not a reason to give up:
+ * the handshake that found the restart queued the crank that empties this
+ * remote's queue and rejects its promises as `PEER_RESTARTED`, and a give-up
+ * would get there first, as `CONNECTION_LOST` and outside any crank. The ACK
+ * timer stays armed, so a restart no crank records still ends in a give-up.
+ *
+ * @param error - What the send threw.
+ * @returns True if the peer restarted.
+ */
+function isPeerRestart(error: unknown): boolean {
+  return error instanceof Error && error.name === PeerRestartedError.name;
+}
+
 type RemoteCommand = {
   seq: number;
   ack?: number;
@@ -226,6 +243,15 @@ export class RemoteHandle implements RemoteEndpointHandle {
    * revive the sends it let go of — their callers have been told they failed.
    */
   #outboundQueueId: number = 0;
+
+  /**
+   * Set from when a handshake finds the peer restarted until the crank that
+   * records it commits or rolls back. Everything this handle would send
+   * meanwhile belongs to the incarnation that has ended, and a handshake that
+   * finishes after the commit would let it through to the one that replaced
+   * it.
+   */
+  #heldForRestart: boolean = false;
 
   /** Retry count for pending messages (reset on ACK). */
   #retryCount: number = 0;
@@ -566,20 +592,16 @@ export class RemoteHandle implements RemoteEndpointHandle {
   /**
    * Retransmit all pending messages.
    *
-   * Awaits each send, so a peer-restart detection during the first can
-   * short-circuit the rest: clearRemoteSeqState (called by persistPeerRestart)
-   * deletes both the seq counters and the `remotePending.*` payloads, so
-   * `getPendingMessage` returns undefined for subsequent iterations and the
-   * loop bound (`seq <= this.#nextSendSeq`, now 0) terminates immediately.
-   * Were they to run concurrently, one that found the channel the first had
-   * just registered would bypass the outbound handshake's stale-delivery
+   * Awaits each send, so a peer restart the first one runs into stops the
+   * rest. Were they to run concurrently, one that found the channel the first
+   * had just registered would bypass the outbound handshake's stale-delivery
    * guard and write a pre-restart payload on it. {@link #outboundChain} keeps
    * them apart from a flush running at the same time, for the same reason.
    *
-   * Terminal errors (intentional close, network stopped, peer-restart-detected
-   * throw) abort the loop instead of being logged-and-skipped: continuing
-   * would just rebuild the queue against a known-unreachable peer and
-   * produce identical failures on every retry until MAX_RETRIES is hit.
+   * Terminal errors (intentional close, network stopped) abort the loop
+   * instead of being logged-and-skipped: continuing would just rebuild the
+   * queue against a known-unreachable peer and produce identical failures on
+   * every retry until MAX_RETRIES is hit.
    */
   async #retransmitPending(): Promise<void> {
     for (let seq = this.#startSeq; seq <= this.#nextSendSeq; seq += 1) {
@@ -593,6 +615,9 @@ export class RemoteHandle implements RemoteEndpointHandle {
       try {
         await this.#sendInOrder(seq, messageString);
       } catch (error) {
+        if (isPeerRestart(error)) {
+          break;
+        }
         if (isTerminalSendError(error)) {
           this.#logger.log(
             `${this.#peerId.slice(0, 8)}:: aborting retransmit (${(error as Error).message})`,
@@ -630,7 +655,7 @@ export class RemoteHandle implements RemoteEndpointHandle {
   async #sendInOrder(seq: number, messageString: string): Promise<void> {
     const queue = this.#outboundQueueId;
     const sent = this.#outboundChain.then(async () => {
-      if (queue !== this.#outboundQueueId) {
+      if (queue !== this.#outboundQueueId || this.#heldForRestart) {
         this.#logger.log(
           `${this.#peerId.slice(0, 8)}:: message ${seq} retired before it reached the wire`,
         );
@@ -720,7 +745,7 @@ export class RemoteHandle implements RemoteEndpointHandle {
    */
   #sendStandaloneAck(): void {
     const ackValue = this.#getAckValue();
-    if (ackValue === undefined) {
+    if (ackValue === undefined || this.#heldForRestart) {
       return;
     }
     const ackMessage = JSON.stringify({ ack: ackValue });
@@ -1014,18 +1039,14 @@ export class RemoteHandle implements RemoteEndpointHandle {
 
     // Send the message (non-blocking - don't wait for ACK).
     //
-    // Terminal verdicts from the transport (peer restarted, intentional
-    // close, network stopped) mean the message we just persisted will
-    // never be delivered as-is: reject all pending now and signal give-up
-    // rather than letting the message linger until ACK timeout × MAX_RETRIES.
-    //
-    // For PeerRestartedError specifically, the kernel-side
-    // `onIncarnationChange` callback ran `persistPeerRestart` and
-    // `finalizePeerRestart` synchronously *before* the transport threw, so
-    // most of the cleanup below is already a no-op. The guards inside
-    // `#rejectAllPending` and `rejectPendingRedemptions` keep this safe;
-    // calling `#onGiveUp` again exercises an idempotent path.
+    // Terminal verdicts from the transport (intentional close, network
+    // stopped) mean the message we just persisted will never be delivered
+    // as-is: reject all pending now and signal give-up rather than letting
+    // the message linger until ACK timeout × MAX_RETRIES.
     this.#sendInOrder(seq, messageString).catch((error) => {
+      if (isPeerRestart(error)) {
+        return;
+      }
       if (isTerminalSendError(error)) {
         const reason = (error as Error).message;
         this.#clearAckTimeout();
@@ -1605,16 +1626,15 @@ export class RemoteHandle implements RemoteEndpointHandle {
 
   /**
    * Persist the peer-restart side effects (kv-only). Reversible by the
-   * caller's savepoint: if `forgetEndpointImports` throws (e.g. corrupt
-   * c-list entry, refcount underflow) and the caller rolls back, no
-   * in-memory state has been disturbed.
+   * caller's crank: if `forgetEndpointImports` throws (e.g. corrupt c-list
+   * entry, refcount underflow) and the crank rolls back, no in-memory state
+   * has been disturbed.
    *
    * Pairs with {@link finalizePeerRestart}, which the caller MUST invoke
-   * exactly once after `releaseSavepoint` succeeds. Splitting the work
-   * keeps non-reversible mutations (timers, rejected redemption promises,
-   * in-memory seq counters) out of the savepoint window — those would
-   * leave the in-memory view inconsistent with the persisted view if the
-   * kv layer rolled back.
+   * exactly once after the crank commits. Splitting the work keeps
+   * non-reversible mutations (timers, rejected redemption promises, in-memory
+   * seq counters) out of the crank — those would leave the in-memory view
+   * inconsistent with the persisted view if the crank rolled back.
    */
   persistPeerRestart(): void {
     this.#logger.log(
@@ -1638,12 +1658,30 @@ export class RemoteHandle implements RemoteEndpointHandle {
   }
 
   /**
+   * Send nothing to the peer until {@link finalizePeerRestart}, letting go of
+   * the sends already waiting their turn.
+   */
+  holdForRestart(): void {
+    this.#heldForRestart = true;
+    this.#outboundQueueId += 1;
+  }
+
+  /**
+   * Send again after the crank recording a restart rolled back. The store
+   * still holds the old incarnation, so the next handshake finds the restart
+   * again.
+   */
+  releaseRestartHold(): void {
+    this.#heldForRestart = false;
+  }
+
+  /**
    * Apply the in-memory side of a peer restart: cancel timers, reject
    * in-flight URL redemption promises, and reset sequence counters. Must be
-   * called after {@link persistPeerRestart} and after the caller's savepoint
-   * has been released, with nothing awaited in between: a send whose turn
-   * comes there finds the queue emptied in the store but not yet retired
-   * here, and writes a message of the incarnation that has ended.
+   * called after {@link persistPeerRestart} and after the caller's crank has
+   * committed, with nothing awaited in between: a send whose turn comes there
+   * finds the queue emptied in the store but not yet retired here, and writes
+   * a message of the incarnation that has ended.
    */
   finalizePeerRestart(): void {
     const pendingCount = this.#getPendingCount();
@@ -1662,6 +1700,7 @@ export class RemoteHandle implements RemoteEndpointHandle {
     this.#awaitingTransmit.clear();
     this.#retryCount = 0;
     this.#outboundQueueId += 1;
+    this.#heldForRestart = false;
     this.#remoteGcRequested = false;
   }
 }

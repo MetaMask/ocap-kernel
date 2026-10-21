@@ -165,6 +165,8 @@ const mocks = vi.hoisted(() => {
 
     applyIncarnationChange = vi.fn().mockResolvedValue({});
 
+    releaseRestartHolds = vi.fn();
+
     initIdentity = vi.fn().mockResolvedValue(undefined);
 
     initRemoteComms = vi.fn().mockResolvedValue(undefined);
@@ -589,6 +591,9 @@ describe('Kernel', () => {
       await kernel.clearStorage();
       expect(
         mocks.KernelQueue.lastInstance.discardArrivals,
+      ).toHaveBeenCalledOnce();
+      expect(
+        mocks.RemoteManager.lastInstance.releaseRestartHolds,
       ).toHaveBeenCalledOnce();
     });
   });
@@ -1165,6 +1170,9 @@ describe('Kernel', () => {
       await kernel.reset();
       expect(
         mocks.KernelQueue.lastInstance.discardArrivals,
+      ).toHaveBeenCalledOnce();
+      expect(
+        mocks.RemoteManager.lastInstance.releaseRestartHolds,
       ).toHaveBeenCalledOnce();
     });
 
