@@ -96,9 +96,8 @@ export async function spawnTestDaemon({
     pid,
     cleanup: async () => {
       try {
-        const { sendCommand } = await import(
-          '../../src/commands/daemon-client.ts'
-        );
+        const { sendCommand } =
+          await import('../../src/commands/daemon-client.ts');
         await sendCommand({
           socketPath,
           method: 'shutdown',

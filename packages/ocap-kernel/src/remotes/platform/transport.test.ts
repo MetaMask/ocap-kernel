@@ -635,9 +635,8 @@ describe('transport.initTransport', () => {
     });
 
     it('treats StreamResetError as connection loss, not intentional close', async () => {
-      const { StreamResetError: MockStreamResetError } = await import(
-        '@libp2p/interface'
-      );
+      const { StreamResetError: MockStreamResetError } =
+        await import('@libp2p/interface');
       let inboundHandler: ((channel: MockChannel) => void) | undefined;
       mockConnectionFactory.onInboundConnection.mockImplementation(
         (handler) => {
@@ -1816,9 +1815,8 @@ describe('transport.initTransport', () => {
       const { abortableDelay } = await import('@metamask/kernel-utils');
       (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
-      const { isRetryableNetworkError } = await import(
-        '@metamask/kernel-errors'
-      );
+      const { isRetryableNetworkError } =
+        await import('@metamask/kernel-errors');
       vi.mocked(isRetryableNetworkError).mockReturnValue(false);
 
       // Initial dial fails with retryable error, reconnection dial fails with non-retryable

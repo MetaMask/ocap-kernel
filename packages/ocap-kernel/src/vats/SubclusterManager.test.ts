@@ -441,7 +441,7 @@ describe('SubclusterManager', () => {
       await subclusterManager.launchSubcluster(config);
 
       const [, services] = (mockQueueMessage as ReturnType<typeof vi.fn>).mock
-        .calls[0]?.[2] as [unknown, object];
+        .calls[0]![2] as [unknown, object];
       expect(Object.getPrototypeOf(services)).toBe(Object.prototype);
       expect(Object.keys(services)).toStrictEqual(['__proto__']);
     });

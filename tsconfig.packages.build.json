@@ -7,7 +7,7 @@
     "module": "Node16",
     "moduleResolution": "Node16",
     "paths": {
-      "@ocap/*": ["../*/src"]
+      "@ocap/*": ["./packages/*/src"]
     },
     "skipLibCheck": true,
     "sourceMap": true

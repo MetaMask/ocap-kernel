@@ -72,9 +72,8 @@ async function makeIoKernel(
   });
   const { logger } = makeTestLogger();
 
-  const { NodejsPlatformServices, makeIOListenerFactory } = await import(
-    '@metamask/kernel-node-runtime'
-  );
+  const { NodejsPlatformServices, makeIOListenerFactory } =
+    await import('@metamask/kernel-node-runtime');
   const kernel = await makeTrackedKernel(
     new NodejsPlatformServices({
       logger: logger.subLogger({ tags: ['platform'] }),

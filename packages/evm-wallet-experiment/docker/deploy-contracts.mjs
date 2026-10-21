@@ -1,4 +1,4 @@
-/* eslint-disable n/no-process-exit, n/no-process-env, n/no-sync, import-x/no-unresolved, jsdoc/require-jsdoc, id-denylist */
+/* eslint-disable n/no-process-exit, n/no-process-env, n/no-sync, import-x/no-unresolved, ocap/require-jsdoc, id-denylist */
 /**
  * Deploy ERC-4337 + MetaMask delegation contracts to the local Anvil chain.
  *
