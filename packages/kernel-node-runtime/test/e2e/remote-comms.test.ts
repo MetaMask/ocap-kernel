@@ -304,13 +304,17 @@ describe.sequential('Remote Communications E2E', () => {
     it(
       'handles connection failure and recovery',
       async () => {
+        const reconnectOptions = {
+          ...testBackoffOptions,
+          maxConnectionAttemptsPerMinute: 500,
+        };
         const { bobURL, aliceRef } = await setupAliceAndBob(
           kernel1,
           kernel2,
           kernelStore1,
           kernelStore2,
           testRelays,
-          testBackoffOptions,
+          reconnectOptions,
         );
 
         // Verify initial connectivity
@@ -340,7 +344,7 @@ describe.sequential('Remote Communications E2E', () => {
           false,
           testRelays,
           bobConfig,
-          testBackoffOptions,
+          reconnectOptions,
         );
         // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
