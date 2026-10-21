@@ -31,7 +31,8 @@
     "test:dev": "yarn test --mode development",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts",
-    "test:dev:quiet": "yarn test:dev --reporter @ocap/repo-tools/vitest-reporters/silent"
+    "test:dev:quiet": "yarn test:dev --reporter @ocap/repo-tools/vitest-reporters/silent",
+    "test:types": "tsc --project tsconfig.json"
   },
   "dependencies": {
     "oxlint": "1.89.0"

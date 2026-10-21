@@ -1,7 +1,12 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { OcapURLRedemptionService } from '@metamask/ocap-kernel';
 
 import type { TestPowers } from '../test-powers.ts';
+
+type Importer = {
+  storeImport: (obj: unknown, id: string) => unknown;
+};
 
 /**
  * Build function for a vat that gives a fresh object to a vat on another
@@ -23,7 +28,7 @@ export function buildRootObject(
   const name = parameters?.name ?? 'RemoteGift';
   logger.log(`buildRootObject "${name}"`);
 
-  let redeemerService: unknown;
+  let redeemerService: OcapURLRedemptionService;
   // Kept so that the gift is the only object between the kernels that can be
   // collected.
   const importers = new Set<unknown>();
@@ -31,7 +36,7 @@ export function buildRootObject(
   return makeDefaultExo('remoteGiftRoot', {
     bootstrap(
       _vats: unknown,
-      services: { ocapURLRedemptionService?: unknown },
+      services: { ocapURLRedemptionService: OcapURLRedemptionService },
     ) {
       redeemerService = services.ocapURLRedemptionService;
       return `${name} bootstrap complete`;
@@ -46,7 +51,7 @@ export function buildRootObject(
      * @returns What the importer answered.
      */
     async giveGift(remoteURL: string, id: string) {
-      const importer = await E(redeemerService).redeem(remoteURL);
+      const importer = (await E(redeemerService).redeem(remoteURL)) as Importer;
       importers.add(importer);
       const gift = makeDefaultExo('gift', {
         getValue() {

@@ -54,7 +54,9 @@ export async function buildRootObject(vatPowers: TestPowers) {
         },
       };
       try {
-        const response = await fetch(twoFaced as unknown as RequestInfo);
+        const response = await fetch(
+          twoFaced as unknown as Parameters<typeof fetch>[0],
+        );
         tlog(`fetched: ${response.headers.get('x-fetched-url')}`);
       } catch (error) {
         tlog(`error: ${String(error)}`);
@@ -89,6 +91,7 @@ export async function buildRootObject(vatPowers: TestPowers) {
        */
       class SpoofedRequest extends Request {
         /** @returns The decoy URL, not the URL this request was built with. */
+        // @ts-expect-error Deliberately shadows the `url` property with a getter.
         override get url(): string {
           return decoyUrl;
         }

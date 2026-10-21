@@ -5,7 +5,7 @@ import {
   privateKeyToAccount,
   generatePrivateKey,
 } from 'viem/accounts';
-import type { HDAccount, LocalAccount } from 'viem/accounts';
+import type { HDAccount, PrivateKeyAccount } from 'viem/accounts';
 
 import type { EncryptedMnemonicData } from './mnemonic-crypto.ts';
 import type { Address } from '../types.ts';
@@ -44,7 +44,7 @@ export type StoredKeyringInit = KeyringInitOptions | EncryptedKeyringInit;
 export type Keyring = {
   getAccounts: () => Address[];
   deriveAccount: (index: number) => Address;
-  getAccount: (address: Address) => LocalAccount | undefined;
+  getAccount: (address: Address) => HDAccount | PrivateKeyAccount | undefined;
   hasKeys: () => boolean;
   getMnemonic: () => string | undefined;
 };
@@ -56,7 +56,7 @@ export type Keyring = {
  * @returns The keyring instance.
  */
 export function makeKeyring(options: KeyringInitOptions): Keyring {
-  const accounts = new Map<Address, LocalAccount>();
+  const accounts = new Map<Address, HDAccount | PrivateKeyAccount>();
   let mnemonic: string | undefined;
 
   if (options.type === 'srp') {
@@ -102,7 +102,7 @@ export function makeKeyring(options: KeyringInitOptions): Keyring {
       return deriveAccountInternal(index);
     },
 
-    getAccount(address: Address): LocalAccount | undefined {
+    getAccount(address: Address): HDAccount | PrivateKeyAccount | undefined {
       return accounts.get(address.toLowerCase() as Address);
     },
 

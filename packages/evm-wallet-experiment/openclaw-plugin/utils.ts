@@ -156,8 +156,8 @@ export async function resolveToken(options: {
 // ---------------------------------------------------------------------------
 
 type TransactionResult = {
-  txHash?: string;
-  userOpHash?: string;
+  txHash?: string | undefined;
+  userOpHash?: string | undefined;
   explorerUrl: string;
   pendingUserOp: boolean;
 };
@@ -292,8 +292,8 @@ export async function resolveTransactionResult(options: {
  */
 export function formatTxResult(
   result: {
-    txHash?: string;
-    userOpHash?: string;
+    txHash?: string | undefined;
+    userOpHash?: string | undefined;
     explorerUrl: string;
     pendingUserOp: boolean;
   },

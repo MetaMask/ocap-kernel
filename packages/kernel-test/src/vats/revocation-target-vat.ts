@@ -1,5 +1,6 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { OcapURLIssuerService } from '@metamask/ocap-kernel';
 
 import type { TestPowers } from '../test-powers.ts';
 
@@ -38,7 +39,7 @@ export function buildRootObject(
   return makeDefaultExo('root', {
     async bootstrap(
       _vats: unknown,
-      services: { ocapURLIssuerService?: unknown },
+      services: { ocapURLIssuerService: OcapURLIssuerService },
     ) {
       logger.log(`vat ${name} is bootstrap`);
       const issuerService = services.ocapURLIssuerService;

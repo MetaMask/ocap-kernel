@@ -4,6 +4,13 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import { unwrapTestLogger } from '../test-powers.ts';
 import type { TestPowers } from '../test-powers.ts';
 
+type Thing = { second: (param: unknown) => string };
+
+type Bob = {
+  first: () => Thing;
+  loopback: () => undefined;
+};
+
 /**
  * Build function for vats that will run various tests.
  *
@@ -46,7 +53,7 @@ export function buildRootObject(
   });
 
   return makeDefaultExo('root', {
-    async bootstrap(vats: { bob: unknown }) {
+    async bootstrap(vats: { bob: Bob }) {
       log(`bootstrap start`);
       tlog(`running test ${test}`);
       const promise1 = E(vats.bob).first();

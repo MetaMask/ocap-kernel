@@ -9,7 +9,7 @@ import { getTestWorkerFile } from '../get-test-worker.ts';
 describe('NodejsPlatformServices', () => {
   const testWorkerFile = getTestWorkerFile('stream-sync');
   const vatIdCounter = makeCounter();
-  const getTestVatId = (): VatId => `v${vatIdCounter()}`;
+  const getTestVatId = (): VatId => `v${vatIdCounter()}` as VatId;
 
   // Track all services to ensure cleanup
   const services: NodejsPlatformServices[] = [];

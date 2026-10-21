@@ -44,7 +44,7 @@ describe('doAttempt', () => {
 
   const makeProgress = (
     history: TestMessage[],
-    isDone: ReturnType<typeof vi.fn>,
+    isDone: () => boolean,
     result?: string,
   ): Progress<string, TestMessage[]> => {
     const progress: Progress<string, TestMessage[]> = {

@@ -4,6 +4,8 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import { unwrapTestLogger } from '../test-powers.ts';
 import type { TestPowers } from '../test-powers.ts';
 
+type TestService = { getStuff: (obj: unknown, tag: string) => string };
+
 /**
  * Build function for running a test of kernel service objects.
  *
@@ -24,11 +26,11 @@ export function buildRootObject(
   console.log(`buildRootObject "${name}"`);
 
   const thing = makeDefaultExo('thing', {});
-  let testService: unknown;
+  let testService: TestService;
   tlog(`buildRootObject "${name}"`);
 
   const mainVatRoot = makeDefaultExo('root', {
-    async bootstrap(_vats: unknown, services: { testService: unknown }) {
+    async bootstrap(_vats: unknown, services: { testService: TestService }) {
       tlog(`vat ${name} is bootstrap`);
       testService = services.testService;
     },
@@ -39,6 +41,7 @@ export function buildRootObject(
     },
     async goBadly() {
       try {
+        // @ts-expect-error Deliberately calls a method the service lacks.
         const serviceResult = await E(testService).nonexistentMethod(
           thing,
           'hello',

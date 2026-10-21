@@ -274,6 +274,12 @@ module.exports = defineConfig({
             'vitest --config vitest.config.ts',
           );
         }
+
+        expectWorkspaceField(
+          workspace,
+          'scripts.test:types',
+          'tsc --project tsconfig.json',
+        );
       }
 
       if (!buildExceptions.includes(workspaceBasename)) {
