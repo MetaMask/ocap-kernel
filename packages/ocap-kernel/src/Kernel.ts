@@ -666,6 +666,7 @@ export class Kernel {
   async clearStorage(): Promise<void> {
     await this.#kernelQueue.waitForCrank();
     this.#kernelStore.clear();
+    this.#kernelQueue.discardArrivals();
     this.#vatManager.abandonQueuedWork(
       new Error('Kernel storage was cleared; queued work was abandoned'),
     );
@@ -870,6 +871,7 @@ export class Kernel {
       await this.terminateAllVats();
       this.#subclusterManager.clearSystemSubclusters();
       this.#resetKernelState();
+      this.#kernelQueue.discardArrivals();
       this.#vatManager.abandonQueuedWork(
         new Error('Kernel was reset; queued work was abandoned'),
       );

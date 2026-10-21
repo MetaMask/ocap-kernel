@@ -519,17 +519,18 @@ describe('RemoteManager', () => {
       );
     });
 
-    it('handles remote message', async () => {
-      const mockHandleMessage = vi.fn().mockResolvedValue('response');
+    it('hands a remote message to the peer it came from', async () => {
+      const receiveFromPeer = vi.fn();
       const remote = remoteManager.establishRemote('peer123');
-      remote.handleRemoteMessage = mockHandleMessage;
+      remote.receiveFromPeer = receiveFromPeer;
 
       const response = await remoteManager.handleRemoteMessage(
         'peer123',
         'test message',
       );
-      expect(response).toBe('response');
-      expect(mockHandleMessage).toHaveBeenCalledWith('test message');
+
+      expect(response).toBeNull();
+      expect(receiveFromPeer).toHaveBeenCalledWith('test message');
     });
 
     it('creates new remote when handling message from unknown peer', async () => {
@@ -543,15 +544,17 @@ describe('RemoteManager', () => {
         ],
       });
 
-      // This will create a new remote and try to handle the message
-      // We expect it to fail because the remote doesn't have the necessary setup
-      await expect(
-        remoteManager.handleRemoteMessage('new-peer', message),
-      ).rejects.toThrow('ko1 is not an ERef');
+      // The message is only queued here, so the reference in it is not looked
+      // at until the crank that delivers it.
+      expect(
+        await remoteManager.handleRemoteMessage('new-peer', message),
+      ).toBeNull();
 
-      // But verify that a new remote was created
       const remote = remoteManager.remoteFor('new-peer');
       expect(remote).toBeDefined();
+      await expect(remote.deliverInbound(message)).rejects.toThrow(
+        'ko1 is not an ERef',
+      );
     });
 
     it('preserves location hints across stop/restart cycle', async () => {
@@ -850,6 +853,18 @@ describe('RemoteManager', () => {
       expect(persistSpy).toHaveBeenCalled();
       expect(finalizeSpy).toHaveBeenCalled();
       expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-B');
+    });
+
+    // A live restart arrives here, never through `handlePeerRestart`.
+    it('discards what the old incarnation sent', async () => {
+      const peerId = 'peer-that-restarted';
+      const { remoteId } = remoteManager.establishRemote(peerId);
+      const discardSpy = vi.spyOn(mockKernelQueue, 'discardRemoteInbound');
+      kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
+
+      await getOnIncarnationChange()(peerId, 'incarnation-B');
+
+      expect(discardSpy).toHaveBeenCalledWith(remoteId);
     });
 
     it('does not trigger restart on first observation of a peer', async () => {
