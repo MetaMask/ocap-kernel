@@ -73,7 +73,7 @@ describe('a GC action for a remote that is offline', () => {
     kernelQueue.recheckGCActions();
     await waitUntilQuiescent();
 
-    expect(remote.deliverRetireImports).toHaveBeenCalledWith(['ro-1']);
+    expect(remote.deliverRetireImports).toHaveBeenCalledWith(['ro+1']);
     expect([...kernelStore.getGCActions()]).toStrictEqual([]);
     expect(kernelStore.hasCListEntry('r1', kref)).toBe(false);
 
