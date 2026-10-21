@@ -80,6 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Sends to a peer no longer fail or time out after it reconnects, which happened when several sends dialed it at once ([#1188](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1188))
+- A send's dial retry follows `reconnectionBaseDelayMs` and `reconnectionMaxDelayMs`, as it already followed `maxRetryAttempts`, rather than always backing off up to 10 s ([#1188](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1188))
 - Retiring a kernel object tells remote importers and terminated vats cleanup has not reached, rather than leaving them a c-list entry for the deleted kref ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))
 - `dropExports` and `retireExports` sent to a remote name the object they mean. They could name another object the peer held, or a phantom the peer then minted, so a drop hit the wrong object and a retirement was usually refused ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))
 - Bump `@libp2p/crypto` from `5.1.14` to `5.1.23`, so remote comms start on Node 24.22 instead of throwing `Invalid JWK OKP key` ([#1185](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1185))

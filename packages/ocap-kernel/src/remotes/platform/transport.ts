@@ -175,6 +175,8 @@ export async function initTransport(
     logger,
     signal,
     maxRetryAttempts,
+    reconnectionBaseDelayMs,
+    reconnectionMaxDelayMs,
     maxMessageSizeBytes,
     directTransports,
     allowedWsHosts,
@@ -194,24 +196,50 @@ export async function initTransport(
       }
     : undefined;
 
+  // `dialIdempotent` gives every concurrent dialer of a peer the same channel.
+  // The peer acks one handshake, so a second one reads the peer's next message
+  // instead, or times out, and its caller closes the shared channel.
+  const outboundHandshakes = new WeakMap<
+    Channel,
+    ReturnType<typeof runOutboundHandshake>
+  >();
+
   /**
-   * Perform outbound handshake and handle incarnation changes.
+   * Perform the outbound handshake on a channel once, however many callers
+   * ask for it.
    *
    * @param channel - The channel to perform handshake on.
    * @returns Object with success status and whether incarnation changed.
    */
   async function doOutboundHandshake(
     channel: Channel,
+  ): ReturnType<typeof runOutboundHandshake> {
+    let handshake = outboundHandshakes.get(channel);
+    if (!handshake) {
+      handshake = runOutboundHandshake(channel);
+      outboundHandshakes.set(channel, handshake);
+    }
+    return handshake;
+  }
+
+  /**
+   * Perform outbound handshake and handle incarnation changes.
+   *
+   * @param channel - The channel to perform handshake on.
+   * @returns Object with success status and whether incarnation changed.
+   */
+  async function runOutboundHandshake(
+    channel: Channel,
   ): Promise<{ success: boolean; incarnationChanged: boolean }> {
     if (!handshakeDeps) {
-      return { success: true, incarnationChanged: false }; // No handshake configured, skip
+      return harden({ success: true, incarnationChanged: false }); // No handshake configured, skip
     }
     let result;
     try {
       result = await performOutboundHandshake(channel, handshakeDeps);
     } catch (problem) {
       outputError(channel.peerId, 'outbound handshake', problem);
-      return { success: false, incarnationChanged: false };
+      return harden({ success: false, incarnationChanged: false });
     }
     // The PSM-detected change is unreliable across receiver-side state loss;
     // the kernel-side callback (backed by persistent storage) is the
@@ -231,7 +259,7 @@ export async function initTransport(
         )) ?? false;
     } catch (problem) {
       outputError(channel.peerId, 'outbound incarnation callback', problem);
-      return { success: false, incarnationChanged: false };
+      return harden({ success: false, incarnationChanged: false });
     }
     const incarnationChanged =
       result.incarnationChanged || kernelDetectedRestart;
@@ -240,7 +268,7 @@ export async function initTransport(
         `${channel.peerId.slice(0, 8)}:: incarnation changed during outbound handshake, resetting remote state`,
       );
     }
-    return { success: true, incarnationChanged };
+    return harden({ success: true, incarnationChanged });
   }
 
   /**
@@ -328,6 +356,10 @@ export async function initTransport(
   ): void {
     const state = peerStateManager.getState(peerId);
     const previousChannel = state.channel;
+    if (previousChannel === channel) {
+      // Every caller that shared the channel's dial registers it.
+      return;
+    }
     state.channel = channel;
     peerStateManager.updateConnectionTime(peerId);
 
@@ -361,7 +393,7 @@ export async function initTransport(
     });
 
     // If we replaced an existing channel, close it to avoid leaks and stale readers.
-    if (previousChannel && previousChannel !== channel) {
+    if (previousChannel) {
       const closePromise = connectionFactory.closeChannel(
         previousChannel,
         peerId,
