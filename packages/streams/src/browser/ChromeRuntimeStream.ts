@@ -16,7 +16,7 @@
 import { stringify } from '@metamask/kernel-utils';
 import type { Json } from '@metamask/utils';
 
-import type { ChromeRuntime, ChromeMessageSender } from './chrome.d.ts';
+import type { ChromeRuntime, ChromeMessageSender } from './chrome.ts';
 import { BaseDuplexStream } from '../BaseDuplexStream.ts';
 import type { ValidateInput } from '../BaseStream.ts';
 

@@ -13,10 +13,6 @@ ignores:
   - 'prettier-plugin-*'
   - 'typescript-eslint'
 
-  # @ts-bridge
-  - '@ts-bridge/cli'
-  - '@ts-bridge/shims'
-
   # vitest
   - 'vite'
   - '@types/vitest'

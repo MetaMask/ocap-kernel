@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `getRemoteIDs` to the kernel store, listing every remote the kernel knows about ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))
 - Add a `vatRelaunchTimeoutMs` option to `Kernel.make`: how long a vat restart waits for the new worker before giving up, 30 seconds by default ([#1096](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1096))
 - A `CrankResult` may carry `afterCommit`, work the run loop runs once the crank has committed and skips if it aborts, for what a rollback could not undo anyway: in-memory state, and sending a message the crank has already written down. While it runs it may not write the kernel store, since by then there is no transaction to write into ([#1101](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1101))
 - Add `orphanKernelObject` to the kernel store, which gives up the kernel's record of who owns an object ([#1091](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1091))
@@ -50,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING:** `getImporters` returns `EndpointId[]`, and includes remotes and terminated vats ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))
 - **BREAKING:** `Kernel.make`'s `ioChannelFactory` option is now `ioListenerFactory`, and the exported `IOChannelFactory` type is replaced by `IOListener` and `IOListenerFactory`. A cluster config's `io` entries now create listeners; vats call `accept()` to obtain a channel instead of reading and writing the endowment directly ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
 - Attribute a failed subcluster vat launch to the specific vat by kernel id and `ClusterConfig` name (e.g. `Failed to launch vat v3 (bob)`), preserving the original error as the `cause` ([#975](https://github.com/MetaMask/ocap-kernel/pull/975))
 - **BREAKING:** Remove `VatConfig.platformConfig.fetch` — migrate to `globals: ['fetch', ...]` + `network.allowedHosts` ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
@@ -71,8 +73,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING:** `terminateVat` is carried out by the run loop as a run queue item, so an unrelated rollback can no longer undo a death its caller was told succeeded. It now waits behind the run queue, and rejects if the run loop dies or the kernel is stopped, reset or has its storage cleared first. A restart of the vat waiting on it, or asked for before it is carried out, is not carried out, and is answered by the termination. A reason carrying slots is refused ([#1097](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1097))
 - **BREAKING:** `Kernel.make` no longer rejects when a persisted vat fails to start. The failure is logged, and the vat stays persisted with no worker, messages to it rejected, until `restartVat`, `terminateVat` or `terminateAllVats` ([#1162](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1162))
 
+### Removed
+
+- **BREAKING:** Remove the CommonJS build; the package is ESM-only. Its entry points are `.js` and `.d.ts` files, formerly `.mjs`/`.cjs` and `.d.mts`/`.d.cts` ([#1186](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1186))
+- **BREAKING:** Remove `rpc.js`, the CommonJS mirror of the `./rpc` export for Browserify ([#1186](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1186))
+
 ### Fixed
 
+- Sends to a peer no longer fail or time out after it reconnects, which happened when several sends dialed it at once ([#1188](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1188))
+- A send's dial retry follows `reconnectionBaseDelayMs` and `reconnectionMaxDelayMs`, as it already followed `maxRetryAttempts`, rather than always backing off up to 10 s ([#1188](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1188))
+- Retiring a kernel object tells remote importers and terminated vats cleanup has not reached, rather than leaving them a c-list entry for the deleted kref ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))
+- `dropExports` and `retireExports` sent to a remote name the object they mean. They could name another object the peer held, or a phantom the peer then minted, so a drop hit the wrong object and a retirement was usually refused ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))
 - Bump `@libp2p/crypto` from `5.1.14` to `5.1.23`, so remote comms start on Node 24.22 instead of throwing `Invalid JWK OKP key` ([#1185](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1185))
 - `Kernel.stop` records its last-active timestamp best-effort, so a store that can no longer persist anything does not stop it from releasing remote comms, the vat workers and the database handle ([#1094](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1094))
 - After the run loop dies committing a crank, a later write no longer persists the values that crank had cached, and `Kernel.reset` no longer throws between clearing the store and restoring the identity keys it keeps (`keySeed`, `peerId`, `ocapURLKey`), which cost the kernel its network identity ([#1094](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1094))
@@ -81,8 +92,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A vat restart that `Kernel.stop` cuts short is left uncommitted, so the next start finds the vat as it was, instead of failing the restart, which could terminate the vat ([#1100](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1100))
 - `Kernel.terminateAllVats` also terminates vats that are persisted but have no worker ([#1100](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1100))
 - A service or IO channel named `__proto__` in a cluster config reaches the bootstrap vat as an ordinary key of `services` instead of replacing that object's prototype ([#1121](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1121))
+- A message from a remote peer is processed in a crank of its own, instead of inside whichever crank was open, whose abort lost the message after the peer had been acknowledged for it ([#1103](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1103))
+  - The peer is acknowledged only once that crank commits, so a busy kernel acknowledges later than before
+  - A `queueMessage` caller whose result the peer resolves is no longer answered from a crank that rolls back
 - A delivery to a remote peer is written down inside the crank making it and sent once that crank commits, instead of going out mid-crank. A crank that then failed took the kernel's record of the message back while the peer already had it, leaving the kernel's next send sequence behind what the peer had seen. The send sequence counters move with that record rather than in memory beside it, so a crank that rolls back takes them too, and outgoing messages reach the peer in sequence order however long a crank takes to commit — and across a restart, which sends the queue it inherits before anything numbered after it. Giving up on a peer covers a delivery whose crank has yet to commit, so it is not sent to a peer whose promise for it has just been rejected. A peer's messages go to the transport one at a time, since a send that has to dial and shake hands first can otherwise be overtaken by one issued after it, and one whose turn comes after a peer restart or a give-up has retired the queue is dropped rather than sent to a peer it is no longer owed to ([#1101](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1101))
 - With the reference count audit crediting the crank buffer, a delivery that queued a message for later no longer reads as a leak, and the audit runs before the flush hands those messages on — so a violation stops the kernel while the crank can still be undone, rather than after the answers have gone out ([#1095](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1095))
+- A GC action for a remote waits until `initRemoteComms` restores it instead of stopping the run loop, which the rolled-back crank made happen again on every later boot. A remote's full send queue no longer refuses one either ([#1099](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1099))
 - A notify, GC action or reap addressed to a vat that has ended, or a reap addressed to a remote before `initRemoteComms` restores it, is skipped instead of stopping the run loop, which the rolled-back crank made happen again on every later boot. A single `bringOutYourDead` from a peer was enough to trigger this ([#1098](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1098))
 - `reset` terminates every vat even when a termination retires one while it runs, instead of stopping part-way before clearing state ([#1097](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1097))
 - `terminateSubcluster` retires a member the kernel has no handle for, and keeps going when one member will not die, instead of stranding the rest of the subcluster. While a member survives, the subcluster keeps its record and IO channels ([#1097](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1097))
