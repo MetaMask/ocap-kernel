@@ -63,8 +63,6 @@
     "@metamask/eslint-config-typescript": "^15.0.1",
     "@metamask/eslint-config-vitest": "^15.0.1",
     "@metamask/kernel-cli": "workspace:^",
-    "@ts-bridge/cli": "^0.6.3",
-    "@ts-bridge/shims": "^0.1.1",
     "@types/lodash": "^4.17.16",
     "@types/node": "^22.13.1",
     "@types/setimmediate": "^1.0.4",
