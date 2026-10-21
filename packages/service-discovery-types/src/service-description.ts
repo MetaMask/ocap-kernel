@@ -143,7 +143,7 @@ export type ServiceDescription = {
 // Runtime validators (superstruct)
 //
 // These mirror the TypeScript types above. Recursive references are handled
-// with `lazy`; the forward-reference ESLint rule is disabled at the call
+// with `lazy`; the forward-reference lint rule is disabled at the call
 // sites where such references are unavoidable.
 // ---------------------------------------------------------------------------
 
