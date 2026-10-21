@@ -902,6 +902,17 @@ describe('KernelQueue', () => {
       expect(delivered.at(-1)).toStrictEqual(arrival(6, 'r2'));
     });
 
+    it('discards every arrival', async () => {
+      arrive({ seq: 1 });
+      arrive({ seq: 1, remoteId: 'r2' });
+      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
+
+      kernelQueue.discardArrivals();
+      arrive({ seq: 2 });
+
+      expect(await deliverItems(1)).toStrictEqual([arrival(2)]);
+    });
+
     it.each([
       { what: 'a message arrives', accept: () => arrive({ seq: 1 }) },
       {
@@ -979,7 +990,7 @@ describe('KernelQueue', () => {
       expect(await deliverItems(1)).toStrictEqual([arrival(6)]);
     });
 
-    it('gives no slot to a copy whose original has committed since', () => {
+    it('stops counting held arrivals against the cap once a committed crank has passed their seq', () => {
       for (let seq = 1; seq <= 200; seq += 1) {
         arrive({ seq });
       }
@@ -1901,6 +1912,78 @@ describe('KernelQueue', () => {
       await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
 
       expect(resolveSpy).toHaveBeenCalledWith(fulfilledValue);
+    });
+  });
+
+  describe('GC actions for an offline endpoint', () => {
+    it("passes run's isOffline to processGCActionSet", async () => {
+      const isOffline = vi.fn();
+      (gc.processGCActionSet as unknown as MockInstance).mockImplementationOnce(
+        () => {
+          throw new Error(STOP_RUN_LOOP);
+        },
+      );
+
+      await expect(kernelQueue.run(vi.fn(), { isOffline })).rejects.toThrow(
+        STOP_RUN_LOOP,
+      );
+
+      expect(gc.processGCActionSet).toHaveBeenCalledWith(kernelStore, {
+        isOffline,
+      });
+    });
+
+    it('wakes a parked run loop to look at them again', async () => {
+      let wake!: () => void;
+      const parked = new Promise<void>((resolve) => {
+        wake = resolve;
+      });
+      (makePromiseKit as unknown as MockInstance).mockReturnValueOnce({
+        promise: parked,
+        resolve: wake,
+        reject: vi.fn(),
+      });
+      (gc.processGCActionSet as unknown as MockInstance)
+        .mockReturnValueOnce(null)
+        .mockImplementationOnce(() => {
+          throw new Error(STOP_RUN_LOOP);
+        });
+
+      const running = kernelQueue.run(vi.fn());
+      await vi.waitFor(() =>
+        expect(gc.processGCActionSet).toHaveBeenCalledOnce(),
+      );
+      kernelQueue.recheckGCActions();
+
+      await expect(running).rejects.toThrow(STOP_RUN_LOOP);
+      expect(gc.processGCActionSet).toHaveBeenCalledTimes(2);
+    });
+
+    it('does nothing to a run loop in the middle of a crank', async () => {
+      let finishDelivery!: () => void;
+      const deliver = vi.fn(
+        async () =>
+          new Promise<undefined>((resolve) => {
+            finishDelivery = () => resolve(undefined);
+          }),
+      );
+      (gc.processGCActionSet as unknown as MockInstance)
+        .mockReturnValueOnce({
+          type: 'dropExports',
+          endpointId: 'v1',
+          krefs: ['ko1'],
+        })
+        .mockImplementationOnce(() => {
+          throw new Error(STOP_RUN_LOOP);
+        });
+
+      const running = kernelQueue.run(deliver);
+      await vi.waitFor(() => expect(deliver).toHaveBeenCalledOnce());
+      kernelQueue.recheckGCActions();
+      finishDelivery();
+
+      await expect(running).rejects.toThrow(STOP_RUN_LOOP);
+      expect(gc.processGCActionSet).toHaveBeenCalledTimes(2);
     });
   });
 

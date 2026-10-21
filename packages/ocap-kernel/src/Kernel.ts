@@ -220,17 +220,19 @@ export class Kernel {
       logger: this.#logger.subLogger({ tags: ['SubclusterManager'] }),
     });
 
-    this.#kernelRouter = new KernelRouter(
-      this.#kernelStore,
-      this.#kernelQueue,
-      this.#getEndpoint.bind(this),
-      this.#kernelServiceManager.invokeKernelService.bind(
+    this.#kernelRouter = new KernelRouter({
+      kernelStore: this.#kernelStore,
+      kernelQueue: this.#kernelQueue,
+      getEndpoint: this.#getEndpoint.bind(this),
+      invokeKernelService: this.#kernelServiceManager.invokeKernelService.bind(
         this.#kernelServiceManager,
       ),
-      this.#vatManager.performVatRestart.bind(this.#vatManager),
-      this.#vatManager.performVatTermination.bind(this.#vatManager),
-      this.#logger,
-    );
+      restartVat: this.#vatManager.performVatRestart.bind(this.#vatManager),
+      terminateVat: this.#vatManager.performVatTermination.bind(
+        this.#vatManager,
+      ),
+      logger: this.#logger,
+    });
 
     // Register OCAP URL services
     const { issuerService, redemptionService } =
@@ -348,27 +350,35 @@ export class Kernel {
     // Start the kernel queue processing (non-blocking)
     // This runs for the entire lifetime of the kernel
     this.#kernelQueue
-      .run(async (item) => {
-        // Not a delivery to an endpoint, so not the router's to route: a peer
-        // restarting is the kernel's own bookkeeping, and for a peer with no
-        // live remote there is no endpoint to route it to at all.
-        if (item.type !== 'peerIncarnation') {
-          return await this.#kernelRouter.deliver(item);
-        }
-        try {
-          return await this.#remoteManager.applyIncarnationChange(item);
-        } catch (error) {
-          // A peer restarting is the peer's doing, and the crank has rolled
-          // back whatever this started. The handshake that queued it is long
-          // answered, and the peer will hand us its incarnation again on the
-          // next one.
-          this.#logger.error(
-            `Could not record the incarnation change for peer ${item.peerId}:`,
-            error,
-          );
-          return { abort: true };
-        }
-      })
+      .run(
+        async (item) => {
+          // Not a delivery to an endpoint, so not the router's to route: a peer
+          // restarting is the kernel's own bookkeeping, and for a peer with no
+          // live remote there is no endpoint to route it to at all.
+          if (item.type !== 'peerIncarnation') {
+            return await this.#kernelRouter.deliver(item);
+          }
+          try {
+            return await this.#remoteManager.applyIncarnationChange(item);
+          } catch (error) {
+            // A peer restarting is the peer's doing, and the crank has rolled
+            // back whatever this started. The handshake that queued it is long
+            // answered, and the peer will hand us its incarnation again on the
+            // next one.
+            this.#logger.error(
+              `Could not record the incarnation change for peer ${item.peerId}:`,
+              error,
+            );
+            return { abort: true };
+          }
+        },
+        {
+          // Every remote, until `initRemoteComms` runs after this.
+          isOffline: (endpointId) =>
+            isRemoteId(endpointId) &&
+            !this.#remoteManager.hasRemote(endpointId),
+        },
+      )
       .catch((error) => this.#handleRunLoopFailure(error));
 
     // Launch new system subclusters (requires queue to be running)
@@ -453,7 +463,12 @@ export class Kernel {
    * @returns A promise that resolves when initialization is complete.
    */
   async initRemoteComms(options?: RemoteCommsOptions): Promise<void> {
-    await this.#remoteManager.initRemoteComms(options);
+    try {
+      await this.#remoteManager.initRemoteComms(options);
+    } finally {
+      // Also after a partial restore, for the remotes it did bring up.
+      this.#kernelQueue.recheckGCActions();
+    }
   }
 
   /**
@@ -675,6 +690,7 @@ export class Kernel {
   async clearStorage(): Promise<void> {
     await this.#kernelQueue.waitForCrank();
     this.#kernelStore.clear();
+    this.#kernelQueue.discardArrivals();
     this.#vatManager.abandonQueuedWork(
       new Error('Kernel storage was cleared; queued work was abandoned'),
     );
@@ -879,6 +895,7 @@ export class Kernel {
       await this.terminateAllVats();
       this.#subclusterManager.clearSystemSubclusters();
       this.#resetKernelState();
+      this.#kernelQueue.discardArrivals();
       this.#vatManager.abandonQueuedWork(
         new Error('Kernel was reset; queued work was abandoned'),
       );

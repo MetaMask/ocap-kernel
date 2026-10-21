@@ -90,6 +90,8 @@ export class KernelQueue {
   /** Thunk to signal run queue transition from empty to non-empty */
   #wakeUpTheRunQueue: (() => void) | null;
 
+  #isOffline: (endpointId: EndpointId) => boolean = () => false;
+
   /**
    * Whether the run loop's catch may still roll this crank's delivery back.
    *
@@ -140,19 +142,26 @@ export class KernelQueue {
   }
 
   /**
-   * The kernel's run loop: take an item off the run queue, deliver it,
-   * repeat. Note that this loops forever: the returned promise never resolves.
+   * The kernel's run loop: take an item off the run queue or from the peers'
+   * arrivals, deliver it, repeat. Note that this loops forever: the returned promise never resolves.
    * If it rejects with anything but `run loop already started`, the kernel is
    * dead — see {@link getRunLoopStatus}.
    *
    * @param deliver - A function that delivers an item to the kernel.
+   * @param options - Options bag.
+   * @param options.isOffline - Whether an endpoint cannot take a GC delivery
+   * now.
    * @returns A promise that rejects with the `Error` that killed the run loop.
    */
   async run(
     deliver: (item: RunLoopItem) => Promise<CrankResult | undefined>,
+    {
+      isOffline = () => false,
+    }: { isOffline?: (endpointId: EndpointId) => boolean } = {},
   ): Promise<never> {
     this.#runLoopState.state === 'idle' || Fail`run loop already started`;
     this.#runLoopState = { state: 'running' };
+    this.#isOffline = isOffline;
     try {
       return await this.#runLoop(deliver);
     } catch (error) {
@@ -163,7 +172,8 @@ export class KernelQueue {
   }
 
   /**
-   * Take an item off the run queue, deliver it, repeat.
+   * Take an item off the run queue or from the peers' arrivals, deliver it,
+   * repeat.
    *
    * @param deliver - A function that delivers an item to the kernel.
    */
@@ -366,7 +376,9 @@ export class KernelQueue {
    * @returns The next item, or undefined if nothing is waiting.
    */
   #getNextRunQueueItem(): RunLoopItem | undefined {
-    const gcAction = processGCActionSet(this.#kernelStore);
+    const gcAction = processGCActionSet(this.#kernelStore, {
+      isOffline: this.#isOffline,
+    });
     if (gcAction) {
       return gcAction;
     }
@@ -516,30 +528,37 @@ export class KernelQueue {
   }
 
   /**
+   * Wake a run loop parked on an empty queue, for GC actions it skipped while
+   * their endpoint was offline.
+   */
+  recheckGCActions(): void {
+    this.#wakeRunLoop();
+  }
+
+  /**
+   * Wake the run loop if it is parked on an empty queue.
+   */
+  #wakeRunLoop(): void {
+    const wakeUpTheRunQueue = this.#wakeUpTheRunQueue;
+    if (wakeUpTheRunQueue) {
+      this.#wakeUpTheRunQueue = null;
+      wakeUpTheRunQueue();
+    }
+  }
+
+  /**
    * Add an item to the tail of the kernel's run queue.
    *
    * @param item - The item to add.
    */
   #enqueueRun(item: RunQueueItem): void {
     this.#kernelStore.enqueueRun(item);
+    // Wake on any non-empty queue rather than only on the empty->1
+    // transition. A sleeping run loop plus a non-empty queue is a
+    // permanent wedge, so err towards a spurious wake: the resolver is
+    // cleared as it fires, and the loop re-checks the queue on waking.
     if (this.#kernelStore.runQueueLength() > 0) {
-      this.#wakeTheRunLoop();
-    }
-  }
-
-  /**
-   * Wake a sleeping run loop, if one is sleeping.
-   *
-   * Woken on any work at all rather than only on the empty-to-one transition.
-   * A sleeping run loop with work waiting is a permanent wedge, so err towards
-   * a spurious wake: the resolver is cleared as it fires, and the loop
-   * re-checks for work on waking.
-   */
-  #wakeTheRunLoop(): void {
-    if (this.#wakeUpTheRunQueue) {
-      const wakeUpTheRunQueue = this.#wakeUpTheRunQueue;
-      this.#wakeUpTheRunQueue = null;
-      wakeUpTheRunQueue();
+      this.#wakeRunLoop();
     }
   }
 
@@ -665,7 +684,8 @@ export class KernelQueue {
    * A peer retransmits everything unacknowledged on a timeout, and its copies
    * would fill the remote's share and turn away messages it has yet to send.
    * So a copy of a message waiting, or of one a committed crank has taken, is
-   * not held, and a copy held before its original committed takes no slot. A
+   * not held, and a copy held before its original committed stops taking a
+   * slot once it has. A
    * refused message is lost if a later one is taken first, since that one's
    * acknowledgement covers it. Behind a change of the peer's incarnation still
    * waiting, its messages are the new incarnation's, numbered from 1 again, and
@@ -722,7 +742,7 @@ export class KernelQueue {
       seq,
       message,
     });
-    this.#wakeTheRunLoop();
+    this.#wakeRunLoop();
     return true;
   }
 
@@ -762,7 +782,20 @@ export class KernelQueue {
       peerId,
       incarnation,
     });
-    this.#wakeTheRunLoop();
+    this.#wakeRunLoop();
+  }
+
+  /**
+   * Forget everything peers sent that waits for a crank, for a kernel wiping
+   * its store: taken after the wipe, it would write that peer's bookkeeping
+   * into the wiped store.
+   *
+   * Not for a kernel that is only stopping: its run loop goes on meanwhile,
+   * and a later message that commits would acknowledge a forgotten one, which
+   * the peer then never resends.
+   */
+  discardArrivals(): void {
+    this.#arrivedFromRemotes.length = 0;
   }
 
   /**
@@ -856,10 +889,9 @@ export class KernelQueue {
 
   /**
    * Process a set of promise resolutions coming from an endpoint.
-   * When immediate is false (for vat syscalls), notifications and kernel
-   * subscription callbacks are deferred until the crank buffer is flushed on
-   * successful crank completion. When immediate is true (for remote message
-   * handling), effects are immediate.
+   * Pass `immediate` false from inside a crank: notifications, messages queued
+   * on each promise, and kernel subscription callbacks then wait for the crank
+   * buffer's flush, which an aborted crank skips.
    *
    * @param endpointId - The endpoint doing the resolving, if there is one.
    * @param resolutions - One or more resolutions, to be processed as a group.

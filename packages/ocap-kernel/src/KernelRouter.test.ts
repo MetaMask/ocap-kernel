@@ -94,14 +94,14 @@ describe('KernelRouter', () => {
     mockTerminateVat = vi.fn(async () => undefined);
 
     // Create the router to test
-    kernelRouter = new KernelRouter(
+    kernelRouter = new KernelRouter({
       kernelStore,
       kernelQueue,
       getEndpoint,
-      mockInvokeKernelService,
-      mockRestartVat,
-      mockTerminateVat,
-    );
+      invokeKernelService: mockInvokeKernelService,
+      restartVat: mockRestartVat,
+      terminateVat: mockTerminateVat,
+    });
   });
 
   describe('deliver', () => {
@@ -1148,6 +1148,23 @@ describe('KernelRouter', () => {
         },
       );
     });
+
+    it.each(['v1', 'r1'] as EndpointId[])(
+      'rethrows a GC delivery that %s fails',
+      async (endpointId) => {
+        (
+          endpointHandle.deliverRetireImports as unknown as MockInstance
+        ).mockRejectedValue(new Error('disk I/O error'));
+
+        await expect(
+          kernelRouter.deliver({
+            type: 'retireImports',
+            endpointId,
+            krefs: ['ko1'],
+          }),
+        ).rejects.toThrow('disk I/O error');
+      },
+    );
 
     describe('a vat lost while a delivery is in flight', () => {
       const endpointId = 'v2' as EndpointId;
