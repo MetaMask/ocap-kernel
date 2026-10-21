@@ -20,95 +20,46 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./exo": {
-      "import": {
-        "types": "./dist/exo.d.mts",
-        "default": "./dist/exo.mjs"
-      },
-      "require": {
-        "types": "./dist/exo.d.cts",
-        "default": "./dist/exo.cjs"
-      }
+      "types": "./dist/exo.d.ts",
+      "default": "./dist/exo.js"
     },
     "./json-schema-to-struct": {
-      "import": {
-        "types": "./dist/json-schema-to-struct.d.mts",
-        "default": "./dist/json-schema-to-struct.mjs"
-      },
-      "require": {
-        "types": "./dist/json-schema-to-struct.d.cts",
-        "default": "./dist/json-schema-to-struct.cjs"
-      }
+      "types": "./dist/json-schema-to-struct.d.ts",
+      "default": "./dist/json-schema-to-struct.js"
     },
     "./discoverable": {
-      "import": {
-        "types": "./dist/discoverable.d.mts",
-        "default": "./dist/discoverable.mjs"
-      },
-      "require": {
-        "types": "./dist/discoverable.d.cts",
-        "default": "./dist/discoverable.cjs"
-      }
+      "types": "./dist/discoverable.d.ts",
+      "default": "./dist/discoverable.js"
     },
     "./described": {
-      "import": {
-        "types": "./dist/described.d.mts",
-        "default": "./dist/described.mjs"
-      },
-      "require": {
-        "types": "./dist/described.d.cts",
-        "default": "./dist/described.cjs"
-      }
+      "types": "./dist/described.d.ts",
+      "default": "./dist/described.js"
     },
     "./libp2p": {
-      "import": {
-        "types": "./dist/libp2p-relay.d.mts",
-        "default": "./dist/libp2p-relay.mjs"
-      },
-      "require": {
-        "types": "./dist/libp2p-relay.d.cts",
-        "default": "./dist/libp2p-relay.cjs"
-      }
+      "types": "./dist/libp2p-relay.d.ts",
+      "default": "./dist/libp2p-relay.js"
     },
     "./nodejs": {
-      "import": {
-        "types": "./dist/nodejs/index.d.mts",
-        "default": "./dist/nodejs/index.mjs"
-      },
-      "require": {
-        "types": "./dist/nodejs/index.d.cts",
-        "default": "./dist/nodejs/index.cjs"
-      }
+      "types": "./dist/nodejs/index.d.ts",
+      "default": "./dist/nodejs/index.js"
     },
     "./vite-plugins": {
-      "import": {
-        "types": "./dist/vite-plugins/index.d.mts",
-        "default": "./dist/vite-plugins/index.mjs"
-      },
-      "require": {
-        "types": "./dist/vite-plugins/index.d.cts",
-        "default": "./dist/vite-plugins/index.cjs"
-      }
+      "types": "./dist/vite-plugins/index.d.ts",
+      "default": "./dist/vite-plugins/index.js"
     },
     "./package.json": "./package.json"
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.cts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "files": [
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
+    "build": "rimraf --glob ./dist './*.tsbuildinfo' && tsc --project tsconfig.build.json",
     "build:docs": "typedoc",
     "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-utils",
     "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-utils",
@@ -156,8 +107,6 @@
     "@metamask/eslint-config-typescript": "^15.0.1",
     "@metamask/kernel-errors": "workspace:^",
     "@ocap/repo-tools": "workspace:^",
-    "@ts-bridge/cli": "^0.6.3",
-    "@ts-bridge/shims": "^0.1.1",
     "@types/setimmediate": "^1.0.4",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",

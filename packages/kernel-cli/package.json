@@ -18,13 +18,13 @@
   "license": "(MIT OR Apache-2.0)",
   "type": "module",
   "bin": {
-    "ocap": "./dist/app.mjs"
+    "ocap": "./dist/app.js"
   },
   "files": [
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --no-references --clean && chmod +x dist/app.mjs",
+    "build": "rimraf --glob ./dist './*.tsbuildinfo' && tsc --project tsconfig.build.json && chmod +x dist/app.js",
     "build:docs": "typedoc",
     "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-cli",
     "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-cli",
@@ -66,8 +66,6 @@
     "@metamask/eslint-config-nodejs": "^15.0.1",
     "@metamask/eslint-config-typescript": "^15.0.1",
     "@ocap/repo-tools": "workspace:^",
-    "@ts-bridge/cli": "^0.6.3",
-    "@ts-bridge/shims": "^0.1.1",
     "@types/serve-handler": "^6",
     "@types/yargs": "^17.0.33",
     "@typescript-eslint/eslint-plugin": "^8.29.0",

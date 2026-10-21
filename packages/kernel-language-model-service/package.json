@@ -14,54 +14,24 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./open-v1/nodejs": {
-      "import": {
-        "types": "./dist/open-v1/nodejs.d.mts",
-        "default": "./dist/open-v1/nodejs.mjs"
-      },
-      "require": {
-        "types": "./dist/open-v1/nodejs.d.cts",
-        "default": "./dist/open-v1/nodejs.cjs"
-      }
+      "types": "./dist/open-v1/nodejs.d.ts",
+      "default": "./dist/open-v1/nodejs.js"
     },
     "./ollama/nodejs": {
-      "import": {
-        "types": "./dist/ollama/nodejs.d.mts",
-        "default": "./dist/ollama/nodejs.mjs"
-      },
-      "require": {
-        "types": "./dist/ollama/nodejs.d.cts",
-        "default": "./dist/ollama/nodejs.cjs"
-      }
+      "types": "./dist/ollama/nodejs.d.ts",
+      "default": "./dist/ollama/nodejs.js"
     },
     "./test-utils": {
-      "import": {
-        "types": "./dist/test-utils/index.d.mts",
-        "default": "./dist/test-utils/index.mjs"
-      },
-      "require": {
-        "types": "./dist/test-utils/index.d.cts",
-        "default": "./dist/test-utils/index.cjs"
-      }
+      "types": "./dist/test-utils/index.d.ts",
+      "default": "./dist/test-utils/index.js"
     },
     "./utils/parse-tool-arguments": {
-      "import": {
-        "types": "./dist/utils/parse-tool-arguments.d.mts",
-        "default": "./dist/utils/parse-tool-arguments.mjs"
-      },
-      "require": {
-        "types": "./dist/utils/parse-tool-arguments.d.cts",
-        "default": "./dist/utils/parse-tool-arguments.cjs"
-      }
+      "types": "./dist/utils/parse-tool-arguments.d.ts",
+      "default": "./dist/utils/parse-tool-arguments.js"
     },
     "./package.json": "./package.json"
   },
@@ -69,7 +39,7 @@
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
+    "build": "rimraf --glob ./dist './*.tsbuildinfo' && tsc --project tsconfig.build.json",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/kernel-language-model-service",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",
@@ -94,8 +64,6 @@
     "@metamask/eslint-config-typescript": "^15.0.1",
     "@metamask/streams": "workspace:^",
     "@ocap/repo-tools": "workspace:^",
-    "@ts-bridge/cli": "^0.6.3",
-    "@ts-bridge/shims": "^0.1.1",
     "@types/chrome": "^0.0.313",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",

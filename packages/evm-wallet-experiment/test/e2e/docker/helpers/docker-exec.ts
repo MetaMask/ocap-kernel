@@ -114,7 +114,7 @@ export function dockerComposeCp(
   );
 }
 
-const CLI = 'node /app/packages/kernel-cli/dist/app.mjs';
+const CLI = 'node /app/packages/kernel-cli/dist/app.js';
 
 const EVM_RPC = 'http://localhost:8545';
 

@@ -89,6 +89,8 @@ export class KernelQueue {
   /** Thunk to signal run queue transition from empty to non-empty */
   #wakeUpTheRunQueue: (() => void) | null;
 
+  #isOffline: (endpointId: EndpointId) => boolean = () => false;
+
   /**
    * Whether the run loop's catch may still roll this crank's delivery back.
    *
@@ -142,13 +144,20 @@ export class KernelQueue {
    * dead — see {@link getRunLoopStatus}.
    *
    * @param deliver - A function that delivers an item to the kernel.
+   * @param options - Options bag.
+   * @param options.isOffline - Whether an endpoint cannot take a GC delivery
+   * now.
    * @returns A promise that rejects with the `Error` that killed the run loop.
    */
   async run(
     deliver: (item: RunLoopItem) => Promise<CrankResult | undefined>,
+    {
+      isOffline = () => false,
+    }: { isOffline?: (endpointId: EndpointId) => boolean } = {},
   ): Promise<never> {
     this.#runLoopState.state === 'idle' || Fail`run loop already started`;
     this.#runLoopState = { state: 'running' };
+    this.#isOffline = isOffline;
     try {
       return await this.#runLoop(deliver);
     } catch (error) {
@@ -363,7 +372,9 @@ export class KernelQueue {
    * @returns The next item, or undefined if nothing is waiting.
    */
   #getNextRunQueueItem(): RunLoopItem | undefined {
-    const gcAction = processGCActionSet(this.#kernelStore);
+    const gcAction = processGCActionSet(this.#kernelStore, {
+      isOffline: this.#isOffline,
+    });
     if (gcAction) {
       return gcAction;
     }
@@ -510,30 +521,37 @@ export class KernelQueue {
   }
 
   /**
+   * Wake a run loop parked on an empty queue, for GC actions it skipped while
+   * their endpoint was offline.
+   */
+  recheckGCActions(): void {
+    this.#wakeRunLoop();
+  }
+
+  /**
+   * Wake the run loop if it is parked on an empty queue.
+   */
+  #wakeRunLoop(): void {
+    const wakeUpTheRunQueue = this.#wakeUpTheRunQueue;
+    if (wakeUpTheRunQueue) {
+      this.#wakeUpTheRunQueue = null;
+      wakeUpTheRunQueue();
+    }
+  }
+
+  /**
    * Add an item to the tail of the kernel's run queue.
    *
    * @param item - The item to add.
    */
   #enqueueRun(item: RunQueueItem): void {
     this.#kernelStore.enqueueRun(item);
+    // Wake on any non-empty queue rather than only on the empty->1
+    // transition. A sleeping run loop plus a non-empty queue is a
+    // permanent wedge, so err towards a spurious wake: the resolver is
+    // cleared as it fires, and the loop re-checks the queue on waking.
     if (this.#kernelStore.runQueueLength() > 0) {
-      this.#wakeTheRunLoop();
-    }
-  }
-
-  /**
-   * Wake a sleeping run loop, if one is sleeping.
-   *
-   * Woken on any work at all rather than only on the empty-to-one transition.
-   * A sleeping run loop with work waiting is a permanent wedge, so err towards
-   * a spurious wake: the resolver is cleared as it fires, and the loop
-   * re-checks for work on waking.
-   */
-  #wakeTheRunLoop(): void {
-    if (this.#wakeUpTheRunQueue) {
-      const wakeUpTheRunQueue = this.#wakeUpTheRunQueue;
-      this.#wakeUpTheRunQueue = null;
-      wakeUpTheRunQueue();
+      this.#wakeRunLoop();
     }
   }
 
@@ -710,7 +728,7 @@ export class KernelQueue {
       seq,
       message,
     });
-    this.#wakeTheRunLoop();
+    this.#wakeRunLoop();
     return true;
   }
 

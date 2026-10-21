@@ -2657,8 +2657,6 @@ __metadata:
     "@metamask/superstruct": "npm:^3.4.1"
     "@metamask/utils": "npm:^12.0.0"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -2704,8 +2702,6 @@ __metadata:
     "@metamask/logger": "workspace:^"
     "@metamask/utils": "npm:^12.0.0"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/node": "npm:^22.13.1"
     "@types/serve-handler": "npm:^6"
     "@types/yargs": "npm:^17.0.33"
@@ -2738,7 +2734,7 @@ __metadata:
     vitest: "npm:^4.1.3"
     yargs: "npm:^17.7.2"
   bin:
-    ocap: ./dist/app.mjs
+    ocap: ./dist/app.js
   languageName: unknown
   linkType: soft
 
@@ -2755,8 +2751,6 @@ __metadata:
     "@metamask/superstruct": "npm:^3.4.1"
     "@metamask/utils": "npm:^12.0.0"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -2808,8 +2802,6 @@ __metadata:
     "@metamask/ocap-kernel": "workspace:^"
     "@metamask/streams": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/node": "npm:^22.13.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
@@ -2852,8 +2844,6 @@ __metadata:
     "@metamask/superstruct": "npm:^3.4.1"
     "@metamask/utils": "npm:^12.0.0"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/node": "npm:^22.13.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
@@ -2896,8 +2886,6 @@ __metadata:
     "@metamask/superstruct": "npm:^3.4.1"
     "@metamask/utils": "npm:^12.0.0"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -2972,8 +2960,6 @@ __metadata:
     "@metamask/logger": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
     "@sqlite.org/sqlite-wasm": "npm:^3.49.1-build3"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/better-sqlite3": "npm:^7.6.12"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
@@ -3024,8 +3010,6 @@ __metadata:
     "@testing-library/jest-dom": "npm:^6.6.3"
     "@testing-library/react": "npm:^16.3.0"
     "@testing-library/user-event": "npm:^14.6.1"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/chrome": "npm:^0.0.313"
     "@types/react": "npm:^18.3.18"
     "@types/react-dom": "npm:^18.3.5"
@@ -3093,8 +3077,6 @@ __metadata:
     "@metamask/utils": "npm:^12.0.0"
     "@multiformats/multiaddr": "npm:^13.0.1"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/setimmediate": "npm:^1.0.4"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
@@ -3161,8 +3143,6 @@ __metadata:
     "@metamask/streams": "workspace:^"
     "@metamask/utils": "npm:^12.0.0"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -3285,8 +3265,6 @@ __metadata:
     "@multiformats/multiaddr": "npm:^13.0.1"
     "@ocap/repo-tools": "workspace:^"
     "@scure/bip39": "npm:^2.0.1"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/setimmediate": "npm:^1.0.4"
     "@typescript-eslint/utils": "npm:^8.29.0"
     "@vitest/eslint-plugin": "npm:^1.6.14"
@@ -3508,8 +3486,6 @@ __metadata:
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/superstruct": "npm:^3.4.1"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -3549,8 +3525,6 @@ __metadata:
     "@metamask/kernel-shims": "workspace:^"
     "@metamask/kernel-utils": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -3692,8 +3666,6 @@ __metadata:
     "@metamask/superstruct": "npm:^3.4.1"
     "@metamask/utils": "npm:^12.0.0"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/chrome": "npm:^0.0.313"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
@@ -4125,8 +4097,6 @@ __metadata:
     "@metamask/eslint-config-nodejs": "npm:^15.0.1"
     "@metamask/eslint-config-typescript": "npm:^15.0.1"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -4162,8 +4132,6 @@ __metadata:
     "@metamask/eslint-config-typescript": "npm:^15.0.1"
     "@metamask/utils": "npm:^12.0.0"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/node": "npm:^22.13.1"
     "@types/yargs": "npm:^17.0.33"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
@@ -4216,8 +4184,6 @@ __metadata:
     "@noble/ciphers": "npm:^1.3.0"
     "@noble/hashes": "npm:^1.8.0"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -4315,8 +4281,6 @@ __metadata:
     "@metamask/logger": "workspace:^"
     "@ocap/kernel-agents": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/node": "npm:^22.13.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
@@ -4360,8 +4324,6 @@ __metadata:
     "@metamask/logger": "workspace:^"
     "@ocap/kernel-language-model-service": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/node": "npm:^22.13.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
@@ -4403,8 +4365,6 @@ __metadata:
     "@metamask/streams": "workspace:^"
     "@metamask/superstruct": "npm:^3.4.1"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/chrome": "npm:^0.0.313"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
@@ -4538,8 +4498,6 @@ __metadata:
     "@metamask/eslint-config-typescript": "npm:^15.0.1"
     "@metamask/superstruct": "npm:^3.4.1"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/node": "npm:^22.13.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
@@ -4563,7 +4521,7 @@ __metadata:
     vite: "npm:^8.0.6"
     vitest: "npm:^4.1.3"
   bin:
-    ocap-llm-bridge: ./dist/index.mjs
+    ocap-llm-bridge: ./dist/index.js
   languageName: unknown
   linkType: soft
 
@@ -4582,8 +4540,6 @@ __metadata:
     "@metamask/eslint-config-typescript": "npm:^15.0.1"
     "@metamask/eslint-config-vitest": "npm:^15.0.1"
     "@metamask/kernel-cli": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@types/lodash": "npm:^4.17.16"
     "@types/node": "npm:^22.13.1"
     "@types/setimmediate": "npm:^1.0.4"
@@ -4640,8 +4596,6 @@ __metadata:
     "@metamask/logger": "workspace:^"
     "@metamask/ocap-kernel": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -4680,8 +4634,6 @@ __metadata:
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/ocap-kernel": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -4787,8 +4739,6 @@ __metadata:
     "@metamask/eslint-config-nodejs": "npm:^15.0.1"
     "@metamask/eslint-config-typescript": "npm:^15.0.1"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -4863,8 +4813,6 @@ __metadata:
     "@metamask/ocap-kernel": "workspace:^"
     "@metamask/service-discovery-types": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -4903,8 +4851,6 @@ __metadata:
     "@metamask/ocap-kernel": "workspace:^"
     "@metamask/service-discovery-types": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -4939,8 +4885,6 @@ __metadata:
     "@metamask/eslint-config-nodejs": "npm:^15.0.1"
     "@metamask/eslint-config-typescript": "npm:^15.0.1"
     "@ocap/repo-tools": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.6.3"
-    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -5935,37 +5879,6 @@ __metadata:
   peerDependencies:
     "@testing-library/dom": ">=7.21.4"
   checksum: 10/34b74fff56a0447731a94b40d4cf246deb8dbc1c1e3aec93acd1c3377a760bb062e979f1572bb34ec164ad28ee2a391744b42d0d6d6cc16c4ce527e5e09610e1
-  languageName: node
-  linkType: hard
-
-"@ts-bridge/cli@npm:^0.6.3":
-  version: 0.6.3
-  resolution: "@ts-bridge/cli@npm:0.6.3"
-  dependencies:
-    "@ts-bridge/resolver": "npm:^0.2.0"
-    chalk: "npm:^5.3.0"
-    cjs-module-lexer: "npm:^1.3.1"
-    yargs: "npm:^17.7.2"
-  peerDependencies:
-    typescript: ">=4.8.0"
-  bin:
-    ts-bridge: ./dist/index.js
-    tsbridge: ./dist/index.js
-  checksum: 10/01cba56ff0f097ca0ef15b79cff80a6be07b7f237e7153f63f7a9acf911583d0a410385fa1711d7b14e3a5e95fed63310b6a743700e7ecc0dd3a2d97a0df75b3
-  languageName: node
-  linkType: hard
-
-"@ts-bridge/resolver@npm:^0.2.0":
-  version: 0.2.0
-  resolution: "@ts-bridge/resolver@npm:0.2.0"
-  checksum: 10/d4cfd1f47e9648a5f9c893b1b076adabde3a57cbe81ef823bcbbcc77a122fb6f06d99f40ff48198f8dc766bfc4b3b351d4e87cfcf2db64f7e6db924eb82a5db1
-  languageName: node
-  linkType: hard
-
-"@ts-bridge/shims@npm:^0.1.1":
-  version: 0.1.1
-  resolution: "@ts-bridge/shims@npm:0.1.1"
-  checksum: 10/df15df15450f0a6305033655a0afa2458a76362d644eab046d9899b9dc9ba200023144dc8d80040f68cd74f12ba4f2da2ea2c4c950d552ff66688eccd658e2f0
   languageName: node
   linkType: hard
 
@@ -7994,7 +7907,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"chalk@npm:^5.3.0, chalk@npm:^5.4.1":
+"chalk@npm:^5.4.1":
   version: 5.4.1
   resolution: "chalk@npm:5.4.1"
   checksum: 10/29df3ffcdf25656fed6e95962e2ef86d14dfe03cd50e7074b06bad9ffbbf6089adbb40f75c00744d843685c8d008adaf3aed31476780312553caf07fa86e5bc7
@@ -8090,7 +8003,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cjs-module-lexer@npm:^1.2.3, cjs-module-lexer@npm:^1.3.1":
+"cjs-module-lexer@npm:^1.2.3":
   version: 1.4.3
   resolution: "cjs-module-lexer@npm:1.4.3"
   checksum: 10/d2b92f919a2dedbfd61d016964fce8da0035f827182ed6839c97cac56e8a8077cfa6a59388adfe2bc588a19cef9bbe830d683a76a6e93c51f65852062cfe2591

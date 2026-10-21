@@ -5,7 +5,6 @@
     "jsxImportSource": "react",
     "allowJs": true,
     "baseUrl": "./",
-    "emitDeclarationOnly": false,
     "lib": ["DOM", "ES2022"],
     "noEmit": true,
     "rootDir": "./src",
