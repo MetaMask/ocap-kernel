@@ -16,7 +16,7 @@ Development workflows:
   - `build`, `build:dev`, `test:dev`, and `test:dev:quiet` from root are cached using Turborepo (`turbo`)
     - No other scripts use `turbo`
 - When adding another monorepo package as a dependency, also add it to
-  `references` in both `tsconfig.json` and `tsconfig.build.json`
+  `references` in its `tsconfig.build.json`
 
 General conventions:
 

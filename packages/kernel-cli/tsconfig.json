@@ -2,14 +2,8 @@
   "extends": "../../tsconfig.packages.json",
   "compilerOptions": {
     "lib": ["ES2022"],
-    "types": ["ses", "vitest", "node"],
-    "noEmit": true
+    "types": ["ses", "vitest", "node"]
   },
-  "references": [
-    { "path": "../logger" },
-    { "path": "../repo-tools" },
-    { "path": "../kernel-utils" }
-  ],
   "include": [
     "../../vitest.config.ts",
     "./src/**/*.ts",

@@ -13,7 +13,6 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 
 const PACKAGE_TEMPLATE_DIR = path.join(currentDir, '../../template-package');
 const REPO_ROOT = path.join(currentDir, '..', '..', '..');
-const REPO_TS_CONFIG = path.join(REPO_ROOT, MonorepoFile.TsConfig);
 const REPO_TS_CONFIG_BUILD = path.join(REPO_ROOT, MonorepoFile.TsConfigBuild);
 const PACKAGES_PATH = path.join(REPO_ROOT, 'packages');
 
@@ -36,7 +35,6 @@ export type PackageData = Readonly<{
  * Data parsed from relevant monorepo files.
  */
 export type MonorepoFileData = {
-  tsConfig: Tsconfig;
   tsConfigBuild: Tsconfig;
 };
 
@@ -54,13 +52,9 @@ type Tsconfig = {
  * @returns A map of file paths to file contents.
  */
 export async function readMonorepoFiles(): Promise<MonorepoFileData> {
-  const [tsConfig, tsConfigBuild] = await Promise.all([
-    fs.readFile(REPO_TS_CONFIG, 'utf-8'),
-    fs.readFile(REPO_TS_CONFIG_BUILD, 'utf-8'),
-  ]);
+  const tsConfigBuild = await fs.readFile(REPO_TS_CONFIG_BUILD, 'utf-8');
 
   return {
-    tsConfig: JSON.parse(tsConfig) as Tsconfig,
     tsConfigBuild: JSON.parse(tsConfigBuild) as Tsconfig,
   };
 }
@@ -90,10 +84,6 @@ export async function finalizeAndWriteData(
 
   // Write monorepo files
   updateTsConfigs(packageData, monorepoFileData);
-  await writeJsonFile(
-    REPO_TS_CONFIG,
-    JSON.stringify(monorepoFileData.tsConfig),
-  );
   await writeJsonFile(
     REPO_TS_CONFIG_BUILD,
     JSON.stringify(monorepoFileData.tsConfigBuild),
@@ -173,12 +163,7 @@ function updateTsConfigs(
   packageData: PackageData,
   monorepoFileData: MonorepoFileData,
 ): void {
-  const { tsConfig, tsConfigBuild } = monorepoFileData;
-
-  tsConfig.references.push({
-    path: `./${path.basename(PACKAGES_PATH)}/${packageData.directoryName}`,
-  });
-  tsConfig.references.sort((a, b) => a.path.localeCompare(b.path));
+  const { tsConfigBuild } = monorepoFileData;
 
   tsConfigBuild.references.push({
     path: `./${path.basename(PACKAGES_PATH)}/${

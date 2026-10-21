@@ -3,6 +3,7 @@
   "compilerOptions": {
     "module": "Preserve",
     "moduleResolution": "Bundler",
+    "noEmit": true,
     /**
      * Here we ensure that TypeScript resolves `@ocap/*` imports to the
      * uncompiled source code for packages that live in this repo.
