@@ -223,7 +223,7 @@ describe('PlatformServicesServer', () => {
       logger = new Logger('test-server');
       stream = await TestDuplexStream.make(() => undefined);
       await stream.synchronize();
-      // eslint-disable-next-line no-new
+      // oxlint-disable-next-line no-new
       new PlatformServicesServer(
         stream as unknown as PlatformServicesStream,
         makeMockVatWorker,
@@ -252,7 +252,7 @@ describe('PlatformServicesServer', () => {
         outputs.push(message);
       });
       await testStream.synchronize();
-      // eslint-disable-next-line no-new
+      // oxlint-disable-next-line no-new
       new PlatformServicesServer(
         testStream as unknown as PlatformServicesStream,
         makeMockVatWorker,
@@ -518,7 +518,7 @@ describe('PlatformServicesServer', () => {
             outputs.push(message);
           });
           await testStream.synchronize();
-          // eslint-disable-next-line no-new
+          // oxlint-disable-next-line no-new
           new PlatformServicesServer(
             testStream as unknown as PlatformServicesStream,
             makeMockVatWorker,
@@ -574,7 +574,7 @@ describe('PlatformServicesServer', () => {
             outputs.push(message);
           });
           await testStream.synchronize();
-          // eslint-disable-next-line no-new
+          // oxlint-disable-next-line no-new
           new PlatformServicesServer(
             testStream as unknown as PlatformServicesStream,
             makeMockVatWorker,
@@ -623,7 +623,7 @@ describe('PlatformServicesServer', () => {
             outputs.push(message);
           });
           await testStream.synchronize();
-          // eslint-disable-next-line no-new
+          // oxlint-disable-next-line no-new
           new PlatformServicesServer(
             testStream as unknown as PlatformServicesStream,
             makeMockVatWorker,
@@ -686,7 +686,7 @@ describe('PlatformServicesServer', () => {
             outputs.push(message);
           });
           await testStream.synchronize();
-          // eslint-disable-next-line no-new
+          // oxlint-disable-next-line no-new
           new PlatformServicesServer(
             testStream as unknown as PlatformServicesStream,
             makeMockVatWorker,

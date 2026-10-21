@@ -1,4 +1,4 @@
-/* eslint-disable n/no-process-env */
+/* oxlint-disable node/no-process-env */
 import { mnemonicToAccount } from 'viem/accounts';
 import { beforeAll, describe, expect, it } from 'vitest';
 

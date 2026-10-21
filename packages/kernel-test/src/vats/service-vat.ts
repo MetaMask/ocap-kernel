@@ -15,14 +15,14 @@ type TestService = { getStuff: (obj: unknown, tag: string) => string };
  * @param parameters.name - The name of the vat.
  * @returns The root object for the new vat.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function buildRootObject(
   vatPowers: TestPowers,
   parameters: { name?: string } = {},
 ) {
   const name = parameters?.name ?? 'anonymous';
   const tlog = unwrapTestLogger(vatPowers, name);
-  // eslint-disable-next-line no-console
+  // oxlint-disable-next-line no-console
   console.log(`buildRootObject "${name}"`);
 
   const thing = makeDefaultExo('thing', {});

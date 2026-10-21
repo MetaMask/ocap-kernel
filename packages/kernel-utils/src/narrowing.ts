@@ -68,7 +68,7 @@ const provenance = new WeakMap<object, Provenance>();
 const makeForwarder =
   (target: object, methodName: string) =>
   async (...args: unknown[]): Promise<unknown> => {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    // oxlint-disable-next-line typescript/no-non-null-assertion
     return E(target as Forwardable)[methodName]!(...args);
   };
 

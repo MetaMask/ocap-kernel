@@ -18,7 +18,7 @@ import type {
 
 // Thin cast for calling exo methods directly in tests without going through
 // HandledPromise (which is not available in the test environment).
-// eslint-disable-next-line id-length
+// oxlint-disable-next-line id-length
 const E = (obj: unknown) =>
   obj as Record<
     'f' | 'getBalance' | 'transfer' | typeof GET_DESCRIPTION,
@@ -51,7 +51,7 @@ const buildUnionSection = <MetaData extends Record<string, unknown>>(
 describe('sheafify', () => {
   it('single-section bypass: policy not invoked', async () => {
     let policyCalled = false;
-    // eslint-disable-next-line require-yield
+    // oxlint-disable-next-line require-yield
     const policy: Policy<{ cost: number }> = async function* (_candidates) {
       policyCalled = true;
       // unreachable — fast path bypasses policy for single section
@@ -138,7 +138,7 @@ describe('sheafify', () => {
     expect(await E(wallet).getBalance('alice')).toBe(42);
   });
 
-  // eslint-disable-next-line vitest/prefer-lowercase-title
+  // oxlint-disable-next-line vitest/prefer-lowercase-title
   it('GET_INTERFACE_GUARD returns collected guard', () => {
     const providers: Provider<{ cost: number }>[] = [
       {
@@ -451,7 +451,7 @@ describe('sheafify', () => {
     const wallet = buildUnionSection<Meta>(
       'Wallet',
       providers,
-      // eslint-disable-next-line require-yield
+      // oxlint-disable-next-line require-yield
       async function* (_candidates) {
         policyCalled = true;
       },
@@ -619,7 +619,7 @@ describe('sheafify', () => {
     const wallet = buildUnionSection<Meta>(
       'Wallet',
       providers,
-      // eslint-disable-next-line require-yield
+      // oxlint-disable-next-line require-yield
       async function* (_candidates) {
         policyCalled = true;
       },

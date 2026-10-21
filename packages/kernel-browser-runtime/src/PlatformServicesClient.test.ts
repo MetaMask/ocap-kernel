@@ -11,7 +11,7 @@ import type { PlatformServicesClientStream } from './PlatformServicesClient.ts';
 import { PlatformServicesClient } from './PlatformServicesClient.ts';
 
 vi.mock('@metamask/streams/browser', async (importOriginal) => {
-  // eslint-disable-next-line @typescript-eslint/no-shadow
+  // oxlint-disable-next-line typescript/no-shadow
   const { TestDuplexStream } =
     await import('@ocap/repo-tools/test-utils/streams');
 
@@ -150,7 +150,7 @@ describe('PlatformServicesClient', () => {
       const newStream = await TestDuplexStream.make((message) => {
         outputs.push(message as unknown as MessageEventWithPayload);
       });
-      // eslint-disable-next-line no-new -- test setup
+      // oxlint-disable-next-line no-new -- test setup
       new PlatformServicesClient(
         newStream as unknown as PlatformServicesClientStream,
       );
@@ -358,7 +358,7 @@ describe('PlatformServicesClient', () => {
           const newStream = await TestDuplexStream.make((message) => {
             outputs.push(message as unknown as MessageEventWithPayload);
           });
-          // eslint-disable-next-line no-new -- test setup
+          // oxlint-disable-next-line no-new -- test setup
           new PlatformServicesClient(
             newStream as unknown as PlatformServicesClientStream,
           );
@@ -485,7 +485,7 @@ describe('PlatformServicesClient', () => {
           const newStream = await TestDuplexStream.make((message) => {
             outputs.push(message as unknown as MessageEventWithPayload);
           });
-          // eslint-disable-next-line no-new -- test setup
+          // oxlint-disable-next-line no-new -- test setup
           new PlatformServicesClient(
             newStream as unknown as PlatformServicesClientStream,
           );
@@ -572,7 +572,7 @@ describe('PlatformServicesClient', () => {
           const newStream = await TestDuplexStream.make((message) => {
             outputs.push(message as unknown as MessageEventWithPayload);
           });
-          // eslint-disable-next-line no-new -- test setup
+          // oxlint-disable-next-line no-new -- test setup
           new PlatformServicesClient(
             newStream as unknown as PlatformServicesClientStream,
           );

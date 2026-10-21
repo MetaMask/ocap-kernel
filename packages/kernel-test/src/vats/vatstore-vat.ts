@@ -21,14 +21,14 @@ type BaggageWithDelete = Baggage & {
  * @param baggage - Root of vat's persistent state.
  * @returns The root object for the new vat.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function buildRootObject(
   _vatPowers: unknown,
   parameters: { name?: string },
   baggage: BaggageWithDelete,
 ) {
   const name = parameters?.name ?? 'anonymous';
-  // eslint-disable-next-line no-console
+  // oxlint-disable-next-line no-console
   console.log(`buildRootObject "${name}"`);
 
   const testKey1 = 'thing';
@@ -36,7 +36,7 @@ export function buildRootObject(
 
   return makeDefaultExo('root', {
     async bootstrap(vats: { bob: Peer; carol: Peer; alice: Peer }) {
-      // eslint-disable-next-line no-console
+      // oxlint-disable-next-line no-console
       console.log(`vat ${name} is bootstrap`);
       if (!baggage.has(testKey1)) {
         baggage.init(testKey1, 1);
@@ -44,9 +44,9 @@ export function buildRootObject(
       baggage.init(testKey2, 'now you see me');
       const pb = E(vats.bob).go(name, vats.alice);
       const pc = E(vats.carol).go(name, vats.alice);
-      // eslint-disable-next-line no-console
+      // oxlint-disable-next-line no-console
       console.log(`vat ${name} got "go" answer from Bob: '${await pb}'`);
-      // eslint-disable-next-line no-console
+      // oxlint-disable-next-line no-console
       console.log(`vat ${name} got "go" answer from Carol: '${await pc}'`);
       baggage.delete(testKey2);
       await E(vats.bob).loopback();
@@ -54,14 +54,14 @@ export function buildRootObject(
     bump(bumper: string) {
       const value = baggage.get(testKey1) as number;
       baggage.set(testKey1, value + 1);
-      // eslint-disable-next-line no-console
+      // oxlint-disable-next-line no-console
       console.log(`${bumper} bumps ${testKey1} from ${value} to ${value + 1}`);
     },
     go(from: string, bumpee: Peer) {
       const message = `vat ${name} got "go" from ${from}`;
-      // eslint-disable-next-line no-console
+      // oxlint-disable-next-line no-console
       console.log(message);
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- `go` does not wait for the bump
+      // oxlint-disable-next-line typescript/no-floating-promises -- `go` does not wait for the bump
       E(bumpee).bump(name);
       return message;
     },

@@ -116,7 +116,7 @@ type VatPowers = {
  * @returns The vat root exo, exposing `bootstrap`, `getPublicFacet`,
  * `getMatcherUrl`, `listAll`, and `unregister`.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function buildRootObject(
   vatPowers: VatPowers,
   _parameters: Record<string, unknown>,
@@ -137,7 +137,7 @@ export function buildRootObject(
   const log = (...args: unknown[]): void => {
     // Forwarded to the daemon's log file via the kernel's console
     // plumbing. Prefix tags the source so it's easy to grep.
-    // eslint-disable-next-line no-console
+    // oxlint-disable-next-line no-console
     console.log('[matcher]', ...args);
   };
 

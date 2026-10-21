@@ -109,7 +109,7 @@ function resolveConfig<Type>(options: {
   envVar: string;
   parse?: (value: string) => Type;
 }): Type | undefined {
-  // eslint-disable-next-line n/no-process-env
+  // oxlint-disable-next-line node/no-process-env
   const envValue = process.env[options.envVar];
   if (envValue !== undefined && envValue !== '') {
     return options.parse ? options.parse(envValue) : (envValue as Type);
@@ -163,7 +163,7 @@ function register(api: OpenClawPluginApi): void {
 
   const state = createState();
   if (resetState) {
-    // eslint-disable-next-line no-console
+    // oxlint-disable-next-line no-console
     console.info('[discovery plugin] State reset enabled — starting clean.');
   }
 
@@ -190,7 +190,7 @@ function register(api: OpenClawPluginApi): void {
     const pending = daemon.redeemUrl(preconfiguredMatcherUrl).then((kref) => {
       const entry = { url: preconfiguredMatcherUrl, kref };
       state.matcher = { status: 'resolved', entry };
-      // eslint-disable-next-line no-console
+      // oxlint-disable-next-line no-console
       console.info(`[discovery plugin] Pre-redeemed matcher URL; kref=${kref}`);
       return entry;
     });
@@ -209,7 +209,7 @@ function register(api: OpenClawPluginApi): void {
       ) {
         state.matcher = { status: 'absent' };
       }
-      // eslint-disable-next-line no-console
+      // oxlint-disable-next-line no-console
       console.warn(
         '[discovery plugin] Failed to pre-redeem matcher URL:',
         error,
