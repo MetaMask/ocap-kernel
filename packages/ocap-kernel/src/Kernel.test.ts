@@ -82,6 +82,8 @@ const mocks = vi.hoisted(() => {
 
     discardHeldRequests = vi.fn();
 
+    discardArrivals = vi.fn();
+
     enqueueTerminateVat = vi.fn((vatId: string, reason?: unknown) => {
       this.#deliverLater({
         type: 'terminateVat',
@@ -528,6 +530,17 @@ describe('Kernel', () => {
       await kernel.clearStorage();
       expect(clearSpy).toHaveBeenCalledOnce();
     });
+
+    it("discards the peers' arrivals", async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.clearStorage();
+      expect(
+        mocks.KernelQueue.lastInstance.discardArrivals,
+      ).toHaveBeenCalledOnce();
+    });
   });
 
   describe('getVats()', () => {
@@ -824,6 +837,17 @@ describe('Kernel', () => {
   });
 
   describe('stop()', () => {
+    it("leaves the peers' arrivals for the run loop", async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.stop();
+      expect(
+        mocks.KernelQueue.lastInstance.discardArrivals,
+      ).not.toHaveBeenCalled();
+    });
+
     it('gracefully stops the kernel without terminating vats', async () => {
       const workerTerminateAllMock = vi
         .spyOn(mockPlatformServices, 'terminateAll')
@@ -1081,6 +1105,17 @@ describe('Kernel', () => {
       await kernel.reset();
       expect(clearSpy).toHaveBeenCalled();
       expect(kernel.getVatIds()).toHaveLength(0);
+    });
+
+    it("discards the peers' arrivals", async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        makeMapKernelDatabase(),
+      );
+      await kernel.reset();
+      expect(
+        mocks.KernelQueue.lastInstance.discardArrivals,
+      ).toHaveBeenCalledOnce();
     });
 
     it('clears system subcluster roots', async () => {

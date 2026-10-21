@@ -860,6 +860,16 @@ describe('KernelQueue', () => {
       expect(await deliverItems(1)).toStrictEqual([arrival(3, 'r2')]);
     });
 
+    it('discards every arrival', async () => {
+      arrive({ seq: 1 });
+      arrive({ seq: 1, remoteId: 'r2' });
+
+      kernelQueue.discardArrivals();
+      arrive({ seq: 2 });
+
+      expect(await deliverItems(1)).toStrictEqual([arrival(2)]);
+    });
+
     it('wakes a parked run loop when a message arrives', async () => {
       (kernelStore.runQueueLength as unknown as MockInstance).mockReturnValue(
         0,
@@ -930,7 +940,7 @@ describe('KernelQueue', () => {
       expect(await deliverItems(1)).toStrictEqual([arrival(6)]);
     });
 
-    it('gives no slot to a copy whose original has committed since', () => {
+    it('stops counting held arrivals against the cap once a committed crank has passed their seq', () => {
       for (let seq = 1; seq <= 200; seq += 1) {
         arrive({ seq });
       }

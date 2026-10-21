@@ -637,6 +637,7 @@ describe('RemoteHandle', () => {
     expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith(
       remote.remoteId,
       [[promiseKRef, false, { body: '"resolved value"', slots: [] }]],
+      false,
     );
   });
 

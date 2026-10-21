@@ -1209,7 +1209,9 @@ export class RemoteHandle implements RemoteEndpointHandle {
             ];
           },
         );
-        this.#kernelQueue.resolvePromises(this.remoteId, kResolutions);
+        // Buffered for the crank's flush, so a host caller hears nothing an
+        // abort takes back.
+        this.#kernelQueue.resolvePromises(this.remoteId, kResolutions, false);
         break;
       }
       case 'dropExports': {

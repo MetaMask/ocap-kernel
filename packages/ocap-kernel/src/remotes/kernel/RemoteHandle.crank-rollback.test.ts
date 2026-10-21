@@ -1,9 +1,12 @@
+import type { CapData } from '@endo/marshal';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { RemoteHandle } from './RemoteHandle.ts';
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
+import { KernelQueue } from '../../KernelQueue.ts';
 import { makeKernelStore } from '../../store/index.ts';
+import type { KRef } from '../../types.ts';
 import type { RemoteComms } from '../types.ts';
 
 const REMOTE_ID = 'r0';
@@ -17,9 +20,13 @@ const ACK_TIMEOUT_MS = 100;
  * previous incarnation left behind.
  *
  * @param kernelStore - The store to restore from.
+ * @param kernelQueue - The run loop, if not a mock.
  * @returns The handle and the comms its sends land in.
  */
-function startOver(kernelStore: ReturnType<typeof makeKernelStore>): {
+function startOver(
+  kernelStore: ReturnType<typeof makeKernelStore>,
+  kernelQueue?: KernelQueue,
+): {
   remote: RemoteHandle;
   remoteComms: RemoteComms;
 } {
@@ -32,7 +39,7 @@ function startOver(kernelStore: ReturnType<typeof makeKernelStore>): {
     remoteId: REMOTE_ID,
     peerId: PEER_ID,
     kernelStore,
-    kernelQueue: factory.makeMockKernelQueue(),
+    kernelQueue: kernelQueue ?? factory.makeMockKernelQueue(),
     remoteComms,
     ackTimeoutMs: ACK_TIMEOUT_MS,
   });
@@ -169,6 +176,27 @@ function fromPeer(seq: number): string {
     seq,
     method: 'deliver',
     params: ['bringOutYourDead'],
+  });
+}
+
+/**
+ * A request from the peer to redeem a URL for an object the kernel has.
+ *
+ * @param kernelStore - The store holding the object.
+ * @param remoteComms - The comms that resolve the URL to it.
+ * @returns The request, as it arrives.
+ */
+function redeemRequest(
+  kernelStore: ReturnType<typeof makeKernelStore>,
+  remoteComms: RemoteComms,
+): string {
+  vi.mocked(remoteComms.redeemLocalOcapURL).mockResolvedValue(
+    kernelStore.initKernelObject('kernel'),
+  );
+  return JSON.stringify({
+    seq: 1,
+    method: 'redeemURL',
+    params: ['ocap:abc123@me', 'replyKey'],
   });
 }
 
@@ -406,6 +434,22 @@ describe('RemoteHandle across a crank boundary', () => {
       const [, sent] = vi.mocked(remoteComms.sendRemoteMessage).mock.calls[0]!;
       expect(JSON.parse(sent).ack).toBeUndefined();
     });
+
+    it('gets no redeemURL reply', async () => {
+      const { remote, kernelStore, remoteComms } =
+        await makeRemoteOverRealStore();
+
+      await takeInbound({
+        remote,
+        kernelStore,
+        message: redeemRequest(kernelStore, remoteComms),
+        rollBack: true,
+      });
+      await drainMicrotasks();
+
+      expect(sentSeqs(remoteComms)).toStrictEqual([]);
+      expect(kernelStore.getPendingMessage(REMOTE_ID, 1)).toBeUndefined();
+    });
   });
 
   describe('an inbound message whose crank commits', () => {
@@ -430,27 +474,6 @@ describe('RemoteHandle across a crank boundary', () => {
       kernelStore.endCrank();
     }
 
-    /**
-     * A request from the peer to redeem a URL for an object the kernel has.
-     *
-     * @param kernelStore - The store holding the object.
-     * @param remoteComms - The comms that resolve the URL to it.
-     * @returns The request, as it arrives.
-     */
-    function redeemRequest(
-      kernelStore: ReturnType<typeof makeKernelStore>,
-      remoteComms: RemoteComms,
-    ): string {
-      vi.mocked(remoteComms.redeemLocalOcapURL).mockResolvedValue(
-        kernelStore.initKernelObject('kernel'),
-      );
-      return JSON.stringify({
-        seq: 1,
-        method: 'redeemURL',
-        params: ['ocap:abc123@me', 'replyKey'],
-      });
-    }
-
     it('is a duplicate to a kernel that restarts before its post-commit work', async () => {
       const { remote, kernelStore } = await makeRemoteOverRealStore();
 
@@ -464,22 +487,6 @@ describe('RemoteHandle across a crank boundary', () => {
           message: fromPeer(1),
         }),
       ).toBe(false);
-    });
-
-    it('sends no redeemURL reply when the crank rolls back instead', async () => {
-      const { remote, kernelStore, remoteComms } =
-        await makeRemoteOverRealStore();
-
-      await takeInbound({
-        remote,
-        kernelStore,
-        message: redeemRequest(kernelStore, remoteComms),
-        rollBack: true,
-      });
-      await drainMicrotasks();
-
-      expect(sentSeqs(remoteComms)).toStrictEqual([]);
-      expect(kernelStore.getPendingMessage(REMOTE_ID, 1)).toBeUndefined();
     });
 
     it('leaves its redeemURL reply for a kernel that restarts before sending it', async () => {
@@ -503,6 +510,89 @@ describe('RemoteHandle across a crank boundary', () => {
           .mocked(restartedComms.sendRemoteMessage)
           .mock.calls.map(([, sent]) => JSON.parse(sent).method),
       ).toStrictEqual(['redeemURLReply', 'deliver']);
+    });
+  });
+
+  describe('a notify from the peer', () => {
+    const answer: CapData<KRef> = { body: '#"answer"', slots: [] };
+    const stop = new Error('test: stop run loop');
+
+    /**
+     * Have the peer resolve a promise a host caller waits on, with a real run
+     * loop taking delivery, then send a message whose crank commits.
+     *
+     * @param options - Options bag.
+     * @param options.abort - Whether the notify resolves the promise twice,
+     * which fails and aborts its crank.
+     * @returns What the caller heard, and what failed in a crank.
+     */
+    async function resolveFromThePeer({ abort }: { abort: boolean }): Promise<{
+      heard: unknown;
+      failures: unknown[];
+    }> {
+      const kernelStore = makeKernelStore(
+        await makeSQLKernelDatabase({ dbFilename: ':memory:' }),
+      );
+      kernelStore.initEndpoint(REMOTE_ID);
+      const kernelQueue = new KernelQueue(kernelStore, vi.fn());
+      const { remote } = startOver(kernelStore, kernelQueue);
+      const [kpid] = kernelStore.initKernelPromise();
+      kernelStore.setPromiseDecider(kpid, REMOTE_ID);
+      kernelStore.addCListEntry(REMOTE_ID, kpid, 'rp+1');
+      const heard = new Promise((resolve, reject) => {
+        kernelQueue.subscriptions.set(kpid, { resolve, reject });
+      }).catch((error: unknown) => error);
+
+      const resolution = ['rp+1', false, answer];
+      remote.receiveFromPeer(
+        JSON.stringify({
+          seq: 1,
+          method: 'deliver',
+          params: ['notify', abort ? [resolution, resolution] : [resolution]],
+        }),
+      );
+      // Its crank's flush is where a resolution an abort left behind would
+      // reach the caller.
+      remote.receiveFromPeer(fromPeer(2));
+      const failures: unknown[] = [];
+      const running = kernelQueue.run(async (item) => {
+        // The reap the peer's bringOutYourDead asks for.
+        if (item.type !== 'remoteInbound') {
+          throw stop;
+        }
+        try {
+          return await remote.deliverInbound(item.message);
+        } catch (error) {
+          // What the router does with a message that fails in its crank.
+          failures.push(error);
+          return { didDelivery: REMOTE_ID, abort: true };
+        }
+      });
+      await expect(running).rejects.toBe(stop);
+      return { heard: await heard, failures };
+    }
+
+    it('answers the caller once its crank commits', async () => {
+      expect(await resolveFromThePeer({ abort: false })).toStrictEqual({
+        heard: answer,
+        failures: [],
+      });
+    });
+
+    it('does not answer the caller from a crank that rolls back', async () => {
+      expect(await resolveFromThePeer({ abort: true })).toStrictEqual({
+        // Only the run loop's death, which ends the test, answers it.
+        heard: expect.objectContaining({
+          message:
+            'Kernel run loop died; this message result will never be delivered',
+          cause: stop,
+        }),
+        failures: [
+          expect.objectContaining({
+            message: expect.stringContaining('was already resolved'),
+          }),
+        ],
+      });
     });
   });
 

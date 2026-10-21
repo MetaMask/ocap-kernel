@@ -136,8 +136,8 @@ export class KernelQueue {
   }
 
   /**
-   * The kernel's run loop: take an item off the run queue, deliver it,
-   * repeat. Note that this loops forever: the returned promise never resolves.
+   * The kernel's run loop: take an item off the run queue or from the peers'
+   * arrivals, deliver it, repeat. Note that this loops forever: the returned promise never resolves.
    * If it rejects with anything but `run loop already started`, the kernel is
    * dead — see {@link getRunLoopStatus}.
    *
@@ -159,7 +159,8 @@ export class KernelQueue {
   }
 
   /**
-   * Take an item off the run queue, deliver it, repeat.
+   * Take an item off the run queue or from the peers' arrivals, deliver it,
+   * repeat.
    *
    * @param deliver - A function that delivers an item to the kernel.
    */
@@ -658,7 +659,8 @@ export class KernelQueue {
    * A peer retransmits everything unacknowledged on a timeout, and its copies
    * would fill the remote's share and turn away messages it has yet to send.
    * So a copy of a message waiting, or of one a committed crank has taken, is
-   * not held, and a copy held before its original committed takes no slot. A
+   * not held, and a copy held before its original committed stops taking a
+   * slot once it has. A
    * refused message is lost if a later one is taken first, since that one's
    * acknowledgement covers it.
    *
@@ -730,6 +732,19 @@ export class KernelQueue {
     this.#arrivedFromRemotes = this.#arrivedFromRemotes.filter(
       (item) => item.remoteId !== remoteId,
     );
+  }
+
+  /**
+   * Forget every message peers sent that waits for a crank, for a kernel
+   * wiping its store: taken after the wipe, one would record its sequence
+   * number in the wiped store.
+   *
+   * Not for a kernel that is only stopping: its run loop goes on meanwhile,
+   * and a later message that commits would acknowledge a forgotten one, which
+   * the peer then never resends.
+   */
+  discardArrivals(): void {
+    this.#arrivedFromRemotes.length = 0;
   }
 
   /**
@@ -823,10 +838,9 @@ export class KernelQueue {
 
   /**
    * Process a set of promise resolutions coming from an endpoint.
-   * When immediate is false (for vat syscalls), notifications and kernel
-   * subscription callbacks are deferred until the crank buffer is flushed on
-   * successful crank completion. When immediate is true (for remote message
-   * handling), effects are immediate.
+   * Pass `immediate` false from inside a crank: notifications, messages queued
+   * on each promise, and kernel subscription callbacks then wait for the crank
+   * buffer's flush, which an aborted crank skips.
    *
    * @param endpointId - The endpoint doing the resolving, if there is one.
    * @param resolutions - One or more resolutions, to be processed as a group.
