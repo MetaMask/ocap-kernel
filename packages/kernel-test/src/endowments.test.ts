@@ -11,8 +11,8 @@ import {
   makeTestLogger,
 } from './utils.ts';
 
-const vatId: VatId = 'v1';
-const v1Root: KRef = 'ko4';
+const vatId = 'v1' as VatId;
+const v1Root = 'ko4' as KRef;
 const goodHost = 'good-url.test';
 const badHost = 'bad-url.test';
 

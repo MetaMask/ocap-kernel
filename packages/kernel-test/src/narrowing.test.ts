@@ -316,7 +316,11 @@ describe('narrowing', () => {
       rule: { methods: ['POST'] },
       listPort: false,
     },
-  ])('scopes http by a rule with $name', async ({ name, rule, listPort }) => {
+  ] as {
+    name: string;
+    rule: { protocol?: 'http' | 'https'; ports?: number[]; methods?: string[] };
+    listPort: boolean;
+  }[])('scopes http by a rule with $name', async ({ name, rule, listPort }) => {
     const options = await serveLocally();
     const kernel = await launchNarrowingVat({
       http: {

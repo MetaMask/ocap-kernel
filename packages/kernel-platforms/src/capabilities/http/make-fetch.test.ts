@@ -1,7 +1,7 @@
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { makeFetch } from './make-fetch.ts';
-import type { HttpOptions, HttpResponse } from './types.ts';
+import type { HttpCapability, HttpOptions, HttpResponse } from './types.ts';
 
 vi.mock('@endo/eventual-send', () => ({
   E: (target: Record<string, (...args: unknown[]) => unknown>) =>
@@ -36,7 +36,7 @@ const makeHttp = (...replies: Reply[]) => {
       };
     },
   );
-  return { http: { request }, request };
+  return { http: { request } as unknown as HttpCapability, request };
 };
 
 const redirectTo = (status: number, location: string): Reply => ({

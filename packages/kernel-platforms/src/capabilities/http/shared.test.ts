@@ -1,6 +1,6 @@
 import { GET_INTERFACE_GUARD } from '@endo/exo';
 import { getInterfaceGuardPayload, M, matches } from '@endo/patterns';
-import type { MethodGuard } from '@endo/patterns';
+import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
 import { join, narrow, pathUnder } from '@metamask/kernel-utils';
 import type { NarrowingDelta } from '@metamask/kernel-utils';
 import { describe, expect, it, vi } from 'vitest';
@@ -139,7 +139,7 @@ describe('fromUrl', () => {
         toUrl({
           host: parts.host,
           path: parts.path,
-          ...(parts.options as Parameters<typeof toUrl>[0]),
+          ...(parts.options as HttpOptions),
         }),
       ),
     ).toStrictEqual(parts);
@@ -490,7 +490,7 @@ describe('makeHttpBase', () => {
   it('guards host, path and options, all required', () => {
     const base = makeHttpBase(makeBaseFetch());
     const { methodGuards } = getInterfaceGuardPayload(
-      base[GET_INTERFACE_GUARD](),
+      (base[GET_INTERFACE_GUARD] as () => InterfaceGuard)(),
     ) as unknown as { methodGuards: Record<string, MethodGuard> };
 
     expect(Object.keys(methodGuards)).toStrictEqual(['request']);
