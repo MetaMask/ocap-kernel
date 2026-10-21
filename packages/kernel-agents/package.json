@@ -14,132 +14,60 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./json": {
-      "import": {
-        "types": "./dist/strategies/json-agent.d.mts",
-        "default": "./dist/strategies/json-agent.mjs"
-      },
-      "require": {
-        "types": "./dist/strategies/json-agent.d.cts",
-        "default": "./dist/strategies/json-agent.cjs"
-      }
+      "types": "./dist/strategies/json-agent.d.ts",
+      "default": "./dist/strategies/json-agent.js"
     },
     "./chat": {
-      "import": {
-        "types": "./dist/strategies/chat-agent.d.mts",
-        "default": "./dist/strategies/chat-agent.mjs"
-      },
-      "require": {
-        "types": "./dist/strategies/chat-agent.d.cts",
-        "default": "./dist/strategies/chat-agent.cjs"
-      }
+      "types": "./dist/strategies/chat-agent.d.ts",
+      "default": "./dist/strategies/chat-agent.js"
     },
     "./agent": {
-      "import": {
-        "types": "./dist/agent.d.mts",
-        "default": "./dist/agent.mjs"
-      },
-      "require": {
-        "types": "./dist/agent.d.cts",
-        "default": "./dist/agent.cjs"
-      }
+      "types": "./dist/agent.d.ts",
+      "default": "./dist/agent.js"
     },
     "./types": {
-      "import": {
-        "types": "./dist/types.d.mts",
-        "default": "./dist/types.mjs"
-      },
-      "require": {
-        "types": "./dist/types.d.cts",
-        "default": "./dist/types.cjs"
-      }
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
     },
     "./types/messages": {
-      "import": {
-        "types": "./dist/types/messages.d.mts",
-        "default": "./dist/types/messages.mjs"
-      },
-      "require": {
-        "types": "./dist/types/messages.d.cts",
-        "default": "./dist/types/messages.cjs"
-      }
+      "types": "./dist/types/messages.d.ts",
+      "default": "./dist/types/messages.js"
     },
     "./utils": {
-      "import": {
-        "types": "./dist/utils.d.mts",
-        "default": "./dist/utils.mjs"
-      },
-      "require": {
-        "types": "./dist/utils.d.cts",
-        "default": "./dist/utils.cjs"
-      }
+      "types": "./dist/utils.d.ts",
+      "default": "./dist/utils.js"
     },
     "./capabilities/capability": {
-      "import": {
-        "types": "./dist/capabilities/capability.d.mts",
-        "default": "./dist/capabilities/capability.mjs"
-      },
-      "require": {
-        "types": "./dist/capabilities/capability.d.cts",
-        "default": "./dist/capabilities/capability.cjs"
-      }
+      "types": "./dist/capabilities/capability.d.ts",
+      "default": "./dist/capabilities/capability.js"
     },
     "./capabilities/end": {
-      "import": {
-        "types": "./dist/capabilities/end.d.mts",
-        "default": "./dist/capabilities/end.mjs"
-      },
-      "require": {
-        "types": "./dist/capabilities/end.d.cts",
-        "default": "./dist/capabilities/end.cjs"
-      }
+      "types": "./dist/capabilities/end.d.ts",
+      "default": "./dist/capabilities/end.js"
     },
     "./capabilities/examples": {
-      "import": {
-        "types": "./dist/capabilities/examples.d.mts",
-        "default": "./dist/capabilities/examples.mjs"
-      },
-      "require": {
-        "types": "./dist/capabilities/examples.d.cts",
-        "default": "./dist/capabilities/examples.cjs"
-      }
+      "types": "./dist/capabilities/examples.d.ts",
+      "default": "./dist/capabilities/examples.js"
     },
     "./test-utils": {
-      "import": {
-        "types": "./dist/test-utils.d.mts",
-        "default": "./dist/test-utils.mjs"
-      },
-      "require": {
-        "types": "./dist/test-utils.d.cts",
-        "default": "./dist/test-utils.cjs"
-      }
+      "types": "./dist/test-utils.d.ts",
+      "default": "./dist/test-utils.js"
     },
     "./package.json": "./package.json",
     "./capabilities/math": {
-      "import": {
-        "types": "./dist/capabilities/math.d.mts",
-        "default": "./dist/capabilities/math.mjs"
-      },
-      "require": {
-        "types": "./dist/capabilities/math.d.cts",
-        "default": "./dist/capabilities/math.cjs"
-      }
+      "types": "./dist/capabilities/math.d.ts",
+      "default": "./dist/capabilities/math.js"
     }
   },
   "files": [
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
+    "build": "rimraf --glob ./dist './*.tsbuildinfo' && tsc --project tsconfig.build.json",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/kernel-agents",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./logs",
@@ -162,8 +90,6 @@
     "@metamask/eslint-config-nodejs": "^15.0.1",
     "@metamask/eslint-config-typescript": "^15.0.1",
     "@ocap/repo-tools": "workspace:^",
-    "@ts-bridge/cli": "^0.6.3",
-    "@ts-bridge/shims": "^0.1.1",
     "@types/node": "^22.13.1",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",

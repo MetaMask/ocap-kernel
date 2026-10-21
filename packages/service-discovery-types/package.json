@@ -18,14 +18,8 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./package.json": "./package.json"
   },
@@ -33,7 +27,7 @@
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
+    "build": "rimraf --glob ./dist './*.tsbuildinfo' && tsc --project tsconfig.build.json",
     "build:docs": "typedoc",
     "changelog:update": "../../scripts/update-changelog.sh @metamask/service-discovery-types",
     "changelog:validate": "../../scripts/validate-changelog.sh @metamask/service-discovery-types",
@@ -57,8 +51,6 @@
     "@metamask/eslint-config-nodejs": "^15.0.1",
     "@metamask/eslint-config-typescript": "^15.0.1",
     "@ocap/repo-tools": "workspace:^",
-    "@ts-bridge/cli": "^0.6.3",
-    "@ts-bridge/shims": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",
@@ -89,9 +81,8 @@
     "@metamask/superstruct": "^3.4.1"
   },
   "license": "(MIT OR Apache-2.0)",
-  "module": "./dist/index.mjs",
-  "main": "./dist/index.cjs",
-  "types": "./dist/index.d.cts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "sideEffects": false,
   "publishConfig": {
     "access": "public",
