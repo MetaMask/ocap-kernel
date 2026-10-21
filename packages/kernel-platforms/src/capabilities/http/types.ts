@@ -49,8 +49,8 @@ export const httpRuleStruct = object({
   // As in `example.com`. Admits its subdomains too unless `exactHost`.
   host: nonempty(string()),
   exactHost: exactOptional(boolean()),
-  // As in `v1/users`. Admits the paths below it too unless `exactPath`. Any
-  // path when absent.
+  // As in `v1/users`. Admits the paths below it too unless `exactPath`, which
+  // also tells `v1/` from `v1`. Any path when absent.
   path: exactOptional(string()),
   exactPath: exactOptional(boolean()),
   // Either when absent. A request that names none is sent over `https`.

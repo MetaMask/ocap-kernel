@@ -13,6 +13,26 @@ const nullBodyStatuses = new Set([101, 204, 205, 304]);
 
 const requiredGlobals = ['URL', 'Request', 'Headers', 'Response'] as const;
 
+const standardMethods = new Set([
+  'DELETE',
+  'GET',
+  'HEAD',
+  'OPTIONS',
+  'POST',
+  'PUT',
+]);
+
+/**
+ * Normalize a method as `fetch` does, so that it matches a rule's methods.
+ *
+ * @param method - The method, as the caller named it.
+ * @returns The standard methods uppercased, any other unchanged.
+ */
+const normalizeMethod = (method: string): string => {
+  const upper = method.toUpperCase();
+  return standardMethods.has(upper) ? upper : method;
+};
+
 /**
  * Make a `fetch` that makes one request through `http` and follows nothing,
  * as `makeGuardedFetch` requires of the `fetch` it wraps.
@@ -57,7 +77,7 @@ const makeHttpTransport =
     } = await raceAbort(
       E(http).request(host, path, {
         ...options,
-        method: init.method ?? request?.method ?? 'GET',
+        method: normalizeMethod(init.method ?? request?.method ?? 'GET'),
         ...(Object.keys(headers).length > 0 && { headers }),
         ...(typeof init.body === 'string' && { body: init.body }),
       }),

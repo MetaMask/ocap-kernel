@@ -64,12 +64,27 @@ describe('makeFetch', () => {
     );
   });
 
-  it('requests the root path as one empty segment', async () => {
+  it('requests the root path as no segments', async () => {
     const { http, request } = makeHttp({});
     await makeFetch(http)(new URL('http://localhost/'));
-    expect(request).toHaveBeenCalledWith(['localhost'], [''], {
+    expect(request).toHaveBeenCalledWith(['localhost'], [], {
       protocol: 'http',
       method: 'GET',
+    });
+  });
+
+  // As `fetch` does: the six standard methods are uppercased, others kept.
+  it.each([
+    ['get', 'GET'],
+    ['Post', 'POST'],
+    ['delete', 'DELETE'],
+    ['patch', 'patch'],
+  ])('sends a %j method as %j', async (method, sent) => {
+    const { http, request } = makeHttp({});
+    await makeFetch(http)('https://example.com/', { method });
+    expect(request).toHaveBeenCalledWith(['com', 'example'], [], {
+      protocol: 'https',
+      method: sent,
     });
   });
 

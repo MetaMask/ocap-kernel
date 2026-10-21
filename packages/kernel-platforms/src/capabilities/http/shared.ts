@@ -172,7 +172,12 @@ export const fromUrl = (
   const query = [...url.searchParams.entries()];
   return {
     host: url.hostname.split('.').reverse(),
-    path: url.pathname.slice(1).split('/').map(decodeSegment),
+    // The root is no segments, as a rule's path compiles it; a trailing slash
+    // elsewhere is a final empty segment.
+    path:
+      url.pathname === '/'
+        ? []
+        : url.pathname.slice(1).split('/').map(decodeSegment),
     options: {
       protocol,
       ...(url.port !== '' && { port: Number(url.port) }),
@@ -265,17 +270,20 @@ export const makeRequest = (baseFetch: typeof fetch): HttpMethods['request'] =>
 /**
  * Turn a configured path into the segments a request names it by.
  *
- * @param path - The path, as in `v1/users`; slashes at either end are ignored
- * @returns Its segments
+ * @param path - The path, as in `v1/users`; a leading slash is ignored
+ * @returns Its segments, a trailing slash as a final empty one
  */
 export const toPathSegments = (path: string): PathSegments => {
-  const trimmed = path.replace(/^\/+|\/+$/gu, '');
+  const trimmed = path.replace(/^\/+/u, '');
   if (trimmed === '') {
     return [];
   }
   const segments = trimmed.split('/');
   const bad = segments.find(
-    (segment) => segment === '' || segment === '.' || segment === '..',
+    (segment, index) =>
+      (segment === '' && index < segments.length - 1) ||
+      segment === '.' ||
+      segment === '..',
   );
   if (bad !== undefined) {
     throw new Error(
@@ -336,7 +344,11 @@ export const compileHttpDeltas = ({ allow }: HttpConfig): NarrowingDelta[] =>
     let pathPattern: Pattern | undefined;
     if (rule.path !== undefined) {
       const path = toPathSegments(rule.path);
-      pathPattern = rule.exactPath ? harden(path) : pathUnder(path);
+      // A prefix's trailing slash would admit only paths with an empty segment
+      // after it, so a prefix ignores it.
+      pathPattern = rule.exactPath
+        ? harden(path)
+        : pathUnder(path.at(-1) === '' ? path.slice(0, -1) : path);
     }
     return {
       request: [

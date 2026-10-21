@@ -119,9 +119,10 @@ describe('fromUrl', () => {
     { host: ['com', 'example', 'api'], path: ['v1', 'users'] },
     {
       host: ['localhost'],
-      path: [''],
+      path: [],
       options: { protocol: 'http', port: 8080 },
     },
+    { host: ['com', 'example'], path: ['v1', ''] },
     {
       host: ['com', 'example'],
       path: ['models', 'x:gen@v1;a=b,c+d', 'a b?#'],
@@ -273,16 +274,20 @@ describe('toHostLabels', () => {
 describe('toPathSegments', () => {
   it.each([
     ['v1/users', ['v1', 'users']],
-    ['/v1/users/', ['v1', 'users']],
+    ['/v1/users', ['v1', 'users']],
+    ['v1/users/', ['v1', 'users', '']],
     ['', []],
     ['/', []],
   ])('splits %j', (path, segments) => {
     expect(toPathSegments(path)).toStrictEqual(segments);
   });
 
-  it.each([['v1//users'], ['v1/../admin'], ['./v1']])('rejects %j', (path) => {
-    expect(() => toPathSegments(path)).toThrow(/invalid segment/u);
-  });
+  it.each([['v1//users'], ['v1/../admin'], ['./v1'], ['v1//']])(
+    'rejects %j',
+    (path) => {
+      expect(() => toPathSegments(path)).toThrow(/invalid segment/u);
+    },
+  );
 });
 
 /**
@@ -438,6 +443,30 @@ describe('compileHttpDeltas', () => {
     admitted: boolean;
   }[])('admits $name: $admitted', ({ rule, args, admitted }) => {
     expect(configAdmits([rule], args)).toBe(admitted);
+  });
+
+  // The path `makeFetch` requests is the one `fromUrl` derives from its URL.
+  it.each([
+    { rule: { path: '/', exactPath: true }, href: '/', admitted: true },
+    { rule: { path: '/', exactPath: true }, href: '/v1', admitted: false },
+    { rule: { path: 'v1', exactPath: true }, href: '/v1', admitted: true },
+    { rule: { path: 'v1', exactPath: true }, href: '/v1/', admitted: false },
+    { rule: { path: 'v1/', exactPath: true }, href: '/v1/', admitted: true },
+    { rule: { path: 'v1/', exactPath: true }, href: '/v1', admitted: false },
+    { rule: { path: 'v1' }, href: '/v1/', admitted: true },
+    { rule: { path: 'v1/' }, href: '/v1/users', admitted: true },
+  ])('admits $href under $rule.path: $admitted', ({ rule, href, admitted }) => {
+    const {
+      host: requestHost,
+      path,
+      options,
+    } = fromUrl(new URL(href, 'https://example.com'));
+    expect(
+      configAdmits(
+        [{ host: 'example.com', ...rule }],
+        [requestHost, path, options],
+      ),
+    ).toBe(admitted);
   });
 
   it.each([
