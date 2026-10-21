@@ -115,7 +115,7 @@ export class Kernel {
    * crank, and throw on any mismatch. Intended for tests and debugging; the
    * audit walks the whole store.
    */
-  // eslint-disable-next-line no-restricted-syntax
+  // eslint-disable-next-line ocap/no-restricted-syntax
   private constructor(
     platformServices: PlatformServices,
     kernelDatabase: KernelDatabase,

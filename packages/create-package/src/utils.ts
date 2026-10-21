@@ -2,8 +2,8 @@ import { execa } from 'execa';
 import { promises as fs } from 'node:fs';
 import path, { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { format as prettierFormat } from 'prettier';
-import type { Options as PrettierOptions } from 'prettier';
+import { loadOxfmtConfig } from '@ocap/repo-tools/build-utils/oxfmt-config';
+import { format as oxfmtFormat } from 'oxfmt';
 
 import { MonorepoFile, Placeholder } from './constants.ts';
 import type { FileMap } from './fs-utils.ts';
@@ -21,11 +21,6 @@ const allPlaceholdersRegex = new RegExp(
   Object.values(Placeholder).join('|'),
   'gu',
 );
-
-// Our lint config really hates this, but it works.
-const prettierRc = (await import(
-  path.join(REPO_ROOT, '.prettierrc.cjs')
-)) as PrettierOptions;
 
 /**
  * The data necessary to create a new package.
@@ -146,7 +141,7 @@ async function exists(filePath: string): Promise<boolean> {
 }
 
 /**
- * Formats a JSON file with `prettier` and writes it to disk.
+ * Formats a JSON file with `oxfmt` and writes it to disk.
  *
  * @param filePath - The absolute path of the file to write.
  * @param fileContent - The file content to write.
@@ -155,10 +150,17 @@ async function writeJsonFile(
   filePath: string,
   fileContent: string,
 ): Promise<void> {
-  await fs.writeFile(
+  const { code, errors } = await oxfmtFormat(
     filePath,
-    await prettierFormat(fileContent, { ...prettierRc, parser: 'json' }),
+    fileContent,
+    await loadOxfmtConfig(),
   );
+  if (errors.length > 0) {
+    throw new Error(
+      `Failed to format ${filePath}:\n${errors.map((error) => error.codeframe ?? error.message).join('\n')}`,
+    );
+  }
+  await fs.writeFile(filePath, code);
 }
 
 /**

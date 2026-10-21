@@ -165,14 +165,17 @@ describe('createDefaultEndowments', () => {
       // silence test output
     });
     let capturedNotify:
-      | ((n: { method: string; params: unknown }) => Promise<void>)
+      | ((notification: { method: string; params: unknown }) => Promise<void>)
       | undefined;
 
     state.override = [
       {
         names: ['fetch'],
         factory: (options?: {
-          notify?: (n: { method: string; params: unknown }) => Promise<void>;
+          notify?: (notification: {
+            method: string;
+            params: unknown;
+          }) => Promise<void>;
         }) => {
           capturedNotify = options?.notify;
           return { fetch: () => undefined };
@@ -201,14 +204,17 @@ describe('createDefaultEndowments', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
     let capturedNotify:
-      | ((n: { method: string; params: unknown }) => Promise<void>)
+      | ((notification: { method: string; params: unknown }) => Promise<void>)
       | undefined;
 
     state.override = [
       {
         names: ['fetch'],
         factory: (options?: {
-          notify?: (n: { method: string; params: unknown }) => Promise<void>;
+          notify?: (notification: {
+            method: string;
+            params: unknown;
+          }) => Promise<void>;
         }) => {
           capturedNotify = options?.notify;
           return { fetch: () => undefined };

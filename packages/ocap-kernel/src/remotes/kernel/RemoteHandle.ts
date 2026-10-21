@@ -256,7 +256,7 @@ export class RemoteHandle implements RemoteEndpointHandle {
    * @param params.onGiveUp - Optional callback when we give up on this remote.
    * @param params.ackTimeoutMs - Optional ACK timeout in ms. Defaults to ACK_TIMEOUT_MS.
    */
-  // eslint-disable-next-line no-restricted-syntax
+  // eslint-disable-next-line ocap/no-restricted-syntax
   private constructor({
     remoteId,
     peerId,
