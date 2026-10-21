@@ -6,6 +6,6 @@ const specification: HttpSpecification = makeHttpSpecification({
   makeBaseFetch: () => fetch,
 });
 
-// eslint-disable-next-line prefer-destructuring -- annotated for declaration emit
+// Annotated rather than destructured, for declaration emit.
 export const configStruct: HttpConfigStruct = specification.configStruct;
 export const { capabilityFactory } = specification;
