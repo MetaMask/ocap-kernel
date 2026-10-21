@@ -855,7 +855,11 @@ describe('KernelQueue', () => {
       await killRunLoop(new Error('dead'));
 
       expect(() =>
-        kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B'),
+        kernelQueue.acceptPeerIncarnation({
+          peerId: 'peer-r1',
+          incarnation: 'incarnation-B',
+          restart: true,
+        }),
       ).toThrow('Kernel run loop died');
     });
 
@@ -870,11 +874,16 @@ describe('KernelQueue', () => {
       type: 'peerIncarnation',
       peerId,
       incarnation,
+      restart: true,
     });
 
     it('takes what a peer sends while its incarnation change waits ahead of the change', async () => {
       arrive({ seq: 47 });
-      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
+      kernelQueue.acceptPeerIncarnation({
+        peerId: 'peer-r1',
+        incarnation: 'incarnation-B',
+        restart: true,
+      });
       arrive({ seq: 3, remoteId: 'r2' });
       arrive({ seq: 48 });
 
@@ -886,9 +895,27 @@ describe('KernelQueue', () => {
       ]);
     });
 
+    it('takes what a peer sends behind its first incarnation change', async () => {
+      kernelQueue.acceptPeerIncarnation({
+        peerId: 'peer-r1',
+        incarnation: 'incarnation-A',
+        restart: false,
+      });
+      arrive({ seq: 1 });
+
+      expect(await deliverItems(2)).toStrictEqual([
+        { ...change('incarnation-A'), restart: false },
+        arrival(1),
+      ]);
+    });
+
     it('drops a copy of a message sent again while its incarnation change waits', async () => {
       arrive({ seq: 1 });
-      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
+      kernelQueue.acceptPeerIncarnation({
+        peerId: 'peer-r1',
+        incarnation: 'incarnation-B',
+        restart: true,
+      });
 
       expect(arrive({ seq: 1 })).toBe(true);
       expect(await deliverItems(2)).toStrictEqual([
@@ -898,7 +925,11 @@ describe('KernelQueue', () => {
     });
 
     it("compares a message with what committed when only another peer's incarnation changed", async () => {
-      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
+      kernelQueue.acceptPeerIncarnation({
+        peerId: 'peer-r1',
+        incarnation: 'incarnation-B',
+        restart: true,
+      });
       arrive({ seq: 3, remoteId: 'r2', highestReceivedSeq: 5 });
       arrive({ seq: 6, remoteId: 'r2', highestReceivedSeq: 5 });
 
@@ -908,28 +939,44 @@ describe('KernelQueue', () => {
       ]);
     });
 
-    it('finds the incarnation a peer reported last in a change still waiting', async () => {
-      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
-      kernelQueue.acceptPeerIncarnation('peer-r2', 'incarnation-X');
-      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-C');
+    it('lists the incarnations a peer reported in changes still waiting', async () => {
+      kernelQueue.acceptPeerIncarnation({
+        peerId: 'peer-r1',
+        incarnation: 'incarnation-B',
+        restart: true,
+      });
+      kernelQueue.acceptPeerIncarnation({
+        peerId: 'peer-r2',
+        incarnation: 'incarnation-X',
+        restart: true,
+      });
+      kernelQueue.acceptPeerIncarnation({
+        peerId: 'peer-r1',
+        incarnation: 'incarnation-C',
+        restart: true,
+      });
 
       expect({
-        r1: kernelQueue.waitingIncarnation('peer-r1'),
-        r2: kernelQueue.waitingIncarnation('peer-r2'),
-        r3: kernelQueue.waitingIncarnation('peer-r3'),
+        r1: kernelQueue.waitingIncarnations('peer-r1'),
+        r2: kernelQueue.waitingIncarnations('peer-r2'),
+        r3: kernelQueue.waitingIncarnations('peer-r3'),
       }).toStrictEqual({
-        r1: 'incarnation-C',
-        r2: 'incarnation-X',
-        r3: undefined,
+        r1: ['incarnation-B', 'incarnation-C'],
+        r2: ['incarnation-X'],
+        r3: [],
       });
       await deliverItems(3);
-      expect(kernelQueue.waitingIncarnation('peer-r1')).toBeUndefined();
+      expect(kernelQueue.waitingIncarnations('peer-r1')).toStrictEqual([]);
     });
 
     it('discards every arrival', async () => {
       arrive({ seq: 1 });
       arrive({ seq: 1, remoteId: 'r2' });
-      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
+      kernelQueue.acceptPeerIncarnation({
+        peerId: 'peer-r1',
+        incarnation: 'incarnation-B',
+        restart: true,
+      });
 
       kernelQueue.discardArrivals();
       arrive({ seq: 2 });
@@ -942,7 +989,11 @@ describe('KernelQueue', () => {
       {
         what: 'a peer restarts',
         accept: () =>
-          kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B'),
+          kernelQueue.acceptPeerIncarnation({
+            peerId: 'peer-r1',
+            incarnation: 'incarnation-B',
+            restart: true,
+          }),
       },
     ])('wakes a parked run loop when $what', async ({ accept }) => {
       (kernelStore.runQueueLength as unknown as MockInstance).mockReturnValue(
@@ -981,7 +1032,11 @@ describe('KernelQueue', () => {
       for (let seq = 1; seq <= 100; seq += 1) {
         arrive({ seq });
       }
-      kernelQueue.acceptPeerIncarnation('peer-r1', 'incarnation-B');
+      kernelQueue.acceptPeerIncarnation({
+        peerId: 'peer-r1',
+        incarnation: 'incarnation-B',
+        restart: true,
+      });
       const held = Array.from({ length: 100 }, (_, index) =>
         arrive({ seq: index + 101 }),
       );

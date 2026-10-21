@@ -178,6 +178,7 @@ describe('a peer incarnation change on the run loop', () => {
     expect(await onIncarnationChange(PEER_ID, 'incarnation-B')).toBe(false);
 
     expect(await onIncarnationChange(PEER_ID, 'incarnation-C')).toBe(true);
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-C')).toBe(true);
     remote.redeemOcapURL('ocap:x@peer').catch(() => undefined);
     await delay(5);
     expect(sentSeqs(sent)).toStrictEqual([]);

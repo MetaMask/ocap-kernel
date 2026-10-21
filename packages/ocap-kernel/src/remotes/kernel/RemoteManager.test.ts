@@ -852,11 +852,10 @@ describe('RemoteManager', () => {
       if (!queued) {
         return undefined;
       }
-      const [peerId, incarnation] = queued;
+      const [change] = queued;
       return remoteManager.applyIncarnationChange({
         type: 'peerIncarnation',
-        peerId,
-        incarnation,
+        ...change,
       });
     }
 
@@ -910,6 +909,11 @@ describe('RemoteManager', () => {
       const verdict = await handshakeAndRunCrank(peerId, 'incarnation-A');
 
       expect(verdict).toBe(false);
+      expect(mockKernelQueue.acceptPeerIncarnation).toHaveBeenCalledWith({
+        peerId,
+        incarnation: 'incarnation-A',
+        restart: false,
+      });
       expect(holdSpy).not.toHaveBeenCalled();
       expect(persistSpy).not.toHaveBeenCalled();
       expect(finalizeSpy).not.toHaveBeenCalled();
@@ -920,18 +924,19 @@ describe('RemoteManager', () => {
       const peerId = 'peer-restarted-on-first-contact';
       const remote = remoteManager.establishRemote(peerId);
       const holdSpy = vi.spyOn(remote, 'holdForRestart');
-      vi.mocked(mockKernelQueue.waitingIncarnation).mockReturnValue(
+      vi.mocked(mockKernelQueue.waitingIncarnations).mockReturnValue([
         'incarnation-A',
-      );
+      ]);
 
       expect(await getOnIncarnationChange()(peerId, 'incarnation-B')).toBe(
         true,
       );
       expect(holdSpy).toHaveBeenCalledOnce();
-      expect(mockKernelQueue.acceptPeerIncarnation).toHaveBeenCalledWith(
+      expect(mockKernelQueue.acceptPeerIncarnation).toHaveBeenCalledWith({
         peerId,
-        'incarnation-B',
-      );
+        incarnation: 'incarnation-B',
+        restart: true,
+      });
     });
 
     it('queues a change once however many handshakes report it before its crank', async () => {
@@ -943,15 +948,61 @@ describe('RemoteManager', () => {
       expect(await getOnIncarnationChange()(peerId, 'incarnation-B')).toBe(
         true,
       );
-      vi.mocked(mockKernelQueue.waitingIncarnation).mockReturnValue(
+      vi.mocked(mockKernelQueue.waitingIncarnations).mockReturnValue([
         'incarnation-B',
-      );
+      ]);
       expect(await getOnIncarnationChange()(peerId, 'incarnation-B')).toBe(
         true,
       );
 
       expect(mockKernelQueue.acceptPeerIncarnation).toHaveBeenCalledOnce();
       expect(holdSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports a restart again to a re-dial before the first incarnation is recorded', async () => {
+      const peerId = 'peer-redialing-on-first-contact';
+      const remote = remoteManager.establishRemote(peerId);
+      const holdSpy = vi.spyOn(remote, 'holdForRestart');
+      vi.mocked(mockKernelQueue.waitingIncarnations).mockReturnValue([
+        'incarnation-A',
+        'incarnation-B',
+      ]);
+
+      expect(await getOnIncarnationChange()(peerId, 'incarnation-B')).toBe(
+        true,
+      );
+      expect(mockKernelQueue.acceptPeerIncarnation).not.toHaveBeenCalled();
+      expect(holdSpy).toHaveBeenCalledOnce();
+    });
+
+    it('refuses a handshake from the incarnation a waiting restart replaces', async () => {
+      const peerId = 'peer-late-old-incarnation';
+      remoteManager.establishRemote(peerId);
+      kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
+      vi.mocked(mockKernelQueue.waitingIncarnations).mockReturnValue([
+        'incarnation-B',
+      ]);
+
+      expect(await getOnIncarnationChange()(peerId, 'incarnation-A')).toBe(
+        true,
+      );
+      expect(mockKernelQueue.acceptPeerIncarnation).not.toHaveBeenCalled();
+    });
+
+    it('keeps a remote on hold past a restart while a later one waits', async () => {
+      const peerId = 'peer-restarted-twice';
+      const remote = remoteManager.establishRemote(peerId);
+      kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
+      await getOnIncarnationChange()(peerId, 'incarnation-B');
+      const result = applyQueuedIncarnationChange();
+      const holdSpy = vi.spyOn(remote, 'holdForRestart');
+      vi.mocked(mockKernelQueue.waitingIncarnations).mockReturnValue([
+        'incarnation-C',
+      ]);
+
+      await result?.afterCommit?.();
+
+      expect(holdSpy).toHaveBeenCalledOnce();
     });
 
     it('does not hold a remote for a change the run loop refused', async () => {
@@ -1136,10 +1187,11 @@ describe('RemoteManager', () => {
       const verdict = await getOnIncarnationChange()(peerId, 'incarnation-B');
 
       expect(verdict).toBe(true);
-      expect(mockKernelQueue.acceptPeerIncarnation).toHaveBeenCalledWith(
+      expect(mockKernelQueue.acceptPeerIncarnation).toHaveBeenCalledWith({
         peerId,
-        'incarnation-B',
-      );
+        incarnation: 'incarnation-B',
+        restart: true,
+      });
       expect(persistSpy).not.toHaveBeenCalled();
       expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-A');
     });

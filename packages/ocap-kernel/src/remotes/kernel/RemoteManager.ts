@@ -197,12 +197,12 @@ export class RemoteManager {
   /**
    * Handle a peer's reported incarnation after a successful handshake.
    *
-   * When the observed incarnation differs from the one the kernel store
-   * holds, queues the change for {@link applyIncarnationChange} to record in a
-   * crank of its own. The transport needs the answer to finish the handshake
-   * and cannot wait for that crank, so it comes from the store, or, for a peer
-   * whose first incarnation is still to be recorded, from the change that will
-   * record it.
+   * When the observed incarnation is new for the peer, queues the change for
+   * {@link applyIncarnationChange} to record in a crank of its own. The
+   * transport needs the answer to finish the handshake and cannot wait for
+   * that crank, so it comes from the incarnations the kernel knows: the one
+   * the store holds and the ones waiting to be recorded. While a change from
+   * a known incarnation waits, every handshake reports a restart.
    *
    * Fires on every handshake (not only on detected change) because the
    * in-memory PeerStateManager is unreliable across receiver restart and
@@ -211,24 +211,30 @@ export class RemoteManager {
    *
    * @param peerId - The peer that completed the handshake.
    * @param observedIncarnation - The incarnationId the peer just reported.
-   * @returns Whether the peer was determined to have restarted (a known
-   *   prior value differed from the observed one). The transport uses this
-   *   to suppress stale outbound messages on the same connection.
+   * @returns Whether the peer was determined to have restarted. The
+   *   transport uses this to suppress stale outbound messages on the same
+   *   connection.
    */
   async #handleIncarnationChange(
     peerId: string,
     observedIncarnation: string,
   ): Promise<boolean> {
     const stored = this.#kernelStore.getPeerIncarnation(peerId);
-    if (stored === observedIncarnation) {
-      return false;
+    const known = [
+      ...(stored === undefined ? [] : [stored]),
+      ...this.#kernelQueue.waitingIncarnations(peerId),
+    ];
+    if (!known.includes(observedIncarnation)) {
+      this.#kernelQueue.acceptPeerIncarnation({
+        peerId,
+        incarnation: observedIncarnation,
+        restart: known.length > 0,
+      });
     }
-    const waiting = this.#kernelQueue.waitingIncarnation(peerId);
-    if (waiting !== observedIncarnation) {
-      this.#kernelQueue.acceptPeerIncarnation(peerId, observedIncarnation);
-    }
-    const previous = stored ?? waiting;
-    if (previous === undefined || previous === observedIncarnation) {
+    if (
+      known.length === 0 ||
+      (known.length === 1 && known[0] === observedIncarnation)
+    ) {
       return false;
     }
     this.#remotesByPeer.get(peerId)?.holdForRestart();
@@ -285,7 +291,7 @@ export class RemoteManager {
       } else {
         // A peer that has shaken hands and exchanged no message has no remote,
         // and so no c-list to tear down.
-        this.#logger?.warn(
+        this.#logger?.log(
           `Peer ${peerId.slice(0, 8)} restart detected but no live RemoteHandle; advancing persisted incarnation without c-list cleanup`,
         );
       }
@@ -313,7 +319,14 @@ export class RemoteManager {
     }
 
     return {
-      afterCommit: async () => remote.finalizePeerRestart(),
+      afterCommit: async () => {
+        remote.finalizePeerRestart();
+        // A later restart still waits, and what this remote sends belongs to
+        // the incarnation it ends.
+        if (this.#kernelQueue.waitingIncarnations(peerId).length > 0) {
+          remote.holdForRestart();
+        }
+      },
     };
   }
 

@@ -1407,6 +1407,7 @@ describe('KernelRouter', () => {
           type: 'peerIncarnation',
           peerId: 'peer-1',
           incarnation: 'incarnation-B',
+          restart: true,
         };
         const crankResult = { afterCommit: async () => undefined };
         mockApplyIncarnationChange.mockReturnValueOnce(crankResult);
@@ -1428,6 +1429,7 @@ describe('KernelRouter', () => {
             type: 'peerIncarnation',
             peerId: 'peer-1',
             incarnation: 'incarnation-B',
+            restart: true,
           }),
         ).rejects.toThrow(failure);
       });

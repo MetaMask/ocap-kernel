@@ -411,6 +411,8 @@ export type RunQueueItemPeerIncarnation = {
   type: 'peerIncarnation';
   peerId: string;
   incarnation: string;
+  /** Whether it replaces an incarnation the kernel knew the peer by. */
+  restart: boolean;
 };
 
 export const RunQueueItemStruct = union([
