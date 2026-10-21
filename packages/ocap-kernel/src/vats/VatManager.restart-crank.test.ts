@@ -11,7 +11,7 @@ import type { KernelStore } from '../store/index.ts';
 import type {
   CrankResult,
   PlatformServices,
-  RunQueueItem,
+  RunLoopItem,
   VatConfig,
   KRef,
 } from '../types.ts';
@@ -117,10 +117,10 @@ describe('a restart whose relaunch fails', () => {
       });
 
     const restarting = vatManager.restartVat(asVatId('v1'));
-    const delivered: RunQueueItem['type'][] = [];
+    const delivered: RunLoopItem['type'][] = [];
     let restored: CrankResult | undefined;
     const deliver = async (
-      item: RunQueueItem,
+      item: RunLoopItem,
     ): Promise<CrankResult | undefined> => {
       delivered.push(item.type);
       if (delivered.length === 1) {
@@ -182,7 +182,7 @@ describe('a restart whose new worker never answers', () => {
       result: null,
     });
 
-    const delivered: RunQueueItem['type'][] = [];
+    const delivered: RunLoopItem['type'][] = [];
     const running = kernelQueue.run(async (item) => {
       delivered.push(item.type);
       if (item.type === 'restartVat') {

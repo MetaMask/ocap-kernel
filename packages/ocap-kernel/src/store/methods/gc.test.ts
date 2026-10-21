@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { asRemoteId, asVatId, asVRef } from '../../../test/branded.ts';
+import { asRRef, asRemoteId, asVatId, asVRef } from '../../../test/branded.ts';
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
 import type { KRef, EndpointId } from '../../types.ts';
 import { makeGCAction } from '../../types.ts';
 import { makeKernelStore } from '../index.ts';
 
 const v1 = asVatId('v1');
+const v2 = asVatId('v2');
+const r1 = asRemoteId('r1');
 
 describe('GC methods', () => {
   let kernelStore: ReturnType<typeof makeKernelStore>;
@@ -235,12 +237,12 @@ describe('GC methods', () => {
     });
 
     it('tells a remote importer too', () => {
-      kernelStore.setVatConfig('v1', { bundleName: 'vat1' });
-      kernelStore.setVatConfig('v2', { bundleName: 'vat2' });
-      kernelStore.setRemoteInfo('r1', { peerId: 'peer-1' });
-      const kref = kernelStore.initKernelObject('v1');
-      kernelStore.addCListEntry('r1', kref, 'ro-1');
-      kernelStore.addCListEntry('v2', kref, 'o-1');
+      kernelStore.setVatConfig(v1, { bundleName: 'vat1' });
+      kernelStore.setVatConfig(v2, { bundleName: 'vat2' });
+      kernelStore.setRemoteInfo(r1, { peerId: 'peer-1' });
+      const kref = kernelStore.initKernelObject(v1);
+      kernelStore.addCListEntry(r1, kref, asRRef('ro-1'));
+      kernelStore.addCListEntry(v2, kref, asVRef('o-1'));
       kernelStore.setGCActions(new Set());
 
       expect(kernelStore.getImporters(kref)).toStrictEqual(['r1', 'v2']);
@@ -254,21 +256,21 @@ describe('GC methods', () => {
     });
 
     it('leaves out a remote that exports the object', () => {
-      kernelStore.setVatConfig('v2', { bundleName: 'vat2' });
-      kernelStore.setRemoteInfo('r1', { peerId: 'peer-1' });
-      const kref = kernelStore.initKernelObject('r1');
-      kernelStore.addCListEntry('r1', kref, 'ro+1');
-      kernelStore.addCListEntry('v2', kref, 'o-1');
+      kernelStore.setVatConfig(v2, { bundleName: 'vat2' });
+      kernelStore.setRemoteInfo(r1, { peerId: 'peer-1' });
+      const kref = kernelStore.initKernelObject(r1);
+      kernelStore.addCListEntry(r1, kref, asRRef('ro+1'));
+      kernelStore.addCListEntry(v2, kref, asVRef('o-1'));
 
       expect(kernelStore.getImporters(kref)).toStrictEqual(['v2']);
     });
 
     it('tells a terminated importer cleanup has not reached', () => {
-      kernelStore.setVatConfig('v1', { bundleName: 'vat1' });
-      const kref = kernelStore.initKernelObject('v1');
-      kernelStore.addCListEntry('v2', kref, 'o-1');
+      kernelStore.setVatConfig(v1, { bundleName: 'vat1' });
+      const kref = kernelStore.initKernelObject(v1);
+      kernelStore.addCListEntry(v2, kref, asVRef('o-1'));
       // No config for v2: termination has deleted it.
-      kernelStore.markVatAsTerminated('v2');
+      kernelStore.markVatAsTerminated(v2);
       kernelStore.setGCActions(new Set());
 
       kernelStore.retireKernelObjects([kref]);
@@ -279,11 +281,11 @@ describe('GC methods', () => {
     });
 
     it('names a terminated vat whose config survives once', () => {
-      kernelStore.setVatConfig('v1', { bundleName: 'vat1' });
-      kernelStore.setVatConfig('v2', { bundleName: 'vat2' });
-      const kref = kernelStore.initKernelObject('v1');
-      kernelStore.addCListEntry('v2', kref, 'o-1');
-      kernelStore.markVatAsTerminated('v2');
+      kernelStore.setVatConfig(v1, { bundleName: 'vat1' });
+      kernelStore.setVatConfig(v2, { bundleName: 'vat2' });
+      const kref = kernelStore.initKernelObject(v1);
+      kernelStore.addCListEntry(v2, kref, asVRef('o-1'));
+      kernelStore.markVatAsTerminated(v2);
 
       expect(kernelStore.getImporters(kref)).toStrictEqual(['v2']);
     });

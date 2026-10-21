@@ -7,6 +7,7 @@ import { makeKernelStore } from './store/index.ts';
 import type {
   CrankResult,
   KernelMessage,
+  RunLoopItem,
   RunQueueItem,
   KRef,
 } from './types.ts';
@@ -201,7 +202,7 @@ describe('the reference count audit inside a crank', () => {
     });
 
     let delivered = 0;
-    const deliver = async (item: RunQueueItem): Promise<undefined> => {
+    const deliver = async (item: RunLoopItem): Promise<undefined> => {
       // What `KernelRouter.#deliverSend` does with the queue entry's charge.
       kernelStore.decrementRefCount(
         (item as { target: KRef }).target,

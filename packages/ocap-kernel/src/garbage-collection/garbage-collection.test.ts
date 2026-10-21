@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { processGCActionSet } from './garbage-collection.ts';
-import { asGCAction, asVatId, asVRef } from '../../test/branded.ts';
+import {
+  asERef,
+  asGCAction,
+  asRemoteId,
+  asVatId,
+  asVRef,
+} from '../../test/branded.ts';
 import { makeMapKernelDatabase } from '../../test/storage.ts';
 import { makeKernelStore } from '../store/index.ts';
 
@@ -18,14 +24,16 @@ describe('garbage-collection', () => {
     describe('an endpoint offline', () => {
       function givenAnActionEach(): Record<string, string> {
         const krefs: Record<string, string> = {};
-        for (const endpointId of ['r1', 'v1']) {
+        for (const endpointId of [asRemoteId('r1'), v1]) {
           const kref = kernelStore.initKernelObject(endpointId);
-          kernelStore.addCListEntry(endpointId, kref, 'o+1');
+          kernelStore.addCListEntry(endpointId, kref, asERef('o+1'));
           kernelStore.setObjectRefCount(kref, {
             reachable: 0,
             recognizable: 1,
           });
-          kernelStore.addGCActions([`${endpointId} dropExport ${kref}`]);
+          kernelStore.addGCActions([
+            asGCAction(`${endpointId} dropExport ${kref}`),
+          ]);
           krefs[endpointId] = kref;
         }
         return krefs;

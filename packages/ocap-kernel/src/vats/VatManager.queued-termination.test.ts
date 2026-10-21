@@ -13,7 +13,7 @@ import type {
   CrankResult,
   KRef,
   PlatformServices,
-  RunQueueItem,
+  RunLoopItem,
   VatConfig,
   VatId,
 } from '../types.ts';
@@ -96,9 +96,9 @@ async function setUp({
   const gate: KRef = kernelStore.exportFromEndpoint(gateOwner, asVRef('o+1'));
   const gateKit = makePromiseKit<void>();
   const crankOpen = makePromiseKit<void>();
-  const delivered: RunQueueItem[] = [];
+  const delivered: RunLoopItem[] = [];
   const deliver = async (
-    item: RunQueueItem,
+    item: RunLoopItem,
   ): Promise<CrankResult | undefined> => {
     delivered.push(item);
     if (item.type === 'terminateVat') {

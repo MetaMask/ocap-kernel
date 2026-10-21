@@ -510,7 +510,7 @@ describe('RemoteManager', () => {
       const established = remoteManager.establishRemote('peer123');
       expect([
         remoteManager.hasRemote(established.remoteId),
-        remoteManager.hasRemote('r999'),
+        remoteManager.hasRemote(asRemoteId('r999')),
       ]).toStrictEqual([true, false]);
     });
 

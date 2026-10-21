@@ -3,7 +3,7 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { RemoteHandle } from './RemoteHandle.ts';
-import { asRemoteId } from '../../../test/branded.ts';
+import { asRRef, asRemoteId } from '../../../test/branded.ts';
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
 import { KernelQueue } from '../../KernelQueue.ts';
 import { makeKernelStore } from '../../store/index.ts';
@@ -539,7 +539,7 @@ describe('RemoteHandle across a crank boundary', () => {
       const { remote } = startOver(kernelStore, kernelQueue);
       const [kpid] = kernelStore.initKernelPromise();
       kernelStore.setPromiseDecider(kpid, REMOTE_ID);
-      kernelStore.addCListEntry(REMOTE_ID, kpid, 'rp+1');
+      kernelStore.addCListEntry(REMOTE_ID, kpid, asRRef('rp+1'));
       const heard = new Promise((resolve, reject) => {
         kernelQueue.subscriptions.set(kpid, { resolve, reject });
       }).catch((error: unknown) => error);

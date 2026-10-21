@@ -10,7 +10,7 @@ import { makeMapKernelDatabase } from '../../../test/storage.ts';
 import type { KernelQueue } from '../../KernelQueue.ts';
 import { makeKernelStore } from '../../store/index.ts';
 import type { KernelStore } from '../../store/index.ts';
-import type { CrankResult, EndpointMessage, RRef } from '../../types.ts';
+import type { CrankResult, ERef, EndpointMessage, RRef } from '../../types.ts';
 import type { RemoteComms } from '../types.ts';
 
 let mockKernelStore: KernelStore;
@@ -319,7 +319,7 @@ describe('RemoteHandle', () => {
       'pending queue at capacity',
     );
 
-    expect(await remote[method](['ro+4'])).toStrictEqual({
+    expect(await remote[method]([asRRef('ro+4')])).toStrictEqual({
       didDelivery: remote.remoteId,
       afterCommit: expect.any(Function),
     });
@@ -684,7 +684,7 @@ describe('RemoteHandle', () => {
     const dropExports = JSON.stringify({
       seq: 1,
       method: 'deliver',
-      params: ['dropExports', [mockKernelStore.invertRRef(roref)]],
+      params: ['dropExports', [mockKernelStore.invertRRef(asRRef(roref))]],
     });
     await receiveAndRunCrank(remote, dropExports);
 
@@ -767,9 +767,9 @@ describe('RemoteHandle', () => {
   });
 
   it.each([
-    { method: 'retireImports', rref: 'ro+1' },
-    { method: 'retireExports', rref: 'ro-1' },
-    { method: 'dropExports', rref: 'ro-1' },
+    { method: 'retireImports', rref: asRRef('ro+1') },
+    { method: 'retireExports', rref: asRRef('ro-1') },
+    { method: 'dropExports', rref: asRRef('ro-1') },
   ])(
     'ignores a $method naming an rref it no longer has',
     async ({ method, rref }) => {
@@ -810,7 +810,9 @@ describe('RemoteHandle', () => {
     await expect(remote.deliverInbound(delivery)).rejects.toThrow(
       `${method} names ${rref}, which is not`,
     );
-    expect(mockKernelStore.erefToKref(remote.remoteId, rref)).toBeUndefined();
+    expect(
+      mockKernelStore.erefToKref(remote.remoteId, rref as ERef),
+    ).toBeUndefined();
   });
 
   it('takes delivery of bogus deliver', async () => {
@@ -1351,7 +1353,8 @@ describe('RemoteHandle', () => {
     });
 
     it('acknowledges a retransmission the crank will discard as a duplicate', async () => {
-      let sendAck: (() => void) | undefined;
+      const noAck = (): void => undefined;
+      let sendAck = noAck;
       vi.spyOn(globalThis, 'setTimeout').mockImplementation(((
         callback: () => void,
       ) => {
@@ -1366,10 +1369,10 @@ describe('RemoteHandle', () => {
       });
       await receiveAndRunCrank(remote, message);
       vi.mocked(mockRemoteComms.sendRemoteMessage).mockClear();
-      sendAck = undefined;
+      sendAck = noAck;
 
       await receiveAndRunCrank(remote, message);
-      sendAck?.();
+      sendAck();
 
       expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledOnce();
     });

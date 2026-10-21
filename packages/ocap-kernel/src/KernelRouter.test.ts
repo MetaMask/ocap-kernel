@@ -23,7 +23,7 @@ import type {
   VatId,
   KRef,
 } from './types.ts';
-import { asKRef, asVatId } from '../test/branded.ts';
+import { asKRef, asRemoteId, asVatId } from '../test/branded.ts';
 
 const v1 = asVatId('v1');
 
@@ -814,8 +814,8 @@ describe('KernelRouter', () => {
 
           await kernelRouter.deliver({
             type,
-            endpointId: 'r1',
-            krefs: ['ko1', 'ko2'],
+            endpointId: asRemoteId('r1'),
+            krefs: [asKRef('ko1'), asKRef('ko2')],
           });
 
           expect({
@@ -1227,7 +1227,7 @@ describe('KernelRouter', () => {
           kernelRouter.deliver({
             type: 'retireImports',
             endpointId,
-            krefs: ['ko1'],
+            krefs: [asKRef('ko1')],
           }),
         ).rejects.toThrow('disk I/O error');
       },
