@@ -178,7 +178,7 @@ The kernel ships with the following set, sourced from `@metamask/snaps-execution
 
 ### Network access
 
-There is no `fetch` global. A vat reaches the network through the `http` platform capability, which config scopes to domains, each admitting its subdomains, and which a vat can narrow further by host or path before passing it on:
+There is no `fetch` global. A vat reaches the network through the `http` platform capability, which config scopes by rules of host, path, protocol, port and method (each rule's constraints all hold at once, and a request any rule admits is admitted), and which a vat can narrow further before passing it on:
 
 ```ts
 await kernel.launchSubcluster({
@@ -189,7 +189,7 @@ await kernel.launchSubcluster({
       globals: ['URL', 'Request', 'Headers', 'Response'],
       platformConfig: {
         http: {
-          hosts: ['api.example.com', 'api.github.com'],
+          allow: [{ host: 'api.example.com' }, { host: 'api.github.com' }],
         },
       },
     },

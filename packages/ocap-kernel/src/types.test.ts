@@ -146,7 +146,7 @@ describe('isVatConfig', () => {
         bundleSpec: 'bundle.js',
         globals: ['URL', 'Request', 'Headers', 'Response'],
         platformConfig: {
-          http: { hosts: ['api.github.com'] },
+          http: { allow: [{ host: 'api.github.com' }] },
         },
       },
       expected: true,

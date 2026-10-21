@@ -390,16 +390,35 @@ await E(http).request(['com', 'example', 'api'], ['v1', 'users'], {
 });
 ```
 
-Config names hostnames as people write them, each admitting itself and its
-subdomains, and compiles to `M.or` of the `pathUnder`s of their labels:
+Config lists rules. A rule's constraints all hold at once, and the capability
+admits a request any one rule admits, so no rule's host is paired with another's
+path. Each rule compiles to a narrowing of the base, and the rules' narrowings
+are joined:
 
 ```json
 "platformConfig": {
   "http": {
-    "hosts": ["example.com"]
+    "allow": [
+      { "host": "example.com" },
+      {
+        "host": "api.example.org",
+        "exactHost": true,
+        "path": "v1/users",
+        "protocol": "https",
+        "ports": [8443],
+        "methods": ["GET", "POST"]
+      }
+    ]
   }
 }
 ```
+
+A host names itself and its subdomains, and a path itself and the paths below
+it, unless `exactHost` or `exactPath` asks for that one alone. `protocol`,
+`ports` and `methods` narrow the options record. A request that leaves an option
+out gets its default (`https`, the scheme's port, `GET`), so leaving it out is
+admitted exactly when the default is: `ports: []` admits default ports only, and
+`methods` without `GET` requires a method be named.
 
 The capability requires each label to be one lowercase label, and requires the
 host `URL` parses the joined labels as to equal them, so `['1', '0x7f']` cannot

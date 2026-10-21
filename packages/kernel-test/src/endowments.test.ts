@@ -42,7 +42,7 @@ const launchFetchVat = async (): Promise<{
         parameters: {},
         globals: ['URL', 'Request', 'Headers', 'Response', 'crypto'],
         platformConfig: {
-          http: { hosts: [goodHost] },
+          http: { allow: [{ host: goodHost }] },
         },
       },
     },

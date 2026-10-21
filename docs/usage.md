@@ -217,7 +217,7 @@ Network access is not a global. A vat is granted the `http` platform capability 
       "bundleSpec": "http://localhost:3000/sample-vat.bundle",
       "globals": ["URL", "Request", "Headers", "Response"],
       "platformConfig": {
-        "http": { "hosts": ["api.example.com"] }
+        "http": { "allow": [{ "host": "api.example.com" }] }
       }
     }
   }

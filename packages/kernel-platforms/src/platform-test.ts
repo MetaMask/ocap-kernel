@@ -28,7 +28,7 @@ export const createPlatformTestSuite = (
       ).rejects.toThrow('unregistered capability');
     });
 
-    it.each([{ fs: { root: 'tmp' } }, { http: { hosts: [] } }])(
+    it.each([{ fs: { root: 'tmp' } }, { http: { allow: [] } }])(
       'rejects a config the capability struct refuses: %j',
       async (config) => {
         await expect(

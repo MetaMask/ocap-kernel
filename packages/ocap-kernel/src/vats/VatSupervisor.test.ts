@@ -326,7 +326,7 @@ describe('VatSupervisor', () => {
       });
       const makePlatform = vi.fn().mockResolvedValue({});
       const platformConfig = {
-        http: { hosts: ['example.test'] },
+        http: { allow: [{ host: 'example.test' }] },
       };
       const { stream } = await makeVatSupervisor({
         makePlatform,

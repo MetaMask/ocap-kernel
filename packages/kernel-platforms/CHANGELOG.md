@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add an `http` capability, an exo whose `request(host, path, options)` takes the host's labels reversed, as in `['com', 'example', 'api']`, so `pathUnder` can narrow it to a domain ([#1163](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1163))
-  - Config is `{ hosts: ['example.com'] }`. Each entry admits the host and its subdomains, and names no port
+  - Config is `{ allow: [rule, ...] }`, admitting a request any rule admits. A rule names a `host` and optionally a `path`, each admitting what lies below it unless `exactHost` or `exactPath`, and optionally the `protocol`, the `ports` a request may name, and the `methods` it may use
   - A path segment may not be `.` or `..`, or contain `/` or `\`
   - Redirects are returned rather than followed; in a browser, which hides a redirect's target, the request fails instead
   - The capability factory takes an optional `fetch` to make requests with

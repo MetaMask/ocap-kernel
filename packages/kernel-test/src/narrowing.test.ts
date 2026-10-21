@@ -111,7 +111,7 @@ const serveLocally = async (): Promise<{ protocol: 'http'; port: number }> => {
   return { protocol: 'http', port: (server.address() as AddressInfo).port };
 };
 
-const localHttp = { http: { hosts: ['localhost'] } };
+const localHttp = { http: { allow: [{ host: 'localhost' }] } };
 
 describe('narrowing', () => {
   it('narrows a vat-local exo', async () => {
@@ -306,6 +306,61 @@ describe('narrowing', () => {
       await probe(kernel, 'probeHttp', [['com', 'example'], [], options]),
     ).toMatch(/^rejected:In "request" method of \(Http\)/u);
   });
+
+  it.each([
+    { name: 'a listed port', rule: { protocol: 'http' }, listPort: true },
+    { name: 'default ports only', rule: { ports: [] }, listPort: false },
+    { name: 'https only', rule: { protocol: 'https' }, listPort: false },
+    {
+      name: 'methods without GET',
+      rule: { methods: ['POST'] },
+      listPort: false,
+    },
+  ])('scopes http by a rule with $name', async ({ name, rule, listPort }) => {
+    const options = await serveLocally();
+    const kernel = await launchNarrowingVat({
+      http: {
+        allow: [
+          {
+            host: 'localhost',
+            ...rule,
+            ...(listPort && { ports: [options.port] }),
+          },
+        ],
+      },
+    });
+    const outcome = await probe(kernel, 'probeHttp', [
+      ['localhost'],
+      ['inner', 'hello'],
+      options,
+    ]);
+    expect(outcome).toMatch(
+      name === 'a listed port'
+        ? /^ok:200:hello$/u
+        : /^rejected:In "request" method of \(Http\)/u,
+    );
+  });
+
+  it.each([
+    { path: ['inner', 'hello'], outcome: /^ok:200:hello$/u },
+    { path: ['other'], outcome: /^rejected:In "request" method of \(Http\)/u },
+  ])(
+    "pairs each rule's host with its own path: $path",
+    async ({ path, outcome }) => {
+      const options = await serveLocally();
+      const kernel = await launchNarrowingVat({
+        http: {
+          allow: [
+            { host: 'localhost', path: 'inner' },
+            { host: 'example.com', path: 'other' },
+          ],
+        },
+      });
+      expect(
+        await probe(kernel, 'probeHttp', [['localhost'], path, options]),
+      ).toMatch(outcome);
+    },
+  );
 
   it('rejects a dot inside a label the config pattern admits', async () => {
     const options = await serveLocally();

@@ -1,7 +1,7 @@
 import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
-import type { MethodGuard } from '@endo/patterns';
-import { narrow, pathUnder } from '@metamask/kernel-utils';
+import type { MethodGuard, Pattern } from '@endo/patterns';
+import { join, narrow, pathUnder } from '@metamask/kernel-utils';
 import type { NarrowingDelta } from '@metamask/kernel-utils';
 
 import type {
@@ -11,6 +11,7 @@ import type {
   HttpMethods,
   HttpOptions,
   HttpResponse,
+  HttpRule,
   HostSegments,
   PathSegments,
 } from './types.ts';
@@ -64,11 +65,11 @@ const encodeSegment = (segment: string): string =>
 export const toHostLabels = (hostname: string): HostSegments => {
   if (hostname.includes(':')) {
     throw new Error(
-      `hosts entry ${hostname} names a port; name the host alone`,
+      `allowed host ${hostname} names a port; name the host alone`,
     );
   }
   const labels = hostname.toLowerCase().split('.').reverse();
-  assertPlainLabels(labels, 'hosts entry');
+  assertPlainLabels(labels, 'allowed host');
   return labels;
 };
 
@@ -262,16 +263,89 @@ export const makeRequest = (baseFetch: typeof fetch): HttpMethods['request'] =>
   );
 
 /**
- * Compile http config into the narrowing delta that enforces it.
+ * Turn a configured path into the segments a request names it by.
+ *
+ * @param path - The path, as in `v1/users`; slashes at either end are ignored
+ * @returns Its segments
+ */
+export const toPathSegments = (path: string): PathSegments => {
+  const trimmed = path.replace(/^\/+|\/+$/gu, '');
+  if (trimmed === '') {
+    return [];
+  }
+  const segments = trimmed.split('/');
+  const bad = segments.find(
+    (segment) => segment === '' || segment === '.' || segment === '..',
+  );
+  if (bad !== undefined) {
+    throw new Error(
+      `path ${path} contains an invalid segment: ${JSON.stringify(bad)}`,
+    );
+  }
+  return segments;
+};
+
+/**
+ * Compile a rule's protocol, ports and methods into a pattern on a request's
+ * options, or `undefined` if it constrains none of them.
+ *
+ * A request that leaves one out gets its default (`https`, the scheme's port,
+ * `GET`), so leaving one out is admitted exactly when the default is.
+ *
+ * @param rule - The rule
+ * @param rule.protocol - The protocol it requires, if any
+ * @param rule.ports - The ports a request may name, if constrained
+ * @param rule.methods - The methods a request may use, if constrained
+ * @returns The pattern, if any
+ */
+const compileOptionsPattern = ({
+  protocol,
+  ports,
+  methods,
+}: HttpRule): Pattern | undefined => {
+  const required: Record<string, Pattern> = {};
+  const optional: Record<string, Pattern> = {};
+  if (protocol === 'https') {
+    optional.protocol = 'https';
+  } else if (protocol === 'http') {
+    required.protocol = 'http';
+  }
+  if (ports !== undefined) {
+    optional.port = ports.length > 0 ? M.or(...ports) : M.not(M.any());
+  }
+  if (methods !== undefined) {
+    (methods.includes('GET') ? optional : required).method = M.or(...methods);
+  }
+  if (Object.keys(required).length + Object.keys(optional).length === 0) {
+    return undefined;
+  }
+  return M.splitRecord(required, optional, M.any());
+};
+
+/**
+ * Compile http config into one narrowing delta per rule. The capability admits
+ * a request that any of them admits.
  *
  * @param config - The capability's configuration
- * @param config.hosts - The domains every request's host must fall under
- * @returns The delta to narrow the full http exo by
+ * @param config.allow - The rules a request may satisfy
+ * @returns The deltas to narrow the full http exo by, one per rule
  */
-export const compileHttpDelta = ({ hosts }: HttpConfig): NarrowingDelta => {
-  const patterns = hosts.map((hostname) => pathUnder(toHostLabels(hostname)));
-  return { request: [patterns.length === 1 ? patterns[0] : M.or(...patterns)] };
-};
+export const compileHttpDeltas = ({ allow }: HttpConfig): NarrowingDelta[] =>
+  allow.map((rule) => {
+    const host = toHostLabels(rule.host);
+    let pathPattern: Pattern | undefined;
+    if (rule.path !== undefined) {
+      const path = toPathSegments(rule.path);
+      pathPattern = rule.exactPath ? harden(path) : pathUnder(path);
+    }
+    return {
+      request: [
+        rule.exactHost ? harden(host) : pathUnder(host),
+        pathPattern,
+        compileOptionsPattern(rule),
+      ],
+    };
+  });
 
 const httpOptionsShape = M.splitRecord(
   {},
@@ -336,11 +410,18 @@ const makeNarrowingFactory =
     config: HttpConfig,
     options?: HttpCapabilityOptions,
   ): Promise<HttpCapability> => {
-    return narrow<Partial<HttpMethods>>({
-      name: 'Http',
-      base: makeHttpBase(options?.fetch ?? platform.makeBaseFetch()),
-      delta: compileHttpDelta(config),
-    });
+    const deltas = compileHttpDeltas(config);
+    const base = makeHttpBase(options?.fetch ?? platform.makeBaseFetch());
+    // One narrowing per rule, joined, so each rule's host goes with its own
+    // path rather than with every rule's.
+    const narrowings = await Promise.all(
+      deltas.map(async (delta) =>
+        narrow<Partial<HttpMethods>>({ name: 'Http', base, delta }),
+      ),
+    );
+    return narrowings.length === 1
+      ? (narrowings[0] as HttpCapability)
+      : join<Partial<HttpMethods>>({ name: 'Http', refs: narrowings });
   };
 
 export type HttpSpecification = CapabilitySpecification<

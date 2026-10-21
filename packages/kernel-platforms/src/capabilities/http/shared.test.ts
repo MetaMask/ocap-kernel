@@ -1,26 +1,30 @@
 import { GET_INTERFACE_GUARD } from '@endo/exo';
-import { getInterfaceGuardPayload, M } from '@endo/patterns';
+import { getInterfaceGuardPayload, M, matches } from '@endo/patterns';
 import type { MethodGuard } from '@endo/patterns';
-import { pathUnder } from '@metamask/kernel-utils';
+import { join, narrow, pathUnder } from '@metamask/kernel-utils';
+import type { NarrowingDelta } from '@metamask/kernel-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   assertPlainLabels,
-  compileHttpDelta,
+  compileHttpDeltas,
   fromUrl,
   makeHttpBase,
   makeHttpSpecification,
   makeRequest,
   toHostLabels,
+  toPathSegments,
   toUrl,
 } from './shared.ts';
-import type { HttpCapability } from './types.ts';
+import type { HttpCapability, HttpOptions, HttpRule } from './types.ts';
 
 // The narrowed capability is covered in `@ocap/kernel-test`; here `narrow`
-// passes the base through, so a request reaches whichever `fetch` it wraps.
+// passes the base through and `join` the first ref, so a request reaches
+// whichever `fetch` the base wraps.
 vi.mock('@metamask/kernel-utils', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@metamask/kernel-utils')>()),
   narrow: vi.fn(async ({ base }: { base: unknown }) => base),
+  join: vi.fn(async ({ refs }: { refs: unknown[] }) => refs[0]),
 }));
 
 const makeBaseFetch = (response: Response = new Response('ok')) =>
@@ -257,31 +261,200 @@ describe('toHostLabels', () => {
   });
 
   it.each([
-    ['example..com', 'hosts entry contains an invalid label: ""'],
-    ['example.com.', 'hosts entry contains an invalid label: ""'],
-    ['ex ample.com', 'hosts entry contains an invalid label: "ex ample"'],
-    ['example.com:8080', 'hosts entry example.com:8080 names a port'],
+    ['example..com', 'allowed host contains an invalid label: ""'],
+    ['example.com.', 'allowed host contains an invalid label: ""'],
+    ['ex ample.com', 'allowed host contains an invalid label: "ex ample"'],
+    ['example.com:8080', 'allowed host example.com:8080 names a port'],
   ])('rejects %j', (hostname, message) => {
     expect(() => toHostLabels(hostname)).toThrow(message);
   });
 });
 
-describe('compileHttpDelta', () => {
-  it('scopes request to the one host', () => {
-    expect(compileHttpDelta({ hosts: ['example.com'] })).toStrictEqual({
-      request: [pathUnder(['com', 'example'])],
-    });
+describe('toPathSegments', () => {
+  it.each([
+    ['v1/users', ['v1', 'users']],
+    ['/v1/users/', ['v1', 'users']],
+    ['', []],
+    ['/', []],
+  ])('splits %j', (path, segments) => {
+    expect(toPathSegments(path)).toStrictEqual(segments);
   });
 
-  it('admits any of several hosts', () => {
-    expect(
-      compileHttpDelta({
-        hosts: ['example.com', 'localhost'],
-      }),
-    ).toStrictEqual({
-      request: [M.or(pathUnder(['com', 'example']), pathUnder(['localhost']))],
-    });
+  it.each([['v1//users'], ['v1/../admin'], ['./v1']])('rejects %j', (path) => {
+    expect(() => toPathSegments(path)).toThrow(/invalid segment/u);
   });
+});
+
+/**
+ * Whether a delta's one `request` row admits a call, checking each position
+ * the way the narrowed guard conjoins it onto the base's.
+ *
+ * @param delta - The delta.
+ * @param args - The call's host, path and options.
+ * @returns Whether every position's pattern matches.
+ */
+const admits = (
+  delta: NarrowingDelta,
+  args: [string[], string[], HttpOptions],
+): boolean =>
+  (delta.request ?? []).every(
+    (pattern, index) =>
+      pattern === undefined || matches(harden(args[index]), pattern),
+  );
+
+/**
+ * Whether any of a config's compiled deltas admits a call, as their join does.
+ *
+ * @param allow - The config's rules.
+ * @param args - The call's host, path and options.
+ * @returns Whether some rule admits it.
+ */
+const configAdmits = (
+  allow: HttpRule[],
+  args: [string[], string[], HttpOptions],
+): boolean => compileHttpDeltas({ allow }).some((delta) => admits(delta, args));
+
+describe('compileHttpDeltas', () => {
+  it('compiles one delta per rule', () => {
+    expect(
+      compileHttpDeltas({
+        allow: [{ host: 'example.com' }, { host: 'localhost' }],
+      }),
+    ).toStrictEqual([
+      { request: [pathUnder(['com', 'example']), undefined, undefined] },
+      { request: [pathUnder(['localhost']), undefined, undefined] },
+    ]);
+  });
+
+  const host = ['com', 'example'];
+
+  it.each([
+    {
+      name: 'a subdomain of a host',
+      rule: { host: 'example.com' },
+      args: [['com', 'example', 'api'], [], {}],
+      admitted: true,
+    },
+    {
+      name: 'a subdomain of an exact host',
+      rule: { host: 'example.com', exactHost: true },
+      args: [['com', 'example', 'api'], [], {}],
+      admitted: false,
+    },
+    {
+      name: 'an exact host itself',
+      rule: { host: 'example.com', exactHost: true },
+      args: [host, ['any'], {}],
+      admitted: true,
+    },
+    {
+      name: 'a path below a path',
+      rule: { host: 'example.com', path: 'v1' },
+      args: [host, ['v1', 'users'], {}],
+      admitted: true,
+    },
+    {
+      name: 'a path outside a path',
+      rule: { host: 'example.com', path: 'v1' },
+      args: [host, ['v2'], {}],
+      admitted: false,
+    },
+    {
+      name: 'a path below an exact path',
+      rule: { host: 'example.com', path: 'v1', exactPath: true },
+      args: [host, ['v1', 'users'], {}],
+      admitted: false,
+    },
+    {
+      name: 'no protocol where https is required',
+      rule: { host: 'example.com', protocol: 'https' },
+      args: [host, [], {}],
+      admitted: true,
+    },
+    {
+      name: 'http where https is required',
+      rule: { host: 'example.com', protocol: 'https' },
+      args: [host, [], { protocol: 'http' }],
+      admitted: false,
+    },
+    {
+      name: 'no protocol where http is required',
+      rule: { host: 'example.com', protocol: 'http' },
+      args: [host, [], {}],
+      admitted: false,
+    },
+    {
+      name: 'no port where only default ports are allowed',
+      rule: { host: 'example.com', ports: [] },
+      args: [host, [], {}],
+      admitted: true,
+    },
+    {
+      name: 'any port where only default ports are allowed',
+      rule: { host: 'example.com', ports: [] },
+      args: [host, [], { port: 443 }],
+      admitted: false,
+    },
+    {
+      name: 'a listed port',
+      rule: { host: 'example.com', ports: [8443] },
+      args: [host, [], { port: 8443 }],
+      admitted: true,
+    },
+    {
+      name: 'an unlisted port',
+      rule: { host: 'example.com', ports: [8443] },
+      args: [host, [], { port: 8080 }],
+      admitted: false,
+    },
+    {
+      name: 'no method where GET is allowed',
+      rule: { host: 'example.com', methods: ['GET'] },
+      args: [host, [], {}],
+      admitted: true,
+    },
+    {
+      name: 'an unlisted method',
+      rule: { host: 'example.com', methods: ['GET'] },
+      args: [host, [], { method: 'POST' }],
+      admitted: false,
+    },
+    {
+      name: 'no method where GET is not allowed',
+      rule: { host: 'example.com', methods: ['POST'] },
+      args: [host, [], {}],
+      admitted: false,
+    },
+    {
+      name: 'options the rule does not constrain',
+      rule: { host: 'example.com', methods: ['POST'] },
+      args: [host, [], { method: 'POST', headers: { a: 'b' }, body: 'x' }],
+      admitted: true,
+    },
+  ] as {
+    name: string;
+    rule: HttpRule;
+    args: [string[], string[], HttpOptions];
+    admitted: boolean;
+  }[])('admits $name: $admitted', ({ rule, args, admitted }) => {
+    expect(configAdmits([rule], args)).toBe(admitted);
+  });
+
+  it.each([
+    { host: ['com', 'foo'], path: ['x', 'y', 'z'], admitted: true },
+    { host: ['org', 'bar'], path: ['a', 'b', 'c'], admitted: true },
+    { host: ['com', 'foo'], path: ['a', 'b', 'c'], admitted: false },
+    { host: ['org', 'bar'], path: ['x', 'y', 'z'], admitted: false },
+  ])(
+    'admits $host and $path together: $admitted',
+    ({ host: requestHost, path, admitted }) => {
+      const allow = [
+        { host: 'foo.com', path: 'x/y/z' },
+        { host: 'bar.org', path: 'a/b/c' },
+      ];
+      expect(configAdmits(allow, [requestHost, path, {}])).toBe(admitted);
+    },
+  );
 });
 
 describe('makeHttpBase', () => {
@@ -346,7 +519,7 @@ describe('makeHttpSpecification', () => {
     const capability = (await makeHttpSpecification({
       makeBaseFetch: () => platformFetch,
     }).capabilityFactory(
-      { hosts: ['example.com'] },
+      { allow: [{ host: 'example.com' }] },
       supplied ? { fetch: suppliedFetch } : undefined,
     )) as Required<HttpCapability>;
     await capability.request(['com', 'example'], [], {});
@@ -359,11 +532,42 @@ describe('makeHttpSpecification', () => {
   });
 
   it.each([
-    { name: 'an empty label', hosts: ['localhost', 'example..com'] },
-    { name: 'a port', hosts: ['example.com:8080'] },
-  ])('rejects a hosts entry containing $name', async ({ hosts }) => {
-    await expect(specification.capabilityFactory({ hosts })).rejects.toThrow(
-      /hosts entry/u,
+    { rules: 1, narrowings: 1, joined: false },
+    { rules: 2, narrowings: 2, joined: true },
+  ])(
+    'narrows the base once per rule, joining $rules',
+    async ({ rules, narrowings, joined }) => {
+      vi.mocked(narrow).mockClear();
+      vi.mocked(join).mockClear();
+      await specification.capabilityFactory({
+        allow: [{ host: 'example.com' }, { host: 'localhost' }].slice(0, rules),
+      });
+      expect({
+        narrowings: vi.mocked(narrow).mock.calls.length,
+        joined: vi.mocked(join).mock.calls.length > 0,
+      }).toStrictEqual({ narrowings, joined });
+    },
+  );
+
+  it.each([
+    {
+      name: 'an empty label',
+      allow: [{ host: 'localhost' }, { host: 'example..com' }],
+      message: /allowed host/u,
+    },
+    {
+      name: 'a port',
+      allow: [{ host: 'example.com:8080' }],
+      message: /allowed host/u,
+    },
+    {
+      name: 'a parent segment',
+      allow: [{ host: 'example.com', path: 'v1/../admin' }],
+      message: /invalid segment/u,
+    },
+  ])('rejects a rule containing $name', async ({ allow, message }) => {
+    await expect(specification.capabilityFactory({ allow })).rejects.toThrow(
+      message,
     );
   });
 });
