@@ -272,8 +272,8 @@ export function makeReconnectionLifecycle(
         return null;
       }
       if (handshakeResult.incarnationChanged) {
-        // A send that shared this dial closes the channel on a restart. Re-dial:
-        // the next handshake sees the stored incarnation and registers.
+        // A send that shared this dial closes the channel on a restart, so
+        // re-dial.
         logger.log(
           `${peerId}:: peer restarted during reconnection, re-dialing`,
         );
