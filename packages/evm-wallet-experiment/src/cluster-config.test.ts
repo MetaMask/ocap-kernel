@@ -107,7 +107,7 @@ describe('cluster-config', () => {
         globals: ['URL', 'Request', 'Headers', 'Response'],
         platformConfig: {
           http: {
-            hosts: ['mainnet.infura.io', 'bundler'],
+            allow: [{ host: 'mainnet.infura.io' }, { host: 'bundler' }],
           },
         },
       });

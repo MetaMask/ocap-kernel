@@ -343,7 +343,7 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$RPC_HOST" 
         provider: {
           bundleSpec: bd + '/provider-vat.bundle',
           globals: ['URL', 'Request', 'Headers', 'Response'],
-          platformConfig: { http: { hosts } }
+          platformConfig: { http: { allow: hosts.map((host) => ({ host })) } }
         },
         delegator: {
           bundleSpec: bd + '/delegator-vat.bundle',

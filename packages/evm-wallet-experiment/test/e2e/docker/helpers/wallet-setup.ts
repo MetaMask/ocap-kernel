@@ -71,7 +71,9 @@ export function launchWalletSubcluster(
       provider: {
         bundleSpec: `${BUNDLE_BASE}/provider-vat.bundle`,
         globals: ['URL', 'Request', 'Headers', 'Response'],
-        platformConfig: { http: { hosts: allowedHosts } },
+        platformConfig: {
+          http: { allow: allowedHosts.map((host) => ({ host })) },
+        },
       },
       ...auxiliaryVat,
     },

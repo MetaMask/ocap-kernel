@@ -475,7 +475,11 @@ yarn ocap daemon exec launchSubcluster '{
         "globals": ["URL", "Request", "Headers", "Response"],
         "platformConfig": {
           "http": {
-            "hosts": ["<chain>.infura.io", "api.pimlico.io", "swap.api.cx.metamask.io"]
+            "allow": [
+              { "host": "<chain>.infura.io" },
+              { "host": "api.pimlico.io" },
+              { "host": "swap.api.cx.metamask.io" }
+            ]
           }
         }
       },
@@ -557,7 +561,7 @@ yarn ocap daemon exec registerLocationHints '{"peerId": "HOME_PEER_ID", "hints":
 
 ### 3d. Launch the wallet subcluster
 
-The away role uses `away-coordinator.bundle` and pairs it with a `redeemer` vat (not `delegator`); the home role is the one that signs delegations, so the away kernel only needs the redeeming half. Set the provider's `http.hosts` to the chain's RPC endpoints this VPS is permitted to reach.
+The away role uses `away-coordinator.bundle` and pairs it with a `redeemer` vat (not `delegator`); the home role is the one that signs delegations, so the away kernel only needs the redeeming half. Set the provider's `http.allow` rules to the chain's RPC endpoints this VPS is permitted to reach.
 
 ```bash
 yarn ocap daemon exec launchSubcluster '{
@@ -579,7 +583,11 @@ yarn ocap daemon exec launchSubcluster '{
         "globals": ["URL", "Request", "Headers", "Response"],
         "platformConfig": {
           "http": {
-            "hosts": ["<chain>.infura.io", "api.pimlico.io", "swap.api.cx.metamask.io"]
+            "allow": [
+              { "host": "<chain>.infura.io" },
+              { "host": "api.pimlico.io" },
+              { "host": "swap.api.cx.metamask.io" }
+            ]
           }
         }
       },

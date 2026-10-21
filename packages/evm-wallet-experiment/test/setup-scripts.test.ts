@@ -111,6 +111,8 @@ describe('setup scripts match canonical cluster config', () => {
     expect(providerBlock![0]).toContain(
       "globals: ['URL', 'Request', 'Headers', 'Response']",
     );
-    expect(providerBlock![0]).toContain('platformConfig: { http: { hosts } }');
+    expect(providerBlock![0]).toContain(
+      'platformConfig: { http: { allow: hosts.map((host) => ({ host })) } }',
+    );
   });
 });

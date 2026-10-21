@@ -375,7 +375,7 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" RPC_HOST="$AWAY_RPC_HOST" node -e "
         provider: {
           bundleSpec: bd + '/provider-vat.bundle',
           globals: ['URL', 'Request', 'Headers', 'Response'],
-          platformConfig: { http: { hosts } }
+          platformConfig: { http: { allow: hosts.map((host) => ({ host })) } }
         },
         redeemer: {
           bundleSpec: bd + '/redeemer-vat.bundle',

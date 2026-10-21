@@ -66,7 +66,7 @@ export function makeWalletClusterConfig(
         globals: allowedHosts ? ['URL', 'Request', 'Headers', 'Response'] : [],
         ...(allowedHosts && {
           platformConfig: {
-            http: { hosts: allowedHosts },
+            http: { allow: allowedHosts.map((host) => ({ host })) },
           },
         }),
       },
