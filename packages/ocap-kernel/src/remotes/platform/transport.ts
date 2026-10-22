@@ -267,7 +267,7 @@ export async function initTransport(
       result.incarnationChanged || kernelDetectedRestart;
     if (incarnationChanged) {
       logger.log(
-        `${channel.peerId.slice(0, 8)}:: incarnation changed during outbound handshake, resetting remote state`,
+        `${channel.peerId.slice(0, 8)}:: incarnation changed during outbound handshake`,
       );
     }
     return harden({
