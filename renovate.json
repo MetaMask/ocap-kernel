@@ -45,6 +45,15 @@
       "groupName": "npm dependencies"
     },
     {
+      "description": "The design-system packages declare peer dependencies on design-tokens, so a minor bump to one can require a major bump to another. Keep all of them in the same PR.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "@metamask/design-system-*",
+        "@metamask/design-tokens"
+      ],
+      "separateMajorMinor": false
+    },
+    {
       "description": "4.5.1 was published without its generated .d.ts files, so `makeCapTP` resolves to `any` and builds fail under noImplicitAny. Unpin once a release ships declarations again.",
       "matchManagers": ["npm"],
       "matchPackageNames": ["@endo/captp"],
