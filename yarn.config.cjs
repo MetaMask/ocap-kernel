@@ -25,6 +25,7 @@ const entrypointExceptions = ['shims', 'streams'];
 const typedocExceptions = [
   'extension',
   'kernel-test',
+  'lint-config',
   'omnium-gatherum',
   'repo-tools',
 ];
@@ -198,7 +199,11 @@ module.exports = defineConfig({
 
         if (!typedocExceptions.includes(workspaceBasename)) {
           // All non-root packages must have the same "build:docs" script.
-          expectWorkspaceField(workspace, 'scripts.build:docs', 'typedoc');
+          expectWorkspaceField(
+            workspace,
+            'scripts.build:docs',
+            'npx -y -p typedoc@0.28.20 -p typescript@6.0.3 typedoc',
+          );
         }
 
         // All packages except the root must have a "clean" script that includes ./logs.
@@ -215,7 +220,7 @@ module.exports = defineConfig({
         expectWorkspaceField(
           workspace,
           'scripts.lint',
-          'yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies',
+          'yarn lint:oxlint && yarn lint:oxfmt && yarn constraints && yarn lint:dependencies',
         );
         expectWorkspaceField(
           workspace,
@@ -224,19 +229,17 @@ module.exports = defineConfig({
         );
         expectWorkspaceField(
           workspace,
-          'scripts.lint:eslint',
-          'eslint . --cache',
-        );
-        expectWorkspaceField(
-          workspace,
           'scripts.lint:fix',
-          'yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies',
+          'yarn lint:oxlint --fix && oxfmt . && yarn constraints --fix && yarn lint:dependencies',
         );
         expectWorkspaceField(
           workspace,
-          'scripts.lint:misc',
-          "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore --log-level error",
+          'scripts.lint:oxfmt',
+          'oxfmt --check .',
         );
+        expectWorkspaceField(workspace, 'scripts.lint:oxlint', 'oxlint .');
+        workspace.unset('scripts.lint:eslint');
+        workspace.unset('scripts.lint:misc');
 
         // All non-root packages must have the same "test" script.
         if (!noTests.includes(workspaceBasename)) {
@@ -271,6 +274,12 @@ module.exports = defineConfig({
             'vitest --config vitest.config.ts',
           );
         }
+
+        expectWorkspaceField(
+          workspace,
+          'scripts.test:types',
+          'tsc --project tsconfig.json',
+        );
       }
 
       if (!buildExceptions.includes(workspaceBasename)) {
@@ -292,10 +301,8 @@ module.exports = defineConfig({
         // The root package must not specify exports.
         workspace.unset('exports');
 
-        // The root package must specify an empty set of published files. (This
-        // is required in order to be able to import anything in
-        // development-only scripts, as otherwise the
-        // `node/no-unpublished-require` ESLint rule will disallow it.)
+        // The root workspace is private and never published; the empty list
+        // keeps that explicit.
         expectWorkspaceField(workspace, 'files', []);
 
         // Root patches/ must not contain patches for deps removed from all workspaces.
@@ -332,7 +339,7 @@ module.exports = defineConfig({
       if (isChildWorkspace) {
         workspace.unset('packageManager');
       } else {
-        expectWorkspaceField(workspace, 'packageManager', 'yarn@4.12.0');
+        expectWorkspaceField(workspace, 'packageManager', 'yarn@4.18.1');
       }
 
       expectWorkspaceField(workspace, 'engines.node', '>=22');

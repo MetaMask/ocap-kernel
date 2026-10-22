@@ -4,11 +4,6 @@
     "lib": ["ES2022", "DOM"],
     "types": ["vitest", "chrome", "ses"]
   },
-  "references": [
-    { "path": "../kernel-utils" },
-    { "path": "../repo-tools" },
-    { "path": "../streams" }
-  ],
   "include": [
     "../../vitest.config.ts",
     "./src",

@@ -107,6 +107,8 @@ jobs:
           name: coverage
           path: coverage/
           retention-days: 7
+      - run: yarn test:types
+        if: ${{ matrix.node-version == '24.x' }}
       - name: Require clean working directory
         shell: bash
         run: |

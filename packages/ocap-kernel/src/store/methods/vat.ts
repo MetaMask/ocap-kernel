@@ -32,7 +32,7 @@ const VAT_CONFIG_BASE_LEN = VAT_CONFIG_BASE.length;
  * @param ctx - The store context.
  * @returns A vat store object that maps various persistent kernel data
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function getVatMethods(ctx: StoreContext) {
   const { kv } = ctx;
   const { getPrefixedKeys, getSlotKey, getCListPrefix, getOwnerKey } =

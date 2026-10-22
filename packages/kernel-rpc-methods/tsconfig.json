@@ -4,11 +4,6 @@
     "lib": ["ES2022"],
     "types": ["vitest"]
   },
-  "references": [
-    { "path": "../logger" },
-    { "path": "../repo-tools" },
-    { "path": "../kernel-utils" }
-  ],
   "include": [
     "../../vitest.config.ts",
     "./src",

@@ -3,7 +3,7 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { startRelay } from '@metamask/kernel-utils/libp2p';
 import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
-import type { KRef } from '@metamask/ocap-kernel';
+import type { KRef, VatId } from '@metamask/ocap-kernel';
 import { delay } from '@ocap/repo-tools/test-utils';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -214,7 +214,7 @@ describe.sequential('Remote Communications E2E', () => {
         const clientConfig = makeMaasClientConfig('client1', true);
         let clientKernel = kernel1;
         await runTestVats(clientKernel, clientConfig);
-        const clientRootRef = kernelStore1.getRootObject('v1') as KRef;
+        const clientRootRef = kernelStore1.getRootObject('v1' as VatId) as KRef;
 
         // Launch server vat on kernel2
         const serverConfig = makeMaasServerConfig('server2', true);
@@ -293,9 +293,7 @@ describe.sequential('Remote Communications E2E', () => {
         expect(response).toContain(`next step: ${expectedCount} `);
 
         // Update describe-scope refs so afterEach stops the restarted kernels
-        // eslint-disable-next-line require-atomic-updates
         kernel1 = clientKernel;
-        // eslint-disable-next-line require-atomic-updates
         kernel2 = serverKernel;
       },
       NETWORK_TIMEOUT * 2,
@@ -346,7 +344,6 @@ describe.sequential('Remote Communications E2E', () => {
           bobConfig,
           reconnectOptions,
         );
-        // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
 
         // Wait for the recovery message to complete
@@ -461,7 +458,6 @@ describe.sequential('Remote Communications E2E', () => {
           bobConfig,
           reconnectOptions,
         );
-        // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
 
         // The queued message should now be delivered
@@ -529,7 +525,6 @@ describe.sequential('Remote Communications E2E', () => {
           bobConfig,
           testBackoffOptions,
         );
-        // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
 
         // Messages should be queued and delivered after reconnection
@@ -628,7 +623,6 @@ describe.sequential('Remote Communications E2E', () => {
           bobConfig,
           queueTestOptions,
         );
-        // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
 
         // Check results - messages beyond queue capacity should be rejected
@@ -753,7 +747,6 @@ describe.sequential('Remote Communications E2E', () => {
               multiPeerOptions,
             ),
           ]);
-          // eslint-disable-next-line require-atomic-updates
           kernel2 = restartResult2.kernel;
 
           kernel3 = restartResult3.kernel;
@@ -835,7 +828,6 @@ describe.sequential('Remote Communications E2E', () => {
           bobConfig,
           testBackoffOptions,
         );
-        // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
 
         // The message should not have been delivered because we didn't reconnect
@@ -879,7 +871,6 @@ describe.sequential('Remote Communications E2E', () => {
           bobConfig,
           testBackoffOptions,
         );
-        // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
 
         const messageAfterReconnect = await sendRemoteMessage(
@@ -993,7 +984,6 @@ describe.sequential('Remote Communications E2E', () => {
 
         // Create a completely new kernel (new incarnation ID, no previous state)
         const freshKernel2 = await makeTestKernel(freshDb2);
-        // eslint-disable-next-line require-atomic-updates
         kernel2 = freshKernel2;
         await kernel2.initRemoteComms({
           relays: testRelays,
@@ -1085,7 +1075,6 @@ describe.sequential('Remote Communications E2E', () => {
         // Restart the receiver keeping its DB. PeerStateManager rebuilds
         // empty; RemoteHandles are restored from KV with their seq state.
         await stopWithTimeout(async () => kernel1.stop(), 3000, 'kernel1.stop');
-        // eslint-disable-next-line require-atomic-updates
         kernel1 = await restartKernel(dbFilename1, false, testRelays, opts);
 
         // Restart the sender with a FRESH DB but the same mnemonic — same
@@ -1094,9 +1083,7 @@ describe.sequential('Remote Communications E2E', () => {
         const freshDb2 = await makeSQLKernelDatabase({
           dbFilename: join(tempDir, 'kernel2-fresh.db'),
         });
-        // eslint-disable-next-line require-atomic-updates
         kernelStore2 = makeKernelStore(freshDb2);
-        // eslint-disable-next-line require-atomic-updates
         kernel2 = await makeTestKernel(freshDb2);
         await kernel2.initRemoteComms({ ...opts, mnemonic: k2Mnemonic });
         await launchVatAndGetURL(kernel2, makeRemoteVatConfig('Bob'));
@@ -1175,10 +1162,8 @@ describe.sequential('Remote Communications E2E', () => {
         // incarnationId must NOT survive so the matcher's handshake can
         // detect the wipe.
         await stopWithTimeout(async () => kernel2.stop(), 3000, 'kernel2.stop');
-        // eslint-disable-next-line require-atomic-updates
         kernel2 = await restartKernel(dbFilename2, true, testRelays, opts);
         await launchVatAndGetURL(kernel2, makeRemoteVatConfig('Bob'));
-        // eslint-disable-next-line require-atomic-updates
         kernelStore2 = makeKernelStore(
           await makeSQLKernelDatabase({ dbFilename: dbFilename2 }),
         );
@@ -1292,7 +1277,6 @@ describe.sequential('Remote Communications E2E', () => {
           bobConfig,
           reconnectOptions,
         );
-        // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
 
         // The message should eventually be delivered and resolved

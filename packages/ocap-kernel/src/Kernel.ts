@@ -115,7 +115,7 @@ export class Kernel {
    * crank, and throw on any mismatch. Intended for tests and debugging; the
    * audit walks the whole store.
    */
-  // eslint-disable-next-line no-restricted-syntax
+  // oxlint-disable-next-line ocap/no-restricted-syntax
   private constructor(
     platformServices: PlatformServices,
     kernelDatabase: KernelDatabase,
@@ -690,7 +690,7 @@ export class Kernel {
     if (isRemoteId(endpointId)) {
       return this.#remoteManager.getRemote(endpointId);
     }
-    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+    // oxlint-disable-next-line typescript/restrict-template-expressions
     throw Error(`invalid endpoint ID ${endpointId}`);
   }
 

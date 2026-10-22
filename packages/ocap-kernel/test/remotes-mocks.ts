@@ -10,7 +10,7 @@ import type {
 } from '../src/remotes/types.ts';
 import type { KernelStore } from '../src/store/index.ts';
 import { makeKernelStore } from '../src/store/index.ts';
-import type { PlatformServices } from '../src/types.ts';
+import type { PlatformServices, RemoteId } from '../src/types.ts';
 
 /**
  * Default configuration for mock remotes components
@@ -126,7 +126,7 @@ export class MockRemotesFactory {
     const mockKernelQueue = this.makeMockKernelQueue();
 
     return RemoteHandle.make({
-      remoteId: this.config.remoteId as string,
+      remoteId: this.config.remoteId as RemoteId,
       peerId: this.config.remotePeerId as string,
       kernelStore: this.config.kernelStore as KernelStore,
       kernelQueue: mockKernelQueue,

@@ -39,9 +39,7 @@ vi.mock('@libp2p/websockets', () => ({ webSockets: () => ({}) }));
 vi.mock('@libp2p/webtransport', () => ({ webTransport: () => ({}) }));
 vi.mock('@libp2p/ping', () => ({ ping: () => ({}) }));
 
-const generateKeyPairFromSeed = vi.fn(async () => ({
-  /* private key */
-}));
+const generateKeyPairFromSeed = vi.fn(async () => ({/* private key */}));
 vi.mock('@libp2p/crypto/keys', () => ({
   generateKeyPairFromSeed,
 }));
@@ -175,14 +173,14 @@ vi.mock('@multiformats/multiaddr', () => ({
     ]);
     let idx = 0;
     while (idx < segments.length) {
-      const name = segments[idx];
+      const name = segments[idx]!;
       const code = PROTO_CODES[name];
       if (code === undefined) {
         idx += 1;
         continue;
       }
       if (valuedProtos.has(name) && idx + 1 < segments.length) {
-        components.push({ code, name, value: segments[idx + 1] });
+        components.push({ code, name, value: segments[idx + 1]! });
         idx += 2;
       } else {
         components.push({ code, name });
@@ -1005,7 +1003,7 @@ describe('ConnectionFactory', () => {
         addEventListener: vi.fn(),
         dialProtocol: vi.fn(async () => {
           // Throw a non-Error value that gets caught but doesn't set lastError properly
-          // eslint-disable-next-line @typescript-eslint/only-throw-error
+          // oxlint-disable-next-line typescript/only-throw-error
           throw null;
         }),
         getConnections: vi.fn(() => [
@@ -1451,7 +1449,7 @@ describe('ConnectionFactory', () => {
         dialProtocol: vi.fn(async () => {
           dialCount += 1;
           // Throw a falsy value to trigger the else branch in outputError
-          // eslint-disable-next-line @typescript-eslint/only-throw-error
+          // oxlint-disable-next-line typescript/only-throw-error
           throw null;
         }),
         getConnections: vi.fn(() => [

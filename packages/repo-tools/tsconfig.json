@@ -4,7 +4,6 @@
     "lib": ["ES2022"],
     "types": ["vitest"]
   },
-  "references": [],
   "include": [
     "../../vitest.config.ts",
     "./src",

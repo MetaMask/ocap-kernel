@@ -1,4 +1,4 @@
-/* eslint-disable n/no-sync */
+/* oxlint-disable node/no-sync */
 /**
  * Helpers for communicating with Docker containers from the host.
  *

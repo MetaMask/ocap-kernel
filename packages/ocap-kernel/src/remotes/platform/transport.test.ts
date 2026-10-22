@@ -635,9 +635,8 @@ describe('transport.initTransport', () => {
     });
 
     it('treats StreamResetError as connection loss, not intentional close', async () => {
-      const { StreamResetError: MockStreamResetError } = await import(
-        '@libp2p/interface'
-      );
+      const { StreamResetError: MockStreamResetError } =
+        await import('@libp2p/interface');
       let inboundHandler: ((channel: MockChannel) => void) | undefined;
       mockConnectionFactory.onInboundConnection.mockImplementation(
         (handler) => {
@@ -726,7 +725,7 @@ describe('transport.initTransport', () => {
       let shouldResolve = false;
       const poll = async (): Promise<Uint8Array> => {
         // Wait until stop is called
-        // eslint-disable-next-line no-unmodified-loop-condition
+        // oxlint-disable-next-line no-unmodified-loop-condition
         while (!shouldResolve) {
           await new Promise<void>((resolve) => {
             setImmediate(() => resolve());
@@ -925,7 +924,7 @@ describe('transport.initTransport', () => {
       const { abortableDelay } = await import('@metamask/kernel-utils');
 
       (abortableDelay as ReturnType<typeof vi.fn>).mockImplementation(
-        // eslint-disable-next-line @typescript-eslint/promise-function-async, @typescript-eslint/no-misused-promises
+        // oxlint-disable-next-line typescript/promise-function-async, typescript/no-misused-promises
         (_ms: number, signal?: AbortSignal) => {
           if (signal?.aborted) {
             return Promise.reject(new AbortError());
@@ -1816,9 +1815,8 @@ describe('transport.initTransport', () => {
       const { abortableDelay } = await import('@metamask/kernel-utils');
       (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
-      const { isRetryableNetworkError } = await import(
-        '@metamask/kernel-errors'
-      );
+      const { isRetryableNetworkError } =
+        await import('@metamask/kernel-errors');
       vi.mocked(isRetryableNetworkError).mockReturnValue(false);
 
       // Initial dial fails with retryable error, reconnection dial fails with non-retryable
@@ -2742,7 +2740,7 @@ describe('transport.initTransport', () => {
       // Verify handshake was sent (first write)
       expect(mockChannel.msgStream.write).toHaveBeenCalled();
       const { calls } = mockChannel.msgStream.write.mock;
-      const firstWrite = new TextDecoder().decode(calls[0][0] as Uint8Array);
+      const firstWrite = new TextDecoder().decode(calls[0]?.[0] as Uint8Array);
       const handshakeMsg = JSON.parse(firstWrite);
       expect(handshakeMsg).toStrictEqual({
         method: 'handshake',
@@ -2750,7 +2748,7 @@ describe('transport.initTransport', () => {
       });
 
       // Second write should be the actual message
-      const secondWrite = new TextDecoder().decode(calls[1][0] as Uint8Array);
+      const secondWrite = new TextDecoder().decode(calls[1]?.[0] as Uint8Array);
       expect(secondWrite).toContain('hello');
     });
 
@@ -2865,7 +2863,7 @@ describe('transport.initTransport', () => {
       // Should only have the actual message, no handshake
       expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(1);
       const writeCall = new TextDecoder().decode(
-        mockChannel.msgStream.write.mock.calls[0][0] as Uint8Array,
+        mockChannel.msgStream.write.mock.calls[0]?.[0] as Uint8Array,
       );
       const parsedMsg = JSON.parse(writeCall);
       expect(parsedMsg.method).not.toBe('handshake');
@@ -2920,7 +2918,7 @@ describe('transport.initTransport', () => {
         expect(mockInboundChannel.msgStream.write).toHaveBeenCalled();
       });
       const ackWrite = new TextDecoder().decode(
-        mockInboundChannel.msgStream.write.mock.calls[0][0] as Uint8Array,
+        mockInboundChannel.msgStream.write.mock.calls[0]?.[0] as Uint8Array,
       );
       const ackMsg = JSON.parse(ackWrite);
       expect(ackMsg).toStrictEqual({

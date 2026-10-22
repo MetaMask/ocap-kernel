@@ -25,6 +25,7 @@ import type {
 import { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
 import { VatSyscall } from './vats/VatSyscall.ts';
+import { asRRef, asVatId, asVRef } from '../test/branded.ts';
 
 /*
  * Invariant M1: a crank aborts while writer X acts from outside it; X's effect
@@ -58,17 +59,17 @@ async function setUp() {
   const kdb = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
   const kernelStore = makeKernelStore(kdb);
   const config: VatConfig = { sourceSpec: 'test.js' };
-  for (const vatId of ['v1', 'v2', 'v3']) {
+  for (const vatId of ['v1', 'v2', 'v3'].map(asVatId)) {
     kernelStore.setVatConfig(vatId, config);
     kernelStore.initEndpoint(vatId);
   }
-  const doomed = kernelStore.exportFromEndpoint('v1', 'o+1');
-  const target = kernelStore.exportFromEndpoint('v3', 'o+1');
-  const sentinel = kernelStore.exportFromEndpoint('v3', 'o+2');
-  kernelStore.addCListEntry('v2', target, 'o-1');
-  kernelStore.setReachableFlag('v2', target);
+  const doomed = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
+  const target = kernelStore.exportFromEndpoint(asVatId('v3'), asVRef('o+1'));
+  const sentinel = kernelStore.exportFromEndpoint(asVatId('v3'), asVRef('o+2'));
+  kernelStore.addCListEntry(asVatId('v2'), target, asVRef('o-1'));
+  kernelStore.setReachableFlag(asVatId('v2'), target);
   const [kpid] = kernelStore.initKernelPromise();
-  kernelStore.addPromiseSubscriber('v3', kpid);
+  kernelStore.addPromiseSubscriber(asVatId('v3'), kpid);
 
   const kernelQueue = new KernelQueue(kernelStore, async (vatId) =>
     kernelStore.markVatAsTerminated(vatId),
@@ -104,8 +105,12 @@ async function setUp() {
       } as unknown as VatHandle;
     },
   );
-  await vatManager.runVat('v2', config);
-  const vatSyscall = new VatSyscall({ vatId: 'v2', kernelQueue, kernelStore });
+  await vatManager.runVat(asVatId('v2'), config);
+  const vatSyscall = new VatSyscall({
+    vatId: asVatId('v2'),
+    kernelQueue,
+    kernelStore,
+  });
 
   const remoteComms = {
     getPeerId: vi.fn().mockReturnValue('local-peer'),
@@ -185,10 +190,10 @@ async function abortACrankWhile(
       aborted();
       // What `VatHandle` reports for a delivery that failed.
       return {
-        didDelivery: 'v1',
+        didDelivery: asVatId('v1'),
         abort: true,
         terminate: {
-          vatId: 'v1',
+          vatId: asVatId('v1'),
           reject: true,
           info: makeFatalKernelError('INTERNAL_ERROR', 'delivery failed'),
         },
@@ -283,8 +288,8 @@ async function sendOneMessageToPeer(harness: Harness): Promise<string> {
   kernelStore.startCrank();
   kernelStore.createCrankSavepoint('crank');
   kernelStore.createCrankSavepoint('delivery');
-  const { afterCommit } = await remote.deliverMessage('ro+1', {
-    methargs: kser(['hello', []]),
+  const { afterCommit } = await remote.deliverMessage(asRRef('ro+1'), {
+    methargs: { body: kser(['hello', []]).body, slots: [] },
     result: null,
   });
   kernelStore.endCrank();
@@ -302,7 +307,7 @@ async function sendOneMessageToPeer(harness: Harness): Promise<string> {
 function letPeerDecide(harness: Harness): void {
   const { kernelStore, remote, kpid } = harness;
   kernelStore.setPromiseDecider(kpid, remote.remoteId);
-  kernelStore.addCListEntry(remote.remoteId, kpid, 'rp+1');
+  kernelStore.addCListEntry(remote.remoteId, kpid, asRRef('rp+1'));
 }
 
 describe('a writer acting while a crank aborts', () => {
@@ -399,8 +404,8 @@ describe('a writer acting while a crank aborts', () => {
   it('vat async resolve: the resolution is lost with the aborted crank (gap, #1152)', async () => {
     const harness = await setUp();
     const { kernelStore, vatSyscall, kpid } = harness;
-    kernelStore.setPromiseDecider(kpid, 'v2');
-    kernelStore.addCListEntry('v2', kpid, 'p+5');
+    kernelStore.setPromiseDecider(kpid, asVatId('v2'));
+    kernelStore.addCListEntry(asVatId('v2'), kpid, asVRef('p+5'));
     const delivered = await abortACrankWhile(harness, async () => {
       syscallFromV2(vatSyscall, ['resolve', [['p+5', false, kser('done')]]]);
       expect(kernelStore.getKernelPromise(kpid).state).toBe('fulfilled');
@@ -429,10 +434,10 @@ describe('a writer acting while a crank aborts', () => {
     const { kernelStore, vatSyscall, target } = harness;
     const delivered = await abortACrankWhile(harness, async () => {
       syscallFromV2(vatSyscall, ['dropImports', ['o-1']]);
-      expect(kernelStore.getReachableFlag('v2', target)).toBe(false);
+      expect(kernelStore.getReachableFlag(asVatId('v2'), target)).toBe(false);
     });
     expect({
-      reachable: kernelStore.getReachableFlag('v2', target),
+      reachable: kernelStore.getReachableFlag(asVatId('v2'), target),
       dropExports: delivered.filter((item) => item.type === 'dropExports'),
     }).toStrictEqual({ reachable: true, dropExports: [] });
   });
@@ -459,13 +464,13 @@ describe('a writer acting while a crank aborts', () => {
         doomedDeliveries += 1;
         if (doomedDeliveries === 1) {
           failStream(new Error('stream died'));
-          return { didDelivery: 'v1', abort: true };
+          return { didDelivery: asVatId('v1'), abort: true };
         }
         if (doomedDeliveries === 2) {
           // Long enough for a retirement that waits for the crank to resume
           // inside this one.
           await delay(20);
-          return { didDelivery: 'v1', abort: true };
+          return { didDelivery: asVatId('v1'), abort: true };
         }
         return undefined;
       }
@@ -488,8 +493,8 @@ describe('a writer acting while a crank aborts', () => {
     harness.remoteManager.cleanup();
 
     expect({
-      active: kernelStore.isVatActive('v2'),
-      terminated: kernelStore.getTerminatedVats().includes('v2'),
+      active: kernelStore.isVatActive(asVatId('v2')),
+      terminated: kernelStore.getTerminatedVats().includes(asVatId('v2')),
     }).toStrictEqual({ active: false, terminated: true });
   });
 
@@ -500,8 +505,8 @@ describe('a writer acting while a crank aborts', () => {
       failStream(new Error('stream died'));
     });
     expect({
-      active: kernelStore.isVatActive('v2'),
-      terminated: kernelStore.getTerminatedVats().includes('v2'),
+      active: kernelStore.isVatActive(asVatId('v2')),
+      terminated: kernelStore.getTerminatedVats().includes(asVatId('v2')),
     }).toStrictEqual({ active: false, terminated: true });
   });
 });

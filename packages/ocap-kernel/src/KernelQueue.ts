@@ -634,7 +634,7 @@ export class KernelQueue {
     // Nothing is draining the run queue, so a returned promise could never settle.
     this.assertRunLoopAlive('queue a message');
     // TODO(#562): Use logger instead.
-    // eslint-disable-next-line no-console
+    // oxlint-disable-next-line no-console
     console.debug('enqueueMessage', target, method, args);
     const result = this.#kernelStore.initKernelPromise()[0];
     const { promise, resolve, reject } = makePromiseKit<CapData<KRef>>();

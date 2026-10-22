@@ -20,10 +20,14 @@ import type {
   PlatformServices,
   VatConfig,
   VatId,
+  KRef,
 } from '../types.ts';
 import { makeGCAction } from '../types.ts';
 import { VatHandle } from './VatHandle.ts';
 import { VatManager } from './VatManager.ts';
+import { asVatId, asVRef } from '../../test/branded.ts';
+
+const v1 = asVatId('v1');
 
 type Stream = TestDuplexStream<JsonRpcMessage, JsonRpcMessage>;
 
@@ -132,7 +136,7 @@ function makeWorkers() {
         const [kind, , message] = params as [
           string,
           string,
-          { methargs: { body: string; slots: string[] } },
+          { methargs: { body: string; slots: KRef[] } },
         ];
         return kind === 'message'
           ? [(kunser(message.methargs) as [string])[0]]
@@ -231,7 +235,7 @@ async function setUp({ onDisk = false }: { onDisk?: boolean } = {}) {
   const { vatManager, kernelStore } = kernel;
   const doomedRoot = await vatManager.launchVat(config, 'doomed');
   const survivorRoot = await vatManager.launchVat(config, 'survivor');
-  const survivorERef = kernelStore.translateRefKtoE('v1', survivorRoot, true);
+  const survivorERef = kernelStore.translateRefKtoE(v1, survivorRoot, true);
   return {
     ...kernel,
     doomedRoot,
@@ -283,7 +287,7 @@ async function deliverEverythingQueued(harness: Harness): Promise<void> {
     .enqueueMessage(survivorRoot, 'sentinel', [])
     .catch(() => undefined);
   await vi.waitFor(() =>
-    expect(workers.methodsDelivered('v2')).toContain('sentinel'),
+    expect(workers.methodsDelivered(asVatId('v2'))).toContain('sentinel'),
   );
 }
 
@@ -350,8 +354,8 @@ describe('a vat that loses its channel mid-delivery', () => {
       what: 'notify',
       queue: ({ kernelStore, kernelQueue }: Harness): undefined => {
         const [kpid] = kernelStore.initKernelPromise();
-        kernelStore.translateRefKtoE('v1', kpid, true);
-        kernelStore.addPromiseSubscriber('v1', kpid);
+        kernelStore.translateRefKtoE(v1, kpid, true);
+        kernelStore.addPromiseSubscriber(v1, kpid);
         kernelQueue.resolvePromises(undefined, [[kpid, false, kser('done')]]);
         return undefined;
       },
@@ -360,9 +364,9 @@ describe('a vat that loses its channel mid-delivery', () => {
     {
       what: 'dropExports',
       queue: ({ kernelStore }: Harness): undefined => {
-        const kref = kernelStore.initKernelObject('v1');
-        kernelStore.addCListEntry('v1', kref, 'o+10');
-        kernelStore.addGCActions([makeGCAction('v1', 'dropExport', kref)]);
+        const kref = kernelStore.initKernelObject(v1);
+        kernelStore.addCListEntry(v1, kref, asVRef('o+10'));
+        kernelStore.addGCActions([makeGCAction(v1, 'dropExport', kref)]);
         return undefined;
       },
       caller: /^none$/u,
@@ -370,7 +374,7 @@ describe('a vat that loses its channel mid-delivery', () => {
     {
       what: 'bringOutYourDead',
       queue: ({ kernelStore }: Harness): undefined => {
-        kernelStore.scheduleReap('v1');
+        kernelStore.scheduleReap(v1);
         return undefined;
       },
       caller: /^none$/u,
@@ -387,7 +391,7 @@ describe('a vat that loses its channel mid-delivery', () => {
     async ({ death, queue, caller: expectedCaller }) => {
       const harness = await setUp();
       const { kernelStore, kernelQueue, workers, survivorERef } = harness;
-      workers.onDeliver('v1', async ({ syscall, die }) => {
+      workers.onDeliver(v1, async ({ syscall, die }) => {
         await syscall([
           'send',
           survivorERef,
@@ -409,7 +413,7 @@ describe('a vat that loses its channel mid-delivery', () => {
       harness.run();
       await vi.waitFor(() =>
         expect({
-          doomedActive: kernelStore.isVatActive('v1'),
+          doomedActive: kernelStore.isVatActive(v1),
           caller,
         }).toStrictEqual({
           doomedActive: false,
@@ -419,7 +423,7 @@ describe('a vat that loses its channel mid-delivery', () => {
       await deliverEverythingQueued(harness);
 
       expect({
-        survivorGot: workers.methodsDelivered('v2'),
+        survivorGot: workers.methodsDelivered(asVatId('v2')),
         runLoop: kernelQueue.getRunLoopStatus().state,
       }).toStrictEqual({
         survivorGot: ['sentinel'],
@@ -434,7 +438,7 @@ describe('a delivery a kernel stop cuts off', () => {
     const harness = await setUp({ onDisk: true });
     const { kernelQueue, vatManager, workers } = harness;
     let doomedWorker: Worker | undefined;
-    workers.onDeliver('v1', async (worker) => {
+    workers.onDeliver(v1, async (worker) => {
       doomedWorker = worker;
       return 'silent';
     });
@@ -458,7 +462,7 @@ describe('a delivery a kernel stop cuts off', () => {
       runLoop: 'running',
     });
     await vi.waitFor(() =>
-      expect(next.workers.methodsDelivered('v1')).toStrictEqual(['work']),
+      expect(next.workers.methodsDelivered(v1)).toStrictEqual(['work']),
     );
   });
 });
@@ -466,7 +470,9 @@ describe('a delivery a kernel stop cuts off', () => {
 describe('a vat that failed to start at boot', () => {
   it('is terminated by terminateAllVats', async () => {
     const harness = await setUp({ onDisk: true });
-    const next = await harness.reboot({ failToStart: new Set(['v1']) });
+    const next = await harness.reboot({
+      failToStart: new Set([v1]),
+    });
 
     await next.vatManager.terminateAllVats();
 
@@ -502,8 +508,8 @@ describe('terminateAllVats while the run loop runs', () => {
       what: 'notify',
       queue: ({ kernelStore, kernelQueue }: Harness): void => {
         const [kpid] = kernelStore.initKernelPromise();
-        kernelStore.translateRefKtoE('v1', kpid, true);
-        kernelStore.addPromiseSubscriber('v1', kpid);
+        kernelStore.translateRefKtoE(v1, kpid, true);
+        kernelStore.addPromiseSubscriber(v1, kpid);
         kernelQueue.resolvePromises(undefined, [[kpid, false, kser('done')]]);
       },
     },
@@ -516,13 +522,13 @@ describe('terminateAllVats while the run loop runs', () => {
       const { kernelStore, kernelQueue, vatManager, workers } = harness;
       const v2Busy = makePromiseKit<void>();
       let v2Started = false;
-      workers.onDeliver('v2', async () => {
+      workers.onDeliver(asVatId('v2'), async () => {
         v2Started = true;
         await v2Busy.promise;
         return 'answer';
       });
       let v1Started = false;
-      workers.onDeliver('v1', async () => {
+      workers.onDeliver(v1, async () => {
         v1Started = true;
         return 'silent';
       });
@@ -586,7 +592,7 @@ describe('terminateAllVats resuming inside a restart crank', () => {
       const endRelaunch = arrange(harness);
       const v2Busy = makePromiseKit<void>();
       let v2Started = false;
-      workers.onDeliver('v2', async () => {
+      workers.onDeliver(asVatId('v2'), async () => {
         v2Started = true;
         await v2Busy.promise;
         return 'answer';
@@ -599,7 +605,7 @@ describe('terminateAllVats resuming inside a restart crank', () => {
 
       let restart = 'pending';
       vatManager
-        .restartVat('v1')
+        .restartVat(v1)
         .then(() => {
           restart = 'fulfilled';
           return undefined;
@@ -641,7 +647,7 @@ describe('a restarted vat that loses its new channel as the restart ends', () =>
    */
   const sendWhileStarting = (harness: Harness): void => {
     const { workers, survivorERef } = harness;
-    workers.onInit('v1', async ({ syscall }) =>
+    workers.onInit(v1, async ({ syscall }) =>
       syscall([
         'send',
         survivorERef,
@@ -655,10 +661,10 @@ describe('a restarted vat that loses its new channel as the restart ends', () =>
     sendWhileStarting(harness);
     harness.run();
 
-    await harness.vatManager.restartVat('v1');
+    await harness.vatManager.restartVat(v1);
     await deliverEverythingQueued(harness);
 
-    expect(harness.workers.methodsDelivered('v2')).toStrictEqual([
+    expect(harness.workers.methodsDelivered(asVatId('v2'))).toStrictEqual([
       'fromNewWorker',
       'sentinel',
     ]);
@@ -675,14 +681,14 @@ describe('a restarted vat that loses its new channel as the restart ends', () =>
       sendWhileStarting(harness);
       const lossLanded = loseChannelAsItStarts({
         vatManager,
-        vatId: 'v1',
+        vatId: v1,
         when,
       });
       harness.run();
 
       let restarted = 'pending';
       vatManager
-        .restartVat('v1')
+        .restartVat(v1)
         .then(() => {
           restarted = 'fulfilled';
           return undefined;
@@ -697,9 +703,9 @@ describe('a restarted vat that loses its new channel as the restart ends', () =>
       expect({
         landed: lossLanded(),
         restarted,
-        survivorGot: workers.methodsDelivered('v2'),
+        survivorGot: workers.methodsDelivered(asVatId('v2')),
         running: vatManager.getVatIds(),
-        active: kernelStore.isVatActive('v1'),
+        active: kernelStore.isVatActive(v1),
         runLoop: kernelQueue.getRunLoopStatus().state,
       }).toStrictEqual({
         landed,
@@ -726,7 +732,7 @@ describe('a vat that loses its channel as it launches', () => {
         harness;
       const lossLanded = loseChannelAsItStarts({
         vatManager,
-        vatId: 'v3',
+        vatId: asVatId('v3'),
         when,
       });
       harness.run();
@@ -741,7 +747,7 @@ describe('a vat that loses its channel as it launches', () => {
         lostWith: (((failure as Error).cause as Error).cause as Error).message,
         stopped: vi.mocked(platformServices.terminate).mock.calls,
         running: vatManager.getVatIds(),
-        active: kernelStore.isVatActive('v3'),
+        active: kernelStore.isVatActive(asVatId('v3')),
         runLoop: kernelQueue.getRunLoopStatus().state,
       }).toStrictEqual({
         landed,
@@ -767,7 +773,7 @@ describe('a restart a kernel stop cuts short', () => {
       launchStarted = true;
       return launch.promise;
     });
-    const restarting = vatManager.restartVat('v1');
+    const restarting = vatManager.restartVat(v1);
     restarting.catch(() => undefined);
     kernelQueue
       .enqueueMessage(harness.doomedRoot, 'afterRestart', [])
@@ -783,8 +789,8 @@ describe('a restart a kernel stop cuts short', () => {
     expect(next.cutOff).toBe(true);
     await vi.waitFor(() =>
       expect({
-        delivered: next.workers.methodsDelivered('v1'),
-        active: next.kernelStore.isVatActive('v1'),
+        delivered: next.workers.methodsDelivered(v1),
+        active: next.kernelStore.isVatActive(v1),
       }).toStrictEqual({ delivered: ['afterRestart'], active: true }),
     );
   });

@@ -7,6 +7,7 @@ import { KernelRouter } from './KernelRouter.ts';
 import { kser } from './liveslots/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { EndpointHandle, KRef, RunQueueItem } from './types.ts';
+import { asVatId, asVRef } from '../test/branded.ts';
 
 /**
  * `KernelRouter`'s own tests mock `resolvePromises`, so nothing there can see a
@@ -77,9 +78,9 @@ describe('a result promise whose delivery fails', () => {
     kernelStore: ReturnType<typeof makeKernelStore>,
     kernelQueue: KernelQueue,
   ): KRef {
-    kernelStore.setVatConfig('v1', { bundleName: 'vat1' });
-    kernelStore.initEndpoint('v1');
-    const target = kernelStore.exportFromEndpoint('v1', 'o+1');
+    kernelStore.setVatConfig(asVatId('v1'), { bundleName: 'vat1' });
+    kernelStore.initEndpoint(asVatId('v1'));
+    const target = kernelStore.exportFromEndpoint(asVatId('v1'), asVRef('o+1'));
     const [result] = kernelStore.initKernelPromise();
     kernelQueue.enqueueSend(target, {
       methargs: kser(['ping', []]),
@@ -118,7 +119,7 @@ describe('a result promise whose delivery fails', () => {
       );
       const result = queueSendWithResult(kernelStore, kernelQueue);
       endpointDoes.settleTheResult = () =>
-        kernelQueue.resolvePromises('v1', [
+        kernelQueue.resolvePromises(asVatId('v1'), [
           [result, rejected, kser('settled by the endpoint')],
         ]);
 

@@ -11,7 +11,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Kernel } from './Kernel.ts';
 import { kser } from './liveslots/kernel-marshal.ts';
 import type {
-  VatId,
   VatConfig,
   OnRunLoopFailure,
   PlatformServices,
@@ -19,8 +18,10 @@ import type {
   CrankResult,
   EndpointId,
   RunQueueItem,
+  SubclusterId,
 } from './types.ts';
 import { VatHandle } from './vats/VatHandle.ts';
+import { asKRef, asSubclusterId, asVatId } from '../test/branded.ts';
 import { makeMapKernelDatabase } from '../test/storage.ts';
 
 const mocks = vi.hoisted(() => {
@@ -335,7 +336,7 @@ describe('Kernel', () => {
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
-      const result = await kernel.queueMessage('ko1', 'hello', []);
+      const result = await kernel.queueMessage(asKRef('ko1'), 'hello', []);
       expect(result).toStrictEqual({ body: '{"result":"ok"}', slots: [] });
     });
 
@@ -347,9 +348,9 @@ describe('Kernel', () => {
       mocks.KernelQueue.lastInstance.enqueueMessage.mockRejectedValueOnce(
         kser(new Error('vat rejection message')),
       );
-      await expect(kernel.queueMessage('ko1', 'hello', [])).rejects.toThrow(
-        'vat rejection message',
-      );
+      await expect(
+        kernel.queueMessage(asKRef('ko1'), 'hello', []),
+      ).rejects.toThrow('vat rejection message');
     });
 
     it('propagates non-CapData rejections as-is', async () => {
@@ -361,9 +362,9 @@ describe('Kernel', () => {
       mocks.KernelQueue.lastInstance.enqueueMessage.mockRejectedValueOnce(
         internalError,
       );
-      await expect(kernel.queueMessage('ko1', 'hello', [])).rejects.toThrow(
-        'internal kernel error',
-      );
+      await expect(
+        kernel.queueMessage(asKRef('ko1'), 'hello', []),
+      ).rejects.toThrow('internal kernel error');
     });
   });
 
@@ -444,7 +445,7 @@ describe('Kernel', () => {
       const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
-      const subclusterId = firstSubcluster?.id as string;
+      const subclusterId = firstSubcluster?.id as SubclusterId;
       expect(subclusterId).toBeDefined();
       await kernel.terminateSubcluster(subclusterId);
       expect(terminateWorkerMock).toHaveBeenCalledTimes(2);
@@ -457,9 +458,9 @@ describe('Kernel', () => {
         mockPlatformServices,
         mockKernelDatabase,
       );
-      await expect(kernel.terminateSubcluster('non-existent')).rejects.toThrow(
-        'Subcluster does not exist.',
-      );
+      await expect(
+        kernel.terminateSubcluster('non-existent' as SubclusterId),
+      ).rejects.toThrow('Subcluster does not exist.');
     });
   });
 
@@ -474,7 +475,7 @@ describe('Kernel', () => {
       const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
-      const subclusterId = firstSubcluster?.id as string;
+      const subclusterId = firstSubcluster?.id as SubclusterId;
       expect(subclusterId).toBeDefined();
       const subcluster = kernel.getSubcluster(subclusterId);
       expect(subcluster).toBeDefined();
@@ -487,7 +488,7 @@ describe('Kernel', () => {
         mockKernelDatabase,
       );
       // Use valid subcluster ID format (s + number) that doesn't exist
-      expect(kernel.getSubcluster('s999')).toBeUndefined();
+      expect(kernel.getSubcluster(asSubclusterId('s999'))).toBeUndefined();
     });
   });
 
@@ -502,11 +503,13 @@ describe('Kernel', () => {
       const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
-      const subclusterId = firstSubcluster?.id as string;
+      const subclusterId = firstSubcluster?.id as SubclusterId;
       expect(subclusterId).toBeDefined();
-      expect(kernel.isVatInSubcluster('v1', subclusterId)).toBe(true);
+      expect(kernel.isVatInSubcluster(asVatId('v1'), subclusterId)).toBe(true);
       // Use valid subcluster ID format (s + number) that doesn't match
-      expect(kernel.isVatInSubcluster('v1', 's999')).toBe(false);
+      expect(
+        kernel.isVatInSubcluster(asVatId('v1'), asSubclusterId('s999')),
+      ).toBe(false);
     });
   });
 
@@ -527,7 +530,7 @@ describe('Kernel', () => {
       const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
-      const subclusterId = firstSubcluster?.id as string;
+      const subclusterId = firstSubcluster?.id as SubclusterId;
       expect(subclusterId).toBeDefined();
       const vatIds = kernel.getSubclusterVats(subclusterId);
       expect(vatIds).toStrictEqual(['v1', 'v2']);
@@ -772,7 +775,7 @@ describe('Kernel', () => {
           () => undefined,
         );
 
-        const terminating = kernel.terminateVat('v1');
+        const terminating = kernel.terminateVat(asVatId('v1'));
         await kernel[method]();
 
         await expect(terminating).rejects.toThrow(message);
@@ -786,7 +789,7 @@ describe('Kernel', () => {
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
 
-      await kernel.terminateVat('v1');
+      await kernel.terminateVat(asVatId('v1'));
 
       expect(
         mocks.KernelQueue.lastInstance.enqueueTerminateVat,
@@ -800,7 +803,7 @@ describe('Kernel', () => {
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
-      await kernel.terminateVat('v1');
+      await kernel.terminateVat(asVatId('v1'));
       expect(vatHandles[0]?.terminate).toHaveBeenCalledOnce();
       expect(terminateWorkerMock).toHaveBeenCalledOnce();
       expect(kernel.getVatIds()).toStrictEqual([]);
@@ -811,7 +814,7 @@ describe('Kernel', () => {
         mockPlatformServices,
         mockKernelDatabase,
       );
-      const nonExistentVatId: VatId = 'v9';
+      const nonExistentVatId = asVatId('v9');
       await expect(async () =>
         kernel.terminateVat(nonExistentVatId),
       ).rejects.toThrow(VatNotFoundError);
@@ -826,7 +829,7 @@ describe('Kernel', () => {
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       vatHandles[0]?.terminate.mockRejectedValueOnce('Test error');
 
-      await kernel.terminateVat('v1');
+      await kernel.terminateVat(asVatId('v1'));
 
       expect(kernel.getVatIds()).toStrictEqual([]);
     });
@@ -1013,7 +1016,7 @@ describe('Kernel', () => {
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
 
-      const returnedHandle = await kernel.restartVat('v1');
+      const returnedHandle = await kernel.restartVat(asVatId('v1'));
 
       expect(
         mocks.KernelQueue.lastInstance.enqueueRestartVat,
@@ -1034,7 +1037,7 @@ describe('Kernel', () => {
       const queue = mocks.KernelQueue.lastInstance;
       queue.enqueueRestartVat.mockImplementationOnce(() => undefined);
 
-      const restarting = kernel.restartVat('v1');
+      const restarting = kernel.restartVat(asVatId('v1'));
       queue.killRunLoop(new Error('run loop boom'));
 
       await expect(restarting).rejects.toThrow('run loop boom');
@@ -1056,7 +1059,7 @@ describe('Kernel', () => {
           () => undefined,
         );
 
-        const restarting = kernel.restartVat('v1');
+        const restarting = kernel.restartVat(asVatId('v1'));
         await kernel[method]();
 
         await expect(restarting).rejects.toThrow(message);
@@ -1068,7 +1071,9 @@ describe('Kernel', () => {
         mockPlatformServices,
         mockKernelDatabase,
       );
-      await expect(kernel.restartVat('v999')).rejects.toThrow(VatNotFoundError);
+      await expect(kernel.restartVat(asVatId('v999'))).rejects.toThrow(
+        VatNotFoundError,
+      );
       expect(vatHandles).toHaveLength(0);
       expect(launchWorkerMock).not.toHaveBeenCalled();
       expect(
@@ -1085,7 +1090,7 @@ describe('Kernel', () => {
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       vatHandles[0]?.ping.mockResolvedValueOnce('pong');
-      const result = await kernel.pingVat('v1');
+      const result = await kernel.pingVat(asVatId('v1'));
       expect(vatHandles[0]?.ping).toHaveBeenCalledTimes(1);
       expect(result).toBe('pong');
     });
@@ -1095,7 +1100,7 @@ describe('Kernel', () => {
         mockPlatformServices,
         mockKernelDatabase,
       );
-      const nonExistentVatId: VatId = 'v9';
+      const nonExistentVatId = asVatId('v9');
       await expect(async () =>
         kernel.pingVat(nonExistentVatId),
       ).rejects.toThrow(VatNotFoundError);
@@ -1109,7 +1114,9 @@ describe('Kernel', () => {
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       const pingError = new Error('Ping failed');
       vatHandles[0]?.ping.mockRejectedValueOnce(pingError);
-      await expect(async () => kernel.pingVat('v1')).rejects.toThrow(pingError);
+      await expect(async () => kernel.pingVat(asVatId('v1'))).rejects.toThrow(
+        pingError,
+      );
     });
   });
 
@@ -1255,7 +1262,7 @@ describe('Kernel', () => {
         kind: 'a non-native thenable',
         makeHandler: (handlerError: Error) => (): PromiseLike<void> => ({
           then: (_onFulfilled, onRejected) =>
-            onRejected?.(handlerError) as PromiseLike<void>,
+            onRejected?.(handlerError) as PromiseLike<never>,
         }),
       },
     ])(
@@ -1423,9 +1430,9 @@ describe('Kernel', () => {
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
-      expect(kernel.isRevoked('ko1')).toBe(false);
-      kernel.revoke('ko1');
-      expect(kernel.isRevoked('ko1')).toBe(true);
+      expect(kernel.isRevoked(asKRef('ko1'))).toBe(false);
+      kernel.revoke(asKRef('ko1'));
+      expect(kernel.isRevoked(asKRef('ko1'))).toBe(true);
     });
 
     it('throws when revoking a promise', async () => {
@@ -1434,7 +1441,7 @@ describe('Kernel', () => {
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
-      expect(() => kernel.revoke('kp1')).toThrow(Error);
+      expect(() => kernel.revoke(asKRef('kp1'))).toThrow(Error);
     });
   });
 
@@ -1447,13 +1454,15 @@ describe('Kernel', () => {
       const config = makeSingleVatClusterConfig();
       await kernel.launchSubcluster(config);
       // Pinning existing vat root should return the kref
-      expect(kernel.pinVatRoot('v1')).toBe('ko4');
+      expect(kernel.pinVatRoot(asVatId('v1'))).toBe('ko4');
       // Pinning non-existent vat should throw
-      expect(() => kernel.pinVatRoot('v2')).toThrow(VatNotFoundError);
+      expect(() => kernel.pinVatRoot(asVatId('v2'))).toThrow(VatNotFoundError);
       // Unpinning existing vat root should succeed
-      expect(() => kernel.unpinVatRoot('v1')).not.toThrow();
+      expect(() => kernel.unpinVatRoot(asVatId('v1'))).not.toThrow();
       // Unpinning non-existent vat should throw
-      expect(() => kernel.unpinVatRoot('v3')).toThrow(VatNotFoundError);
+      expect(() => kernel.unpinVatRoot(asVatId('v3'))).toThrow(
+        VatNotFoundError,
+      );
     });
   });
 

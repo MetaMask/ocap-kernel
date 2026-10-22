@@ -283,7 +283,7 @@ export class RemoteHandle implements RemoteEndpointHandle {
    * @param params.onGiveUp - Optional callback when we give up on this remote.
    * @param params.ackTimeoutMs - Optional ACK timeout in ms. Defaults to ACK_TIMEOUT_MS.
    */
-  // eslint-disable-next-line no-restricted-syntax
+  // oxlint-disable-next-line ocap/no-restricted-syntax
   private constructor({
     remoteId,
     peerId,
@@ -1293,7 +1293,7 @@ export class RemoteHandle implements RemoteEndpointHandle {
         break;
       }
       default:
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        // oxlint-disable-next-line typescript/restrict-template-expressions
         throw Error(`unknown remote delivery method ${method}`);
     }
   }
@@ -1496,7 +1496,7 @@ export class RemoteHandle implements RemoteEndpointHandle {
         deferredCompletion = this.#handleRedeemURLReply(...params);
         break;
       default:
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        // oxlint-disable-next-line typescript/restrict-template-expressions
         throw Error(`unknown remote message type ${method}`);
     }
 
