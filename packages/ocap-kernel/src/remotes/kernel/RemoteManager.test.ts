@@ -1105,7 +1105,7 @@ describe('RemoteManager', () => {
 
       const [kpid] = kernelStore.initKernelPromise();
       kernelStore.setPromiseDecider(kpid, remoteId);
-      kernelStore.addCListEntry(remoteId, kpid, 'rp+1');
+      kernelStore.addCListEntry(remoteId, kpid, asRRef('rp+1'));
       kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
 
       const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');

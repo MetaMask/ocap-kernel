@@ -410,7 +410,9 @@ describe('reconnection-lifecycle', () => {
 
         expect({
           dials: attemptsAtDial,
-          gaveUp: vi.mocked(deps.onRemoteGiveUp).mock.calls.length > 0,
+          gaveUp:
+            (deps.onRemoteGiveUp as ReturnType<typeof vi.fn>).mock.calls
+              .length > 0,
         }).toStrictEqual({ dials, gaveUp });
       },
     );
