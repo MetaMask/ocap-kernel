@@ -21,14 +21,6 @@ vi.mock('./remote-comms.ts', async () => {
   };
 });
 
-/**
- * Get the RemoteHandle a manager uses for a peer.
- *
- * @param manager - The manager.
- * @param peerId - The peer.
- * @param hints - Its location hints.
- * @returns The handle.
- */
 const remoteFor = async (
   manager: RemoteManager,
   peerId: string,
@@ -36,12 +28,6 @@ const remoteFor = async (
 ): Promise<RemoteHandle> =>
   manager.withRemote(peerId, { hints, use: (remote) => remote });
 
-/**
- * A message from a peer, as it arrives.
- *
- * @param seq - Its sequence number.
- * @returns The message.
- */
 const peerMessage = (seq: number): string =>
   JSON.stringify({ seq, method: 'deliver', params: ['bringOutYourDead'] });
 
@@ -621,7 +607,7 @@ describe('RemoteManager', () => {
       },
     );
 
-    it('sets up anew a remote whose setup failed to be written', async () => {
+    it('sets up anew a remote whose setup failed to be written (gap, #1171)', async () => {
       const fault = new Error('SQLITE_FULL');
       const { kernelKVStore } = kernelDatabase;
       const set = kernelKVStore.set.bind(kernelKVStore);
@@ -638,6 +624,25 @@ describe('RemoteManager', () => {
       const remote = await remoteFor(remoteManager, 'new-peer');
 
       expect(kernelKVStore.get(`e.nextObjectId.${remote.remoteId}`)).toBe('1');
+      expect(kernelStore.getRemoteIDs()).toStrictEqual([remote.remoteId]);
+    });
+
+    it('leaves no record of a remote whose handle failed to be made', async () => {
+      const fault = new Error('SQLITE_IOERR');
+      const { kernelKVStore } = kernelDatabase;
+      const get = kernelKVStore.get.bind(kernelKVStore);
+      let failing = true;
+      vi.spyOn(kernelKVStore, 'get').mockImplementation((key) => {
+        if (failing && key.startsWith('remoteSeq.')) {
+          failing = false;
+          throw fault;
+        }
+        return get(key);
+      });
+
+      await expect(remoteFor(remoteManager, 'new-peer')).rejects.toBe(fault);
+      const remote = await remoteFor(remoteManager, 'new-peer');
+
       expect(kernelStore.getRemoteIDs()).toStrictEqual([remote.remoteId]);
     });
 

@@ -864,12 +864,26 @@ describe('Kernel', () => {
     });
 
     it.each([
-      { method: 'clearStorage', stopping: false },
-      { method: 'reset', stopping: false },
-      { method: 'stop', stopping: true },
+      {
+        method: 'clearStorage',
+        args: [
+          new Error('Kernel storage was cleared; queued work was abandoned'),
+        ],
+      },
+      {
+        method: 'reset',
+        args: [new Error('Kernel was reset; queued work was abandoned')],
+      },
+      {
+        method: 'stop',
+        args: [
+          new Error('Kernel was stopped before taking this request'),
+          { stopping: true },
+        ],
+      },
     ] as const)(
-      'discards the requests held for the open crank on $method, stopping: $stopping',
-      async ({ method, stopping }) => {
+      'discards the requests held for the open crank on $method',
+      async ({ method, args }) => {
         const kernel = await Kernel.make(
           mockPlatformServices,
           mockKernelDatabase,
@@ -877,7 +891,7 @@ describe('Kernel', () => {
         await kernel[method]();
         expect(
           mocks.KernelQueue.lastInstance.discardHeldRequests,
-        ).toHaveBeenCalledExactlyOnceWith(expect.any(Error), { stopping });
+        ).toHaveBeenCalledExactlyOnceWith(...args);
       },
     );
 

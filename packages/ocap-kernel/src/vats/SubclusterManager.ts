@@ -504,7 +504,7 @@ export class SubclusterManager {
     // A failed peer's promise is made in the same write as the message, which
     // `queueMessage` writes at once outside a crank: one made sooner, rejected
     // and named by nothing else yet, would be collected by an open crank
-    // before the message held for it took its reference.
+    // before the held message took its reference.
     const { answer } = await this.#kernelQueue.writeOutsideCrank(() => {
       const roots = Object.fromEntries(
         rootsEntries.map(([vatName, root]): [string, SlotValue] => [

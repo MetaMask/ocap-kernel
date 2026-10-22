@@ -265,6 +265,41 @@ describe('KernelQueue', () => {
       expect(afterCommit).toHaveBeenCalledOnce();
     });
 
+    it('dies of the held request that failed to be written when afterCommit fails too', async () => {
+      (kernelStore.isInCrank as unknown as MockInstance).mockReturnValue(true);
+      (
+        kernelStore.runQueueLength as unknown as MockInstance
+      ).mockReturnValueOnce(1);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: {} as KernelMessage,
+      });
+      const fault = new Error('SQLITE_FULL');
+      (
+        kernelStore.enqueueRun as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        throw fault;
+      });
+      const afterCommitFault = new Error('transmit failed');
+      const deliver = vi.fn().mockImplementationOnce(async () => {
+        kernelQueue.enqueueRestartVat(v1);
+        return {
+          afterCommit: async () => {
+            throw afterCommitFault;
+          },
+        };
+      });
+
+      await expect(kernelQueue.run(deliver)).rejects.toStrictEqual(
+        new AggregateError(
+          [fault, afterCommitFault],
+          "Run loop died writing a held request, and its crank's afterCommit failed: Error: transmit failed",
+          { cause: fault },
+        ),
+      );
+    });
+
     it('withholds afterCommit when the delivery threw', async () => {
       const mockItem: RunQueueItem = {
         type: 'send',
@@ -862,7 +897,7 @@ describe('KernelQueue', () => {
     });
 
     it.each(['kernelRefExists', 'initKernelPromise', 'enqueueRun'] as const)(
-      'kills the run loop when %s fails writing a held message, and tells its caller',
+      'kills the run loop when %s fails while writing a held message, and tells its caller',
       async (method) => {
         (makePromiseKit as unknown as MockInstance).mockReturnValueOnce(
           makeRealPromiseKit(),
@@ -1058,7 +1093,19 @@ describe('KernelQueue', () => {
       expect(await result).toBe('written');
     });
 
-    it('rejects with what a held write throws, and the run loop goes on', async () => {
+    it("rejects with a peer's refusal that a held write throws, and the run loop goes on", async () => {
+      const refusal = new Error('invalid message seq: 0');
+      let result: Promise<unknown> | undefined;
+      await runACrankWhile(() => {
+        result = kernelQueue.writeOutsideCrank(() => {
+          throw refusal;
+        });
+      });
+
+      await expect(result).rejects.toBe(refusal);
+    });
+
+    it('rejects with what a held write throws, and the run loop goes on (gap, #1171)', async () => {
       const fault = new Error('SQLITE_FULL');
       let result: Promise<unknown> | undefined;
       await runACrankWhile(() => {
@@ -1087,16 +1134,15 @@ describe('KernelQueue', () => {
     );
 
     it.each([
-      { outlivesStop: true, settled: 'written' },
-      { outlivesStop: false, settled: 'stopped' },
+      { options: { outlivesStop: true }, settled: 'written' },
+      { options: { outlivesStop: false }, settled: 'stopped' },
+      { options: undefined, settled: 'stopped' },
     ])(
-      'makes a write held through a stop only if it outlives one: $outlivesStop',
-      async ({ outlivesStop, settled }) => {
+      'makes a write held through a stop only if it outlives one, given $options',
+      async ({ options, settled }) => {
         let result: Promise<unknown> | undefined;
         await runACrankWhile(() => {
-          result = kernelQueue.writeOutsideCrank(() => 'written', {
-            outlivesStop,
-          });
+          result = kernelQueue.writeOutsideCrank(() => 'written', options);
           kernelQueue.discardHeldRequests(new Error('stopped'), {
             stopping: true,
           });
@@ -1328,8 +1374,9 @@ describe('KernelQueue', () => {
       expect(await deliverItems(2)).toStrictEqual([arrival(1), arrival(2)]);
     });
 
-    // Two peers can hold one remote ID (#1183); the router drops the one it no
-    // longer names, so its message cannot stand in for the other's.
+    // Two peers can hold one remote ID after a reset (#1208); the router drops
+    // the one it no longer names, so its message cannot stand in for the
+    // other's.
     it('holds a message from a peer sharing its remote ID with another', async () => {
       arrive({ seq: 1, peerId: 'peerA' });
 

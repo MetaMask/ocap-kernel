@@ -18,10 +18,6 @@ import type {
   VatConfig,
 } from '../types.ts';
 
-/**
- * @param vatConfig - A vat's config.
- * @returns The source it names, if any.
- */
 const sourceOf = (vatConfig: VatConfig): string | undefined =>
   'sourceSpec' in vatConfig ? vatConfig.sourceSpec : undefined;
 
@@ -87,8 +83,9 @@ describe('a subcluster with a peer vat that fails to launch', () => {
       bootstrap: 'staller',
       vats: { staller: { sourceSpec: 'staller.js' } },
     });
-    // Opened as the boot vat launches, which is after `launchSubcluster`'s own
-    // wait for the open crank, and ended once the launch has acted inside it.
+    // Opened as the boot vat launches, after `launchSubcluster` has waited for
+    // the open crank, and kept open while the launch asks for its bootstrap
+    // write.
     openACrank = async () => {
       kernel
         .queueMessage(vatRootKrefs.staller as KRef, 'stall', [])

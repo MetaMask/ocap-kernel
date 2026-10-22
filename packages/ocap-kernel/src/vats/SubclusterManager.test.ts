@@ -269,6 +269,10 @@ describe('SubclusterManager', () => {
         madeBeforeTheWrite: [0, 0],
         madeInTheWrite: [1, 1],
       });
+      // With no options: a bootstrap held through a stop is not written.
+      expect(mockKernelQueue.writeOutsideCrank).toHaveBeenCalledExactlyOnceWith(
+        expect.any(Function),
+      );
     });
 
     it('terminates successfully-launched vats when a peer vat fails', async () => {

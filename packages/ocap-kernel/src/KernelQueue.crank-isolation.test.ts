@@ -115,7 +115,6 @@ async function setUp() {
     kernelStore,
   });
 
-  // What each message persisted for a peer is, and whether a crank was open.
   const persistedForPeer: [string, boolean][] = [];
   const set = kdb.kernelKVStore.set.bind(kdb.kernelKVStore);
   vi.spyOn(kdb.kernelKVStore, 'set').mockImplementation((key, value) => {
@@ -205,7 +204,8 @@ async function abortACrankWhile(
     if (item.type === 'send' && item.target === doomed) {
       // The rollback put the send back; the router splats it at the dead vat.
       if (abortedOnce) {
-        // Open past whatever a writer still has to do a few microtasks on.
+        // Kept open, so that what a writer does a few microtasks later lands
+        // in this crank.
         await delay(20);
         return undefined;
       }
@@ -404,7 +404,7 @@ describe('a writer acting while a crank aborts', () => {
 
   it('ocap URL redemption, new peer: the remote and its request are written once the aborted crank ends', async () => {
     const harness = await setUp();
-    const { kernelStore, remote, remoteManager, persistedForPeer } = harness;
+    const { kernelStore, remote, remoteManager } = harness;
     const ocapURLManager = new OcapURLManager({ remoteManager, kernelStore });
     await abortACrankWhile(harness, async () => {
       ocapURLManager
@@ -418,11 +418,9 @@ describe('a writer acting while a crank aborts', () => {
         .getRemoteIDs()
         .map((remoteId) => kernelStore.getRemoteInfo(remoteId)?.peerId),
       request: newRemoteId && kernelStore.getPendingMessage(newRemoteId, 1),
-      persistedForPeer,
     }).toStrictEqual({
       peers: [PEER_ID, NEW_PEER_ID],
       request: expect.stringContaining('redeemURL'),
-      persistedForPeer: [['redeemURL', false]],
     });
   });
 

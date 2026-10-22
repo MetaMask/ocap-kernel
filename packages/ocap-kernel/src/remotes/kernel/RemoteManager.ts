@@ -377,7 +377,7 @@ export class RemoteManager {
 
   /**
    * Set up bookkeeping for a newly established remote connection, at once.
-   * Callers go through {@link withRemote}, which waits for the open crank to
+   * Call it only through {@link withRemote}, which waits for the open crank to
    * end.
    *
    * @param peerId - Peer ID of the kernel at the other end of the connection.
@@ -389,12 +389,21 @@ export class RemoteManager {
     this.getRemoteComms();
     const remoteId = this.#kernelStore.getNextRemoteId();
     const remoteInfo: RemoteInfo = { peerId, hints };
-    this.#kernelStore.initEndpoint(remoteId);
-    // After the endpoint: a restart loads remotes from this record, and one
-    // written before a write that then threw would come back with no endpoint.
-    this.#kernelStore.setRemoteInfo(remoteId, remoteInfo);
-    // Last: a write that threw must leave no handle for a later caller.
-    return this.#initializeRemote(remoteId, remoteInfo);
+    // Before the records, since making the handle reads the store and can
+    // throw: a record left with no handle would give the peer a second remote.
+    const remote = this.#initializeRemote(remoteId, remoteInfo);
+    try {
+      this.#kernelStore.initEndpoint(remoteId);
+      // After the endpoint: a restart loads remotes from this record, so one
+      // written before `initEndpoint` threw would come back with no endpoint.
+      this.#kernelStore.setRemoteInfo(remoteId, remoteInfo);
+    } catch (error) {
+      // A write that threw must leave no handle for a later caller.
+      this.#remotes.delete(remoteId);
+      this.#remotesByPeer.delete(peerId);
+      throw error;
+    }
+    return remote;
   }
 
   /**
@@ -435,7 +444,8 @@ export class RemoteManager {
    * @param options - Options bag.
    * @param options.hints - Possible relays via which the peer might be
    * contacted.
-   * @param options.use - What to do with the handle.
+   * @param options.use - What to do with the handle. For a new peer, only
+   * what it writes before its first `await` is held with the setup.
    * @returns A promise for what `use` returns.
    */
   async withRemote<Result>(
@@ -452,7 +462,7 @@ export class RemoteManager {
       return use(this.#provideRemote(peerId, hints));
     }
     this.#kernelQueue.assertRunLoopAlive('set up a remote');
-    // Boxed, since `writeOutsideCrank` takes no promise: one `use` returns is
+    // Boxed, since `writeOutsideCrank` refuses a promise; one `use` returns is
     // the caller's to await.
     const { used } = await this.#kernelQueue.writeOutsideCrank(
       () => ({
@@ -460,6 +470,8 @@ export class RemoteManager {
         // earlier caller may run first.
         used: use(this.#provideRemote(peerId, hints)),
       }),
+      // The run loop goes on while the kernel stops, and dropping the setup
+      // would lose the peer's message waiting on it once a later one commits.
       { outlivesStop: true },
     );
     return used;

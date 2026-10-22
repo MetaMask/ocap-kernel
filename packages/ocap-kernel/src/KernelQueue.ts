@@ -45,7 +45,6 @@ type HeldMessage = {
   subscription: Subscription;
 };
 
-/** A write from {@link KernelQueue.writeOutsideCrank}. */
 type HeldWrite = {
   type: 'write';
   write: () => void;
@@ -269,7 +268,7 @@ export class KernelQueue {
           try {
             this.#writeHeldRequests();
           } catch (error) {
-            // Thrown only once `afterCommit` has run: the crank committed.
+            // Rethrown once `afterCommit` has run: the crank has committed.
             heldFailure = { error };
           }
         }
@@ -281,7 +280,18 @@ export class KernelQueue {
       // writes this reports on are not there to report. Guarded rather than
       // `await afterCommit?.()`, which would yield a microtask on every crank.
       if (afterCommit) {
-        await afterCommit();
+        try {
+          await afterCommit();
+        } catch (error) {
+          if (!heldFailure) {
+            throw error;
+          }
+          throw new AggregateError(
+            [heldFailure.error, error],
+            `Run loop died writing a held request, and its crank's afterCommit failed: ${String(error)}`,
+            { cause: heldFailure.error },
+          );
+        }
       }
       if (heldFailure) {
         throw heldFailure.error;
@@ -291,9 +301,9 @@ export class KernelQueue {
 
   /**
    * Tell a caller waiting on queued work if the run loop dies before carrying
-   * it out. `subscriptions` covers a message's result; a request with no kernel
-   * promise behind it — a vat restart or termination — has nothing else that
-   * would settle it.
+   * it out. `subscriptions` and the held requests cover a message's result and
+   * a held write; a request with no kernel promise behind it — a vat restart
+   * or termination — has nothing else that would settle it.
    *
    * @param reject - How to tell the caller.
    * @returns A function that unregisters it, for the caller's own `finally`.
@@ -689,8 +699,8 @@ export class KernelQueue {
   }
 
   /**
-   * Write a `queueMessage` call. A store fault is thrown: written for a held
-   * message, it kills the run loop, which tells the caller.
+   * Write a `queueMessage` call. A store fault is thrown; for a held message
+   * it kills the run loop, which tells the caller.
    *
    * @param message - The call.
    */
@@ -719,14 +729,13 @@ export class KernelQueue {
   /**
    * Make a write now if no crank is open, or else once the open crank ends.
    *
-   * @param write - The write. It cannot return a promise: the run loop does
-   * not wait for one, so what it does after an `await` would land in
-   * whichever crank is open by then.
+   * @param write - The write. It must make every write before it returns:
+   * the run loop does not wait for a promise, so what it writes after an
+   * `await` lands in whichever crank is open by then. The type refuses a
+   * promise returned bare, not one inside an object.
    * @param options - Options bag.
    * @param options.outlivesStop - Whether a write held when the kernel stops
-   * is still made. A new remote's setup is: the run loop goes on while the
-   * kernel stops, and dropping the setup would lose the peer's message
-   * waiting on it once a later one commits.
+   * is still made.
    * @returns A promise for what `write` returns or throws. It rejects if the
    * run loop dies first, or if a stop, reset or `clearStorage` discards the
    * write.
@@ -918,9 +927,10 @@ export class KernelQueue {
   }
 
   /**
-   * Forget the requests held for the open crank to write once it ends,
-   * telling their callers, for a kernel that is stopping or discarding its run
-   * queue. Not in the store yet, they would outlive a wipe of it.
+   * Forget the requests held for the open crank to write once it ends, and
+   * reject the caller of each held message or write, for a kernel that is
+   * stopping or wiping its store. Not in the store yet, they would outlive a
+   * wipe of it. A restart or termination's caller is told by `VatManager`.
    *
    * @param error - What to tell the caller of a forgotten message or write.
    * @param options - Options bag.

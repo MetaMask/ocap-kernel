@@ -38,7 +38,6 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
         kernel.queueMessage(kref, 'testMethod', ['test']),
       ).rejects.toThrow(expectedError);
 
-      // Verify kernel is still operational after malformed requests
       const workingSubcluster = {
         bootstrap: 'test',
         vats: {
