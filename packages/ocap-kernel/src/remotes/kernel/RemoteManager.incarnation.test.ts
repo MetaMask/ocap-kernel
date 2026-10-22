@@ -64,6 +64,9 @@ async function setUp() {
   remoteManager.setMessageHandler(vi.fn());
   await remoteManager.initRemoteComms();
   onTestFinished(() => remoteManager.cleanup());
+  const onRemoteGiveUp = vi.mocked(initRemoteComms).mock.lastCall?.[6] as (
+    peerId: string,
+  ) => void;
   const onIncarnationChange = vi.mocked(initRemoteComms).mock.lastCall?.[8] as (
     peerId: string,
     incarnation: string,
@@ -103,6 +106,7 @@ async function setUp() {
     kernelQueue,
     remoteManager,
     remote,
+    onRemoteGiveUp,
     onIncarnationChange,
     hooks,
     taken,
@@ -229,6 +233,61 @@ describe('a peer incarnation change on the run loop', () => {
     expect(taken).toStrictEqual([1, 2, 3, 4]);
   });
 
+  it('drops a copy of a taken message read off the old channel while the restart’s crank is open', async () => {
+    const harness = await setUp();
+    const { remoteManager, onIncarnationChange, hooks, taken, sent } = harness;
+    harness.startRunLoop().catch(() => undefined);
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-A')).toBe(false);
+    for (const seq of [1, 2, 3]) {
+      await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(seq));
+    }
+    await settle();
+    hooks.afterApply = async () => {
+      await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(3));
+    };
+
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-B')).toBe(true);
+    await settle();
+    for (const seq of [1, 2, 3, 4]) {
+      await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(seq));
+    }
+    await settle();
+    // The delayed standalone ACK.
+    await delay(100);
+
+    expect({ taken, lastSent: sent.at(-1) }).toStrictEqual({
+      taken: [1, 2, 3, 1, 2, 3, 4],
+      lastSent: '{"ack":4}',
+    });
+  });
+
+  it('reports the restart to a handshake made while its crank is open', async () => {
+    const harness = await setUp();
+    const { remoteManager, onIncarnationChange, hooks, taken } = harness;
+    harness.startRunLoop().catch(() => undefined);
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-A')).toBe(false);
+    for (const seq of [1, 2, 3]) {
+      await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(seq));
+    }
+    await settle();
+    let inTheCrank: boolean | undefined;
+    hooks.afterApply = async () => {
+      inTheCrank = await onIncarnationChange(PEER_ID, 'incarnation-B');
+    };
+
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-B')).toBe(true);
+    await settle();
+    const afterTheCommit = await onIncarnationChange(PEER_ID, 'incarnation-B');
+    await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(1));
+    await settle();
+
+    expect({ inTheCrank, afterTheCommit, taken }).toStrictEqual({
+      inTheCrank: true,
+      afterTheCommit: false,
+      taken: [1, 2, 3, 1],
+    });
+  });
+
   it('takes what the first incarnation sent ahead of a restart reported before it was recorded', async () => {
     const harness = await setUp();
     const { remoteManager, onIncarnationChange, taken } = harness;
@@ -342,6 +401,35 @@ describe('a peer incarnation change on the run loop', () => {
     expect({ inTheCrank, answered }).toStrictEqual({
       inTheCrank: { state: 'rejected', answered: false },
       answered: true,
+    });
+  });
+
+  it('leaves the peer’s promises to the restart’s crank when the transport gives up while it waits', async () => {
+    const harness = await setUp();
+    const {
+      kernelStore,
+      remoteManager,
+      onRemoteGiveUp,
+      onIncarnationChange,
+      hooks,
+    } = harness;
+    kernelStore.setPeerIncarnation(PEER_ID, 'incarnation-A');
+    const kpid = promiseThePeerDecides(harness);
+    // Pinned, or the c-list's teardown collects it before it can be read.
+    kernelStore.incrementRefCount(kpid, 'test|pin');
+    harness.startRunLoop().catch(() => undefined);
+    const release = holdNextCrank(hooks);
+    await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(1));
+    await settle();
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-B')).toBe(true);
+    onRemoteGiveUp(PEER_ID);
+    release();
+    await settle();
+
+    const { state, value } = kernelStore.getKernelPromise(kpid);
+    expect({ state, reason: value?.body }).toStrictEqual({
+      state: 'rejected',
+      reason: expect.stringContaining('[KERNEL:PEER_RESTARTED]'),
     });
   });
 

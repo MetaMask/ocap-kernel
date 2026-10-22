@@ -75,6 +75,13 @@ export class RemoteManager {
   #messageHandler: RemoteMessageHandler | undefined;
 
   /**
+   * Peers whose restart's crank has torn the session down and has yet to
+   * commit. A handshake reports the restart until then, so the new
+   * incarnation's channel opens only once its session is in place.
+   */
+  readonly #recordingRestart = new Set<string>();
+
+  /**
    * Creates a new RemoteManager instance.
    *
    * @param options - Constructor options.
@@ -166,7 +173,9 @@ export class RemoteManager {
 
   /**
    * Handle when we give up on a remote (after max retries or non-retryable error).
-   * Rejects all promises for which this remote is the decider.
+   * Rejects all promises for which this remote is the decider, unless a
+   * restart of the peer waits: its crank rejects them, as `PEER_RESTARTED`,
+   * and lets go of the redemptions once it commits.
    *
    * @param peerId - The peer ID of the remote we're giving up on.
    */
@@ -175,6 +184,12 @@ export class RemoteManager {
     const remote = this.#remotesByPeer.get(peerId);
     if (!remote) {
       // Remote not found - might have been cleaned up already
+      return;
+    }
+    if (this.#restartWaits(peerId)) {
+      this.#logger?.log(
+        `Peer ${peerId.slice(0, 8)} not given up on while its restart waits; that crank rejects its promises`,
+      );
       return;
     }
 
@@ -213,10 +228,9 @@ export class RemoteManager {
    *
    * @param peerId - The peer that completed the handshake.
    * @param observedIncarnation - The incarnationId the peer just reported.
-   * @returns Whether the kernel knows the peer by an incarnation other than
-   *   the observed one: it restarted, or a restart of it waits to be
-   *   recorded. The transport uses this to suppress stale outbound messages
-   *   on the same connection.
+   * @returns Whether the peer restarted, or a restart of it waits for its
+   *   crank or is in one yet to commit. The transport then closes the
+   *   connection, keeping stale outbound messages off it.
    */
   async #handleIncarnationChange(
     peerId: string,
@@ -232,9 +246,9 @@ export class RemoteManager {
         restart: known.length > 0,
       });
     }
-    const restarted = known.some(
-      (incarnation) => incarnation !== observedIncarnation,
-    );
+    const restarted =
+      this.#recordingRestart.has(peerId) ||
+      known.some((incarnation) => incarnation !== observedIncarnation);
     if (restarted) {
       this.#remotesByPeer.get(peerId)?.holdForRestart();
     }
@@ -291,7 +305,7 @@ export class RemoteManager {
     // handshake, which reports it again instead.
     if (isRestart && !this.isRemoteCommsInitialized()) {
       this.#logger?.log(
-        `Peer ${peerId.slice(0, 8)} restart to ${incarnation.slice(0, 8)} not recorded: remote comms are not running`,
+        `Peer ${peerId.slice(0, 8)} restart to ${incarnation.slice(0, 8)} not recorded: remote comms are not initialized`,
       );
       return {};
     }
@@ -311,10 +325,11 @@ export class RemoteManager {
       );
       if (remote) {
         remote.persistPeerRestart();
+        this.#recordingRestart.add(peerId);
       } else {
-        // A peer that has shaken hands and exchanged no message has no remote,
-        // and so no c-list to tear down.
-        this.#logger?.log(
+        // A peer that has only shaken hands has no remote and no c-list. Any
+        // other peer without a remote leaves its c-list behind.
+        this.#logger?.warn(
           `Peer ${peerId.slice(0, 8)} restart detected but no live RemoteHandle; advancing persisted incarnation without c-list cleanup`,
         );
       }
@@ -341,6 +356,7 @@ export class RemoteManager {
 
     return {
       afterCommit: async () => {
+        this.#recordingRestart.delete(peerId);
         remote.finalizePeerRestart();
         // A later restart still waits, and what this remote sends belongs to
         // the incarnation it ends.

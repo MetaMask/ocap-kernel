@@ -128,8 +128,8 @@ function countPending(window: SeqWindow): number {
 /**
  * Whether a send failed because the peer restarted. Not a reason to give up:
  * the crank that records the restart empties this remote's queue and rejects
- * its promises as `PEER_RESTARTED`, and a give-up would get there first, as
- * `CONNECTION_LOST` and outside a crank of its own. Unless a restart holds the
+ * its promises as `PEER_RESTARTED`, and a give-up would abandon the queue and
+ * reject the redemptions outside that crank. Unless a restart holds the
  * remote, the ACK timer stays armed, so a restart the kernel never learns of
  * still ends in a give-up.
  *
@@ -898,9 +898,9 @@ export class RemoteHandle implements RemoteEndpointHandle {
    * @param persisted - What that call returned.
    */
   #transmitRemoteCommand(persisted: PersistedCommand): void {
-    // A wipe that lands while this message's crank is still open (#1105)
-    // takes it from the store, and the session it was numbered in with it, so
-    // it is owed to no one.
+    // Until #1105, a reset or clearStorage can wipe the store while this
+    // message's crank is still open, taking the message and the session it was
+    // numbered in, so it is owed to no one.
     if (
       this.#kernelStore.getPendingMessage(this.remoteId, persisted.seq) ===
       undefined
@@ -1623,11 +1623,11 @@ export class RemoteHandle implements RemoteEndpointHandle {
 
   /**
    * Tear down the session with the incarnation that has ended, for the crank
-   * that records the peer's restart. The sequence counters are reset here too,
+   * that records the peer's restart. The send counters are reset here too,
    * rather than after the commit with the rest: until they agree with the
    * store, anything that writes the send window writes the old one back.
-   * Nothing is lost if this throws partway, since that crank never rolls back
-   * without the run loop dying.
+   * Resetting them is not undone if the crank rolls back, which costs nothing:
+   * that crank never rolls back without the run loop dying.
    *
    * Pairs with {@link finalizePeerRestart}, which the caller MUST invoke
    * exactly once after the crank commits.
@@ -1644,7 +1644,7 @@ export class RemoteHandle implements RemoteEndpointHandle {
         `${this.#peerId.slice(0, 8)}:: discarding ${pendingCount} pending messages due to peer restart`,
       );
     }
-    this.#resetSequenceState();
+    this.#resetSendState();
   }
 
   /**
@@ -1660,9 +1660,9 @@ export class RemoteHandle implements RemoteEndpointHandle {
   /**
    * Send nothing to the peer until {@link finalizePeerRestart} or
    * {@link releaseRestartHold}, letting go of the sends already waiting their
-   * turn. The ACK timer stops too: it could only give up, which would reject
-   * the peer's promises outside the crank that is to reject them, or in a
-   * kernel whose run loop has died.
+   * turn. The ACK timer is cleared, and does nothing while held: it could only
+   * give up, which would abandon the queue and reject the redemptions outside
+   * the crank that handles the restart, or in a kernel whose run loop has died.
    */
   holdForRestart(): void {
     this.#heldForRestart = true;
@@ -1679,7 +1679,8 @@ export class RemoteHandle implements RemoteEndpointHandle {
    */
   releaseRestartHold(): void {
     if (this.#heldForRestart) {
-      this.#resetSequenceState();
+      this.#resetSendState();
+      this.#highestReceivedSeq = 0;
       this.#endHold();
     }
   }
@@ -1689,6 +1690,10 @@ export class RemoteHandle implements RemoteEndpointHandle {
    * {@link persistPeerRestart} has committed.
    */
   finalizePeerRestart(): void {
+    // Here, not in the crank with the send counters: until the commit, the
+    // handshake keeps the new incarnation's channel closed, so what arrives was
+    // read off the old one and is judged against its session.
+    this.#highestReceivedSeq = 0;
     this.rejectPendingRedemptions('Remote peer restarted');
     this.#endHold();
   }
@@ -1707,11 +1712,10 @@ export class RemoteHandle implements RemoteEndpointHandle {
   }
 
   /**
-   * Forget the sequence numbers of a session the store no longer holds.
+   * Forget the send sequence numbers of a session the store no longer holds.
    */
-  #resetSequenceState(): void {
+  #resetSendState(): void {
     this.#nextSendSeq = 0;
-    this.#highestReceivedSeq = 0;
     this.#startSeq = 0;
     this.#lastTransmittedSeq = 0;
     this.#awaitingTransmit.clear();
