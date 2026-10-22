@@ -413,10 +413,10 @@ export type RunQueueItemPeerIncarnation = {
   incarnation: string;
   /**
    * Whether it replaced an incarnation the kernel knew the peer by when the
-   * handshake reported it. It decides where a message read late off the old
-   * channel goes, ahead of a restart and behind a first incarnation, and
-   * whether a later restart takes its place; the crank judges the restart
-   * again, against the store.
+   * handshake reported it. A restart has the peer's later arrivals taken ahead
+   * of it, as read late off the old incarnation's channel, and a later restart
+   * takes its place; a first incarnation has them taken behind it. The crank
+   * judges the restart again, against the store.
    */
   restart: boolean;
 };

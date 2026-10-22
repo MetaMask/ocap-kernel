@@ -1292,7 +1292,7 @@ describe('RemoteManager', () => {
       expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-A');
     });
 
-    it('records a first incarnation queued before remote comms started', async () => {
+    it('records a first incarnation taken while remote comms are stopped', async () => {
       const peerId = 'peer-met-at-boot';
       await getOnIncarnationChange()(peerId, 'incarnation-A');
       remoteManager.cleanup();
@@ -1318,8 +1318,8 @@ describe('RemoteManager', () => {
       expect(() => applyQueuedIncarnationChange()).toThrow(failure);
 
       // `setPeerIncarnation` runs after `persistPeerRestart`, so it never
-      // happened. Anything it had reached would go back with the crank, which
-      // this map-backed store cannot model.
+      // happened. What `persistPeerRestart` wrote before throwing would go back
+      // with the crank, which this map-backed store cannot model.
       expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-A');
       expect(finalizeSpy).not.toHaveBeenCalled();
     });

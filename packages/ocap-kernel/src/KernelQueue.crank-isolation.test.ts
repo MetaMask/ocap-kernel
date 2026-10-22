@@ -43,7 +43,6 @@ vi.mock('./remotes/kernel/remote-comms.ts', async () => {
 });
 
 const STOP_RUN_LOOP = 'test: stop run loop';
-// Base58, like a real one: it ends up in a savepoint name.
 const PEER_ID = '12D3KooWPeer1';
 
 type Harness = Awaited<ReturnType<typeof setUp>>;

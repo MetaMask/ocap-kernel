@@ -280,12 +280,13 @@ export async function initTransport(
   /**
    * Perform inbound handshake and handle incarnation changes.
    *
-   * On detected restart we reject the inbound channel: the kernel has queued
-   * the teardown of its c-list and seq state for this peer, so accepting the
-   * channel here would let any concurrent in-flight outbound send write a
-   * pre-restart payload over a fresh-incarnation channel. The caller closes
-   * the channel and the peer re-dials — symmetric with the outbound
-   * `PeerRestartedError` path.
+   * On detected restart we reject the inbound channel: the kernel has yet to
+   * tear down its c-list and seq state for this peer, so accepting the channel
+   * here would let any concurrent in-flight outbound send write a pre-restart
+   * payload over a fresh-incarnation channel, and what the peer sent on it
+   * would be taken ahead of the waiting change, as the old incarnation's. The
+   * caller closes the channel and the peer re-dials — symmetric with the
+   * outbound `PeerRestartedError` path.
    *
    * @param channel - The channel to perform handshake on.
    * @returns True if handshake succeeded and the channel should be registered;
@@ -693,7 +694,8 @@ export async function initTransport(
             // Peer restarted: close this freshly-dialed channel without
             // registering it. Registering here would let concurrent in-flight
             // sends bypass the handshake check and write pre-restart payloads
-            // on the same channel.
+            // on the same channel, and anything read from it would be taken as
+            // the old incarnation's.
             try {
               await connectionFactory.closeChannel(channel, targetPeerId);
             } catch (closeError) {

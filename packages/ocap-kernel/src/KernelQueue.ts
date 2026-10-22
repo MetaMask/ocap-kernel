@@ -119,7 +119,6 @@ export class KernelQueue {
    */
   #runLoopState: RunLoopState = { state: 'idle' };
 
-  /** What peers have sent, waiting for a crank to take delivery of it. */
   readonly #arrivedFromRemotes: PeerArrival[] = [];
 
   /** How many arrivals each waiting restart has had taken ahead of it. */
@@ -833,9 +832,10 @@ export class KernelQueue {
   }
 
   /**
-   * Forget everything peers sent that waits for a crank, for a kernel wiping
-   * its store: taken after the wipe, it would write that peer's bookkeeping
-   * into the wiped store.
+   * Forget everything that arrived from peers and waits for a crank, for a
+   * kernel wiping its store: taken after the wipe, it would write that peer's
+   * bookkeeping into the wiped store. A remote held for a restart discarded
+   * here stays held until `RemoteManager.releaseRestartHolds`.
    *
    * Not for a kernel that is only stopping: its run loop goes on meanwhile,
    * and a later message that commits would acknowledge a forgotten one, which
