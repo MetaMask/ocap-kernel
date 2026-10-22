@@ -444,10 +444,9 @@ export class RemoteManager {
   /**
    * Get or create a RemoteHandle for a given peer ID, now.
    *
-   * @param peerId - The libp2p peer for which a handle is sought.
-   * @param hints - Optional list of possible relays via which the requested peer might be contacted.
-   *
-   * @returns an existing or new RemoteHandle to communicate with `peerId`.
+   * @param peerId - The peer.
+   * @param hints - Its location hints.
+   * @returns Its RemoteHandle.
    */
   #provideRemote(peerId: string, hints: string[]): RemoteHandle {
     const existing = this.#remotesByPeer.get(peerId);

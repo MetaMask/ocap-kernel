@@ -713,9 +713,7 @@ export class KernelQueue {
 
   /**
    * Make a write from outside the run loop now if no crank is open, or else as
-   * soon as the open crank ends. Made inside it, the write would be rolled
-   * back if that crank aborts, while its caller went on as if it had been
-   * made.
+   * soon as the open crank ends.
    *
    * @param write - The write. It runs between two cranks, so it must not
    * wait on anything.
