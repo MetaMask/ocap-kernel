@@ -50,7 +50,7 @@ jobs:
         with:
           name: publish-release-artifacts-${{ github.sha }}
       - name: Dry run publish to NPM
-        uses: MetaMask/action-npm-publish@18df42148c35aabb98e00f9fda127d421af141df # v6
+        uses: MetaMask/action-npm-publish@640617dc160b8787a825ee363da76a168b3b99cb # v7
 
   publish-npm:
     name: Publish to NPM
@@ -73,6 +73,6 @@ jobs:
         with:
           name: publish-release-artifacts-${{ github.sha }}
       - name: Publish to NPM
-        uses: MetaMask/action-npm-publish@18df42148c35aabb98e00f9fda127d421af141df # v6
+        uses: MetaMask/action-npm-publish@640617dc160b8787a825ee363da76a168b3b99cb # v7
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
