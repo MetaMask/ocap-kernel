@@ -45,7 +45,7 @@
       "groupName": "npm dependencies"
     },
     {
-      "description": "The design-system packages declare peer dependencies on design-tokens, so a minor bump to one can require a major bump to another. Keep all of them in the same PR.",
+      "description": "The design-system packages declare peer dependencies on design-tokens, so a minor bump to one can require a major bump to another. Their major updates therefore land in the npm dependencies PR rather than the separate major PR.",
       "matchManagers": ["npm"],
       "matchPackageNames": [
         "@metamask/design-system-*",
