@@ -9,7 +9,7 @@ import type { Policy, Provider } from './types.ts';
 
 // Thin cast for calling exo methods directly in tests without going through
 // HandledPromise (which is not available in the test environment).
-// eslint-disable-next-line id-length
+// oxlint-disable-next-line id-length
 const E = (obj: unknown) =>
   obj as Record<
     'getBalance' | 'swap' | 'transfer',

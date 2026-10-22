@@ -39,7 +39,7 @@ async function main(): Promise<void> {
     },
   });
 
-  // eslint-disable-next-line no-new
+  // oxlint-disable-next-line no-new
   new VatSupervisor({
     id: vatId,
     kernelStream,

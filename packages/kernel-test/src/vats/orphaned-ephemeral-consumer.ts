@@ -11,7 +11,7 @@ type Provider = { getEphemeral: () => EphemeralCounter };
  *
  * @returns The root object.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function buildRootObject() {
   let ephemeralRef: EphemeralCounter;
 

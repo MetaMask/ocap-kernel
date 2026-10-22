@@ -84,7 +84,7 @@ export class ChromeRuntimeDuplexStream<
             return;
           }
           // TODO(#562): Use logger instead.
-          // eslint-disable-next-line no-console
+          // oxlint-disable-next-line no-console
           console.debug(
             `ChromeRuntimeDuplexStream received unexpected message: ${stringify(message)}`,
           );

@@ -15,7 +15,7 @@ declare const http: HttpCapability;
  * @param vatPowers.logger - The logger for the vat.
  * @returns The root object.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export async function buildRootObject(vatPowers: TestPowers) {
   const tlog = unwrapTestLogger(vatPowers, 'endowment-user');
   const vatFetch = makeFetch(http);

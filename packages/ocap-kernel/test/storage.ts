@@ -2,7 +2,7 @@ import type { KVStore, KernelDatabase, VatStore } from '@metamask/kernel-store';
 
 import { keySearch } from '../src/utils/key-search.ts';
 
-/* eslint-disable no-lonely-if, no-else-return */ // stupid rules that encourage unclear code
+/* oxlint-disable no-lonely-if, no-else-return */ // stupid rules that encourage unclear code
 
 /**
  * A mock key/value store realized as a Map<string, string>.

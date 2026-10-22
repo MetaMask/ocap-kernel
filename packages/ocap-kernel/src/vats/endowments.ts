@@ -169,7 +169,7 @@ const makeLoggerNotify = (logger: Logger): NotifyFunction => {
       logger.debug(`network:${method}`, params);
     } catch (error) {
       try {
-        // eslint-disable-next-line no-console
+        // oxlint-disable-next-line no-console
         console.error(
           '[ocap-kernel] network endowment logger transport failed',
           error,

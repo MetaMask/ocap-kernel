@@ -17,8 +17,8 @@ export default defineConfig({
 
   options: {
     typeAware: true,
-    // Removing the directives this reports is a follow-up.
-    reportUnusedDisableDirectives: 'warn',
+    // Stale directives fail lint so they leave with the code they covered.
+    reportUnusedDisableDirectives: 'error',
   },
 
   plugins: ['react'],
