@@ -241,7 +241,8 @@ async function abortACrankWhile(
   // A writer that throws kills the loop instead of reaching the abort.
   await Promise.race([abortDelivered, running]);
   await kernelQueue.waitForCrank();
-  // Behind anything the writer queued, so the loop delivers that first.
+  // Behind anything the writer queued, so the loop delivers that first. Peers'
+  // arrivals take turns with the run queue, so this holds for one, not two.
   kernelQueue.enqueueSend(sentinel, {
     methargs: kser(['stop', []]),
     result: null,
@@ -354,7 +355,7 @@ describe('a writer acting while a crank aborts', () => {
     });
   });
 
-  it('new remote: the remote is set up once the aborted crank ends', async () => {
+  it('new remote setup: the remote is set up once the aborted crank ends', async () => {
     const harness = await setUp();
     const { kernelStore, remote, remoteManager } = harness;
     let handled: Promise<string | null> | undefined;

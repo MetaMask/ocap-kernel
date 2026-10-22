@@ -238,6 +238,33 @@ describe('KernelQueue', () => {
       expect(order).toStrictEqual(['endCrank', 'afterCommit']);
     });
 
+    it('runs afterCommit before a held request that fails to be written kills the run loop', async () => {
+      (kernelStore.isInCrank as unknown as MockInstance).mockReturnValue(true);
+      (
+        kernelStore.runQueueLength as unknown as MockInstance
+      ).mockReturnValueOnce(1);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: {} as KernelMessage,
+      });
+      const fault = new Error('SQLITE_FULL');
+      (
+        kernelStore.enqueueRun as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        throw fault;
+      });
+      const afterCommit = vi.fn(async () => undefined);
+      const deliver = vi.fn().mockImplementationOnce(async () => {
+        kernelQueue.enqueueRestartVat(v1);
+        return { afterCommit };
+      });
+
+      await expect(kernelQueue.run(deliver)).rejects.toBe(fault);
+
+      expect(afterCommit).toHaveBeenCalledOnce();
+    });
+
     it('withholds afterCommit when the delivery threw', async () => {
       const mockItem: RunQueueItem = {
         type: 'send',
@@ -781,31 +808,21 @@ describe('KernelQueue', () => {
       },
     );
 
-    it('holds a message made while a crank is open until the crank ends', async () => {
-      const enqueueRun = kernelStore.enqueueRun as unknown as Mock;
-      let queuedDuringCrank: unknown[][] = [];
-      await runACrankWhile(() => {
-        kernelQueue
-          .enqueueMessage(asKRef('ko123'), 'test', [])
-          .catch(() => undefined);
-        queuedDuringCrank = [...enqueueRun.mock.calls];
+    it('rejects the caller with what a write throws when no crank is open, leaving no subscription', async () => {
+      (makePromiseKit as unknown as MockInstance).mockReturnValueOnce(
+        makeRealPromiseKit(),
+      );
+      const fault = new Error('SQLITE_FULL');
+      (
+        kernelStore.enqueueRun as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        throw fault;
       });
 
-      expect({
-        queuedDuringCrank,
-        queued: enqueueRun.mock.calls,
-      }).toStrictEqual({
-        queuedDuringCrank: [],
-        queued: [
-          [
-            {
-              type: 'send',
-              target: 'ko123',
-              message: { methargs: kser(['test', []]), result: 'kp1' },
-            },
-          ],
-        ],
-      });
+      await expect(
+        kernelQueue.enqueueMessage(asKRef('ko123'), 'test', []),
+      ).rejects.toBe(fault);
+      expect(kernelQueue.subscriptions.size).toBe(0);
     });
 
     it("rejects a held message's caller when held requests are discarded", async () => {
@@ -845,7 +862,7 @@ describe('KernelQueue', () => {
     });
 
     it.each(['kernelRefExists', 'initKernelPromise', 'enqueueRun'] as const)(
-      "rejects a held message's caller when %s fails, and the run loop goes on",
+      'kills the run loop when %s fails writing a held message, and tells its caller',
       async (method) => {
         (makePromiseKit as unknown as MockInstance).mockReturnValueOnce(
           makeRealPromiseKit(),
@@ -857,12 +874,21 @@ describe('KernelQueue', () => {
           },
         );
         let answered: Promise<CapData<KRef>> | undefined;
-        await runACrankWhile(() => {
-          answered = kernelQueue.enqueueMessage(asKRef('ko123'), 'test', []);
-        });
+        await runACrankWhile(
+          () => {
+            answered = kernelQueue.enqueueMessage(asKRef('ko123'), 'test', []);
+          },
+          { diesOf: fault },
+        );
 
-        await expect(answered).rejects.toBe(fault);
-        expect(kernelQueue.subscriptions.size).toBe(0);
+        expect(
+          await answered?.catch((reason: unknown) => reason),
+        ).toStrictEqual(
+          new Error(
+            'Kernel run loop died; this message result will never be delivered',
+            { cause: fault },
+          ),
+        );
       },
     );
   });
@@ -933,11 +959,8 @@ describe('KernelQueue', () => {
         );
 
         await expect(result).rejects.toThrow(reason);
-        expect({
-          writes: write.mock.calls.length,
-          promises: (kernelStore.initKernelPromise as unknown as Mock).mock
-            .calls.length,
-        }).toStrictEqual({ writes: 0, promises: 0 });
+        expect(write).not.toHaveBeenCalled();
+        expect(kernelStore.initKernelPromise).not.toHaveBeenCalled();
       },
     );
 
@@ -973,6 +996,18 @@ describe('KernelQueue', () => {
       );
       expect(write).not.toHaveBeenCalled();
     });
+
+    // Outside `writeOutsideCrank`'s block, whose promise kit this would leave
+    // unused for a later test to take.
+    it('refuses a write once the run loop is dead', async () => {
+      await killRunLoop(new Error('crank exploded'));
+      const write = vi.fn();
+
+      await expect(kernelQueue.writeOutsideCrank(write)).rejects.toThrow(
+        'Kernel run loop died; cannot write outside a crank',
+      );
+      expect(write).not.toHaveBeenCalled();
+    });
   });
 
   describe('writeOutsideCrank', () => {
@@ -991,6 +1026,13 @@ describe('KernelQueue', () => {
       expect(await result).toBe('written');
     });
 
+    it('refuses, by type, a write that returns a promise', async () => {
+      // @ts-expect-error The run loop would not wait for it.
+      const result = kernelQueue.writeOutsideCrank(async () => 'written');
+
+      expect(await result).toBe('written');
+    });
+
     it('rejects with what the write throws', async () => {
       const fault = new Error('SQLITE_FULL');
 
@@ -1004,17 +1046,15 @@ describe('KernelQueue', () => {
     it('holds the write until the open crank ends', async () => {
       const write = vi.fn().mockReturnValue('written');
       let result: Promise<unknown> | undefined;
-      let callsDuringCrank = -1;
+      let calledDuringCrank = true;
       await runACrankWhile(() => {
         result = kernelQueue.writeOutsideCrank(write);
-        callsDuringCrank = write.mock.calls.length;
+        calledDuringCrank = write.mock.calls.length > 0;
       });
 
-      expect({
-        callsDuringCrank,
-        calls: write.mock.calls.length,
-        result: await result,
-      }).toStrictEqual({ callsDuringCrank: 0, calls: 1, result: 'written' });
+      expect(calledDuringCrank).toBe(false);
+      expect(write).toHaveBeenCalledOnce();
+      expect(await result).toBe('written');
     });
 
     it('rejects with what a held write throws, and the run loop goes on', async () => {
@@ -1029,15 +1069,41 @@ describe('KernelQueue', () => {
       await expect(result).rejects.toBe(fault);
     });
 
-    it('keeps a held write when held requests are discarded', async () => {
-      const write = vi.fn();
-      await runACrankWhile(() => {
-        kernelQueue.writeOutsideCrank(write).catch(() => undefined);
-        kernelQueue.discardHeldRequests(new Error('discarded'));
-      });
+    it.each([false, true])(
+      'rejects a held write when held requests are discarded, outlivesStop: %s',
+      async (outlivesStop) => {
+        const write = vi.fn();
+        const discarded = new Error('discarded');
+        let result: Promise<unknown> | undefined;
+        await runACrankWhile(() => {
+          result = kernelQueue.writeOutsideCrank(write, { outlivesStop });
+          kernelQueue.discardHeldRequests(discarded);
+        });
 
-      expect(write).toHaveBeenCalledOnce();
-    });
+        await expect(result).rejects.toBe(discarded);
+        expect(write).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([
+      { outlivesStop: true, made: true },
+      { outlivesStop: false, made: false },
+    ])(
+      'makes a write held through a stop only if it outlives one: $outlivesStop',
+      async ({ outlivesStop, made }) => {
+        const write = vi.fn();
+        await runACrankWhile(() => {
+          kernelQueue
+            .writeOutsideCrank(write, { outlivesStop })
+            .catch(() => undefined);
+          kernelQueue.discardHeldRequests(new Error('stopped'), {
+            stopping: true,
+          });
+        });
+
+        expect(write.mock.calls.length > 0).toBe(made);
+      },
+    );
   });
 
   describe('enqueueSend', () => {
@@ -1340,6 +1406,19 @@ describe('KernelQueue', () => {
       what: 'termination',
       enqueue: (queue: KernelQueue): void => queue.enqueueTerminateVat(v1),
       item: { type: 'terminateVat', vatId: 'v1' },
+    },
+    {
+      what: 'message',
+      enqueue: (queue: KernelQueue): void => {
+        queue
+          .enqueueMessage(asKRef('ko123'), 'test', [])
+          .catch(() => undefined);
+      },
+      item: {
+        type: 'send',
+        target: 'ko123',
+        message: { methargs: kser(['test', []]), result: 'kp1' },
+      },
     },
   ])(
     'holds a $what request made during a crank until that crank ends',

@@ -150,6 +150,8 @@ const mocks = vi.hoisted(() => {
 
     waitForCrank = vi.fn().mockResolvedValue(undefined);
 
+    writeOutsideCrank = vi.fn(async (write: () => unknown) => write());
+
     resolvePromises = vi.fn();
   }
 
@@ -860,6 +862,24 @@ describe('Kernel', () => {
         mocks.KernelQueue.lastInstance.discardArrivals,
       ).not.toHaveBeenCalled();
     });
+
+    it.each([
+      { method: 'clearStorage', stopping: false },
+      { method: 'reset', stopping: false },
+      { method: 'stop', stopping: true },
+    ] as const)(
+      'discards the requests held for the open crank on $method, stopping: $stopping',
+      async ({ method, stopping }) => {
+        const kernel = await Kernel.make(
+          mockPlatformServices,
+          mockKernelDatabase,
+        );
+        await kernel[method]();
+        expect(
+          mocks.KernelQueue.lastInstance.discardHeldRequests,
+        ).toHaveBeenCalledExactlyOnceWith(expect.any(Error), { stopping });
+      },
+    );
 
     it('gracefully stops the kernel without terminating vats', async () => {
       const workerTerminateAllMock = vi

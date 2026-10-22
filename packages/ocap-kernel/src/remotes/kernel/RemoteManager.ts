@@ -376,21 +376,25 @@ export class RemoteManager {
   }
 
   /**
-   * Set up bookkeeping for a newly established remote connection. Writes into
-   * the open crank, if there is one; from outside the run loop, go through
-   * {@link remoteFor}.
+   * Set up bookkeeping for a newly established remote connection, at once.
+   * Callers go through {@link withRemote}, which waits for the open crank to
+   * end.
    *
    * @param peerId - Peer ID of the kernel at the other end of the connection.
    * @param hints - Optional list of possible relays via which the requested peer might be contacted.
    * @returns the RemoteHandle that was set up.
    */
   establishRemote(peerId: string, hints: string[] = []): RemoteHandle {
+    // Before any write, so that remote comms being down costs no remote ID.
+    this.getRemoteComms();
     const remoteId = this.#kernelStore.getNextRemoteId();
     const remoteInfo: RemoteInfo = { peerId, hints };
-    const remote = this.#initializeRemote(remoteId, remoteInfo);
-    this.#kernelStore.setRemoteInfo(remoteId, remoteInfo);
     this.#kernelStore.initEndpoint(remoteId);
-    return remote;
+    // After the endpoint: a restart loads remotes from this record, and one
+    // written before a write that then threw would come back with no endpoint.
+    this.#kernelStore.setRemoteInfo(remoteId, remoteInfo);
+    // Last: a write that threw must leave no handle for a later caller.
+    return this.#initializeRemote(remoteId, remoteInfo);
   }
 
   /**
@@ -421,24 +425,44 @@ export class RemoteManager {
   }
 
   /**
-   * Get or create a RemoteHandle for a given peer ID. A new one is set up once
-   * the open crank, if any, has ended: set up inside it, an abort would take
-   * back the remote's ID and records but not its handle, and the next new
-   * remote would be given the same ID.
+   * Act on the RemoteHandle for a peer, setting one up if it has none. A known
+   * peer's is used at once, so that its messages are taken in the order they
+   * came. A new one is set up, and used, once the open crank, if any, has
+   * ended: set up inside it, an abort would give its ID to the next new remote
+   * while its handle lives on.
    *
    * @param peerId - The libp2p peer for which a handle is sought.
-   * @param hints - Optional list of possible relays via which the requested peer might be contacted.
-   *
-   * @returns an existing or new RemoteHandle to communicate with `peerId`.
+   * @param options - Options bag.
+   * @param options.hints - Possible relays via which the peer might be
+   * contacted.
+   * @param options.use - What to do with the handle, at once.
+   * @returns A promise for what `use` returns.
    */
-  async remoteFor(peerId: string, hints: string[] = []): Promise<RemoteHandle> {
+  async withRemote<Result>(
+    peerId: string,
+    {
+      hints = [],
+      use,
+    }: {
+      hints?: string[];
+      use: (remote: RemoteHandle) => Result | Promise<Result>;
+    },
+  ): Promise<Result> {
     if (this.#remotesByPeer.has(peerId)) {
-      return this.#provideRemote(peerId, hints);
+      return use(this.#provideRemote(peerId, hints));
     }
-    // Looked up again then: a setup held for an earlier caller may come first.
-    return this.#kernelQueue.writeOutsideCrank(() =>
-      this.#provideRemote(peerId, hints),
+    this.#kernelQueue.assertRunLoopAlive('set up a remote');
+    // Boxed, so that a promise `use` returns is awaited by the caller, not by
+    // the write.
+    const { used } = await this.#kernelQueue.writeOutsideCrank(
+      () => ({
+        // `#provideRemote`, not `establishRemote`: a setup held for an
+        // earlier caller may run first.
+        used: use(this.#provideRemote(peerId, hints)),
+      }),
+      { outlivesStop: true },
     );
+    return used;
   }
 
   /**
@@ -502,7 +526,9 @@ export class RemoteManager {
     from: string,
     message: string,
   ): Promise<string | null> {
-    (await this.remoteFor(from)).receiveFromPeer(message);
+    await this.withRemote(from, {
+      use: (remote) => remote.receiveFromPeer(message),
+    });
     return null;
   }
 

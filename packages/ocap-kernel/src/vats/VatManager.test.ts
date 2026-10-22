@@ -1614,15 +1614,21 @@ describe('VatManager', () => {
       expect(mockPlatformServices.launch).toHaveBeenCalledTimes(3);
     });
 
-    it('discards requests held for the open crank', () => {
-      const reset = new Error('Kernel was reset');
+    it.each([
+      [{}, false],
+      [{ stopping: true }, true],
+    ])(
+      'discards requests held for the open crank, given %o',
+      (options, stopping) => {
+        const reset = new Error('Kernel was reset');
 
-      vatManager.abandonQueuedWork(reset);
+        vatManager.abandonQueuedWork(reset, options);
 
-      expect(
-        mockKernelQueue.discardHeldRequests,
-      ).toHaveBeenCalledExactlyOnceWith(reset);
-    });
+        expect(
+          mockKernelQueue.discardHeldRequests,
+        ).toHaveBeenCalledExactlyOnceWith(reset, { stopping });
+      },
+    );
   });
 
   describe('pingVat', () => {

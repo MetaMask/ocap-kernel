@@ -841,9 +841,14 @@ export class VatManager {
    * behind would be answered with an unrelated vat.
    *
    * @param error - What to reject them with.
+   * @param options - Options bag.
+   * @param options.stopping - Whether the kernel is only stopping.
    */
-  abandonQueuedWork(error: Error): void {
-    this.#kernelQueue.discardHeldRequests(error);
+  abandonQueuedWork(
+    error: Error,
+    { stopping = false }: { stopping?: boolean } = {},
+  ): void {
+    this.#kernelQueue.discardHeldRequests(error, { stopping });
     for (const waiters of [
       this.#restartWaiters,
       this.#terminationWaiters,

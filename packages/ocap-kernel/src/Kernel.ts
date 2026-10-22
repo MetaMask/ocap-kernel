@@ -902,6 +902,7 @@ export class Kernel {
       new Error(
         'Kernel was stopped before answering; terminations already queued still take effect on its next start, restarts do not',
       ),
+      { stopping: true },
     );
     try {
       this.#kernelStore.recordLastActiveTime();
