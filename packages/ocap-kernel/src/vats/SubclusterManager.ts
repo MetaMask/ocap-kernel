@@ -470,8 +470,8 @@ export class SubclusterManager {
     }
     const rootKref = bootstrapLaunchResult.value;
 
-    // Build the roots map. Succeeded vats receive real ko<N> refs; failed peer
-    // vats receive an immediately-rejected kernel promise so bootstrap can
+    // Each vat's root, or a failed peer's launch error, which the write below
+    // turns into an immediately-rejected kernel promise so bootstrap can
     // observe the failure via E(roots.peer).method() pipelining.
     const rootsEntries: [string, KRef | Error][] = [];
     const vatRootKrefsEntries: [string, KRef][] = [];

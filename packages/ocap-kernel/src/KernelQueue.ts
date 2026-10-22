@@ -918,9 +918,9 @@ export class KernelQueue {
   }
 
   /**
-   * Forget the requests held for the open crank to write once it ends, for a
-   * kernel discarding its run queue: not in the store yet, they would outlive
-   * a wipe of it.
+   * Forget the requests held for the open crank to write once it ends,
+   * telling their callers, for a kernel that is stopping or discarding its run
+   * queue. Not in the store yet, they would outlive a wipe of it.
    *
    * @param error - What to tell the caller of a forgotten message or write.
    * @param options - Options bag.

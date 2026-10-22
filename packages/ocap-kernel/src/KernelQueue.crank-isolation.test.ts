@@ -13,6 +13,7 @@ import {
   makeFatalKernelError,
 } from './liveslots/kernel-marshal.ts';
 import { initRemoteComms } from './remotes/kernel/remote-comms.ts';
+import { OcapURLManager } from './remotes/kernel/OcapURLManager.ts';
 import { RemoteManager } from './remotes/kernel/RemoteManager.ts';
 import type { RemoteComms } from './remotes/types.ts';
 import { makeKernelStore } from './store/index.ts';
@@ -114,8 +115,22 @@ async function setUp() {
     kernelStore,
   });
 
+  // What each message persisted for a peer is, and whether a crank was open.
+  const persistedForPeer: [string, boolean][] = [];
+  const set = kdb.kernelKVStore.set.bind(kdb.kernelKVStore);
+  vi.spyOn(kdb.kernelKVStore, 'set').mockImplementation((key, value) => {
+    if (key.startsWith('remotePending.')) {
+      persistedForPeer.push([
+        JSON.parse(value).method,
+        kernelStore.isInCrank(),
+      ]);
+    }
+    set(key, value);
+  });
+
   const remoteComms = {
     getPeerId: vi.fn().mockReturnValue('local-peer'),
+    addKnownRelays: vi.fn(),
     sendRemoteMessage: vi.fn().mockResolvedValue(undefined),
     registerLocationHints: vi.fn().mockResolvedValue(undefined),
   } as unknown as RemoteComms;
@@ -145,6 +160,7 @@ async function setUp() {
     vatSyscall,
     remoteManager,
     remote,
+    persistedForPeer,
     onGiveUp,
     onIncarnationChange,
     failStream,
@@ -189,6 +205,8 @@ async function abortACrankWhile(
     if (item.type === 'send' && item.target === doomed) {
       // The rollback put the send back; the router splats it at the dead vat.
       if (abortedOnce) {
+        // Open past whatever a writer still has to do a few microtasks on.
+        await delay(20);
         return undefined;
       }
       abortedOnce = true;
@@ -241,8 +259,9 @@ async function abortACrankWhile(
   // A writer that throws kills the loop instead of reaching the abort.
   await Promise.race([abortDelivered, running]);
   await kernelQueue.waitForCrank();
-  // Behind anything the writer queued, so the loop delivers that first. Peers'
-  // arrivals take turns with the run queue, so this holds for one, not two.
+  // Behind anything the writer queued, so the loop delivers that first.
+  // Arrivals take turns with the run queue, so only the writer's first arrival
+  // is sure to come before it.
   kernelQueue.enqueueSend(sentinel, {
     methargs: kser(['stop', []]),
     result: null,
@@ -380,6 +399,48 @@ describe('a writer acting while a crank aborts', () => {
       peers: [PEER_ID, NEW_PEER_ID],
       highestReceivedSeq: 1,
       nextRemoteIdReused: false,
+    });
+  });
+
+  it('ocap URL redemption, new peer: the remote and its request are written once the aborted crank ends', async () => {
+    const harness = await setUp();
+    const { kernelStore, remote, remoteManager, persistedForPeer } = harness;
+    const ocapURLManager = new OcapURLManager({ remoteManager, kernelStore });
+    await abortACrankWhile(harness, async () => {
+      ocapURLManager
+        .redeemOcapURL(`ocap:token@${NEW_PEER_ID}`)
+        .catch(() => undefined);
+      expect(kernelStore.getRemoteIDs()).toStrictEqual([remote.remoteId]);
+    });
+    const [, newRemoteId] = kernelStore.getRemoteIDs();
+    expect({
+      peers: kernelStore
+        .getRemoteIDs()
+        .map((remoteId) => kernelStore.getRemoteInfo(remoteId)?.peerId),
+      request: newRemoteId && kernelStore.getPendingMessage(newRemoteId, 1),
+      persistedForPeer,
+    }).toStrictEqual({
+      peers: [PEER_ID, NEW_PEER_ID],
+      request: expect.stringContaining('redeemURL'),
+      persistedForPeer: [['redeemURL', false]],
+    });
+  });
+
+  it('ocap URL redemption, known peer: its request is lost with the aborted crank (gap, #1171)', async () => {
+    const harness = await setUp();
+    const { kernelStore, remote, remoteManager, persistedForPeer } = harness;
+    const ocapURLManager = new OcapURLManager({ remoteManager, kernelStore });
+    await abortACrankWhile(harness, async () => {
+      ocapURLManager
+        .redeemOcapURL(`ocap:token@${PEER_ID}`)
+        .catch(() => undefined);
+    });
+    expect({
+      request: kernelStore.getPendingMessage(remote.remoteId, 1),
+      persistedForPeer,
+    }).toStrictEqual({
+      request: undefined,
+      persistedForPeer: [['redeemURL', true]],
     });
   });
 

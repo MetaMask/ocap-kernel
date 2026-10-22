@@ -1,6 +1,6 @@
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, expectTypeOf, vi, beforeEach } from 'vitest';
 import type { Mock, MockInstance } from 'vitest';
 
 import * as gc from './garbage-collection/garbage-collection.ts';
@@ -997,8 +997,16 @@ describe('KernelQueue', () => {
       expect(write).not.toHaveBeenCalled();
     });
 
-    // Outside `writeOutsideCrank`'s block, whose promise kit this would leave
-    // unused for a later test to take.
+    // This and the next are outside `writeOutsideCrank`'s block, whose promise
+    // kit they would leave unused for a later test to take. This one's
+    // assertion is a type, checked by `test:types` rather than vitest.
+    // oxlint-disable-next-line vitest/expect-expect
+    it('refuses at compile time a write that returns a promise', () => {
+      expectTypeOf(kernelQueue.writeOutsideCrank<Promise<string>>)
+        .parameter(0)
+        .returns.toBeNever();
+    });
+
     it('refuses a write once the run loop is dead', async () => {
       await killRunLoop(new Error('crank exploded'));
       const write = vi.fn();
@@ -1023,13 +1031,6 @@ describe('KernelQueue', () => {
       const result = kernelQueue.writeOutsideCrank(write);
 
       expect(write).toHaveBeenCalledOnce();
-      expect(await result).toBe('written');
-    });
-
-    it('refuses, by type, a write that returns a promise', async () => {
-      // @ts-expect-error The run loop would not wait for it.
-      const result = kernelQueue.writeOutsideCrank(async () => 'written');
-
       expect(await result).toBe('written');
     });
 
@@ -1086,22 +1087,24 @@ describe('KernelQueue', () => {
     );
 
     it.each([
-      { outlivesStop: true, made: true },
-      { outlivesStop: false, made: false },
+      { outlivesStop: true, settled: 'written' },
+      { outlivesStop: false, settled: 'stopped' },
     ])(
       'makes a write held through a stop only if it outlives one: $outlivesStop',
-      async ({ outlivesStop, made }) => {
-        const write = vi.fn();
+      async ({ outlivesStop, settled }) => {
+        let result: Promise<unknown> | undefined;
         await runACrankWhile(() => {
-          kernelQueue
-            .writeOutsideCrank(write, { outlivesStop })
-            .catch(() => undefined);
+          result = kernelQueue.writeOutsideCrank(() => 'written', {
+            outlivesStop,
+          });
           kernelQueue.discardHeldRequests(new Error('stopped'), {
             stopping: true,
           });
         });
 
-        expect(write.mock.calls.length > 0).toBe(made);
+        expect(await result?.catch((error: Error) => error.message)).toBe(
+          settled,
+        );
       },
     );
   });

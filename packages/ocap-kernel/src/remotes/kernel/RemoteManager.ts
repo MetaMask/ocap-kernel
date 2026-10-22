@@ -425,17 +425,17 @@ export class RemoteManager {
   }
 
   /**
-   * Act on the RemoteHandle for a peer, setting one up if it has none. A known
-   * peer's is used at once, so that its messages are taken in the order they
-   * came. A new one is set up, and used, once the open crank, if any, has
-   * ended: set up inside it, an abort would give its ID to the next new remote
-   * while its handle lives on.
+   * Act on the RemoteHandle for a peer, setting one up if it has none. A new
+   * one is set up once the open crank, if any, has ended: set up inside it,
+   * an abort would give its ID to the next new remote while its handle lives
+   * on. `use` runs as soon as the handle exists, never after an `await`, so a
+   * peer's messages are taken in the order they came.
    *
    * @param peerId - The libp2p peer for which a handle is sought.
    * @param options - Options bag.
    * @param options.hints - Possible relays via which the peer might be
    * contacted.
-   * @param options.use - What to do with the handle, at once.
+   * @param options.use - What to do with the handle.
    * @returns A promise for what `use` returns.
    */
   async withRemote<Result>(
@@ -452,8 +452,8 @@ export class RemoteManager {
       return use(this.#provideRemote(peerId, hints));
     }
     this.#kernelQueue.assertRunLoopAlive('set up a remote');
-    // Boxed, so that a promise `use` returns is awaited by the caller, not by
-    // the write.
+    // Boxed, since `writeOutsideCrank` takes no promise: one `use` returns is
+    // the caller's to await.
     const { used } = await this.#kernelQueue.writeOutsideCrank(
       () => ({
         // `#provideRemote`, not `establishRemote`: a setup held for an

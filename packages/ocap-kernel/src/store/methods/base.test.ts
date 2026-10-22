@@ -112,6 +112,17 @@ describe('base-methods', () => {
       expect(value.get()).toBe('kept');
     });
 
+    it('keeps its cached value when deleting it fails', () => {
+      const value = baseStore.provideCachedStoredValue('failing-key', 'kept');
+      const fault = new Error('SQLITE_FULL');
+      vi.spyOn(kv, 'delete').mockImplementationOnce(() => {
+        throw fault;
+      });
+
+      expect(() => value.delete()).toThrow(fault);
+      expect(value.get()).toBe('kept');
+    });
+
     it('deletes values correctly', () => {
       const value = baseStore.provideCachedStoredValue(
         'delete-key',

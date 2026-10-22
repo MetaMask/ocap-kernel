@@ -259,11 +259,16 @@ describe('SubclusterManager', () => {
         vi.mocked(mockQueueMessage).mock.calls.length,
       ];
       writeHeld?.();
+      const madeInTheWrite = [
+        mockKernelStore.initKernelPromise.mock.calls.length,
+        vi.mocked(mockQueueMessage).mock.calls.length,
+      ];
 
       await expect(launched).rejects.toThrow('bob exploded');
-      expect(madeBeforeTheWrite).toStrictEqual([0, 0]);
-      expect(mockKernelStore.initKernelPromise).toHaveBeenCalledOnce();
-      expect(mockQueueMessage).toHaveBeenCalledOnce();
+      expect({ madeBeforeTheWrite, madeInTheWrite }).toStrictEqual({
+        madeBeforeTheWrite: [0, 0],
+        madeInTheWrite: [1, 1],
+      });
     });
 
     it('terminates successfully-launched vats when a peer vat fails', async () => {

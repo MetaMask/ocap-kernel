@@ -541,13 +541,13 @@ describe('RemoteManager', () => {
 
     it("uses a known peer's remote at once, without the kernel queue", async () => {
       const remote = remoteManager.establishRemote('existing-peer');
-      const use = vi.fn();
+      const use = vi.fn().mockReturnValue('used');
 
       const used = remoteManager.withRemote('existing-peer', { use });
 
       expect(use).toHaveBeenCalledExactlyOnceWith(remote);
       expect(mockKernelQueue.writeOutsideCrank).not.toHaveBeenCalled();
-      expect(await used).toBeUndefined();
+      expect(await used).toBe('used');
     });
 
     it('resolves to what a promise returned by use resolves to', async () => {
@@ -643,13 +643,13 @@ describe('RemoteManager', () => {
 
     it('refuses to set up a remote once the run loop is dead', async () => {
       vi.mocked(mockKernelQueue.assertRunLoopAlive).mockImplementationOnce(
-        () => {
-          throw new Error('Kernel run loop died; cannot set up a remote');
+        (what) => {
+          throw new Error(`Kernel run loop died; cannot ${what}`);
         },
       );
 
       await expect(remoteFor(remoteManager, 'new-peer')).rejects.toThrow(
-        'cannot set up a remote',
+        'Kernel run loop died; cannot set up a remote',
       );
       expect(mockKernelQueue.writeOutsideCrank).not.toHaveBeenCalled();
     });
