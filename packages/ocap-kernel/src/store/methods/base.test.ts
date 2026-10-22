@@ -295,7 +295,7 @@ describe('base-methods', () => {
 
       vi.spyOn(kv, 'getNextKey').mockImplementation(() => {
         if (keyIndex < mockKeys.length) {
-          // eslint-disable-next-line no-plusplus
+          // oxlint-disable-next-line no-plusplus
           return mockKeys[keyIndex++];
         }
         return undefined;

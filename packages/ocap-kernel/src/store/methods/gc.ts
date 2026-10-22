@@ -24,7 +24,7 @@ import { parseKernelSlot } from '../utils/kernel-slots.ts';
  * @param ctx - The store context.
  * @returns The GC store.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function getGCMethods(ctx: StoreContext) {
   const { getSlotKey, getOwnerKey } = getBaseMethods(ctx.kv);
   const { getRefCount, decrementRefCount } = getRefCountMethods(ctx);

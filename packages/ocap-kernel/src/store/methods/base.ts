@@ -9,7 +9,7 @@ import type { StoredQueue, StoredValue } from '../types.ts';
  * @param kv - The key/value store to provide the underlying persistence mechanism.
  * @returns An object with methods for managing stored values and queues.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function getBaseMethods(kv: KVStore) {
   /**
    * Get the key for the reachable flag and vatSlot for a given endpoint and kref.

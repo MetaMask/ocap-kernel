@@ -20,7 +20,7 @@ type Consumer = { iterate: (producer: Producer) => Promise<void> };
  * @param parameters.name - The name of the vat.
  * @returns The root object for the vat.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function buildRootObject(
   vatPowers: TestPowers,
   { name }: { name: string },

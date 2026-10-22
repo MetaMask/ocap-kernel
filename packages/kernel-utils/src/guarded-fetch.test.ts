@@ -150,7 +150,6 @@ const redirectRoutes =
  */
 const streamBody = (text: string): RequestInit => ({
   // ReadableStream is flagged experimental for Node 22, but this case works.
-  // eslint-disable-next-line n/no-unsupported-features/node-builtins
   body: new ReadableStream({
     start: (controller) => {
       controller.enqueue(new TextEncoder().encode(text));
@@ -829,7 +828,6 @@ describe('makeGuardedFetch', () => {
 
     it('discards the body of a redirect it does not return', async () => {
       let cancelled = false;
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
       const redirectBody = new ReadableStream({
         cancel: () => {
           cancelled = true;
@@ -950,7 +948,6 @@ describe('makeGuardedFetch', () => {
         ),
         guard: allowLocalhost,
       });
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
       vi.spyOn(ReadableStream.prototype, 'cancel').mockRejectedValue(
         new Error('already gone'),
       );

@@ -1,4 +1,4 @@
-/* eslint-disable n/no-sync */
+/* oxlint-disable node/no-sync */
 import { existsSync } from 'node:fs';
 
 export const getWorkerFile = (name: string): string => {
