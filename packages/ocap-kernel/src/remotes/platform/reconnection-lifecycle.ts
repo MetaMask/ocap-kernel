@@ -94,7 +94,6 @@ export function makeReconnectionLifecycle(
     const state = peerStateManager.getState(peerId);
     let budget = maxAttempts;
     let restartedAs: string | undefined;
-    let repeats = 0;
 
     while (reconnectionManager.isReconnecting(peerId) && !signal.aborted) {
       // Check for permanent failure before attempting
@@ -109,7 +108,7 @@ export function makeReconnectionLifecycle(
 
       if (!reconnectionManager.shouldRetry(peerId, budget)) {
         logger.log(
-          `${peerId}:: max reconnection attempts (${budget}) reached, giving up`,
+          `${peerId}:: max reconnection attempts (${maxAttempts}, ${budget} counting repeated restarts) reached, giving up`,
         );
         reconnectionManager.stopReconnection(peerId);
         onRemoteGiveUp?.(peerId);
@@ -145,12 +144,11 @@ export function makeReconnectionLifecycle(
             reconnectionManager.resetBackoff(peerId);
           } else if (
             result.restartedAs === restartedAs &&
-            repeats < maxAttempts
+            budget < 2 * maxAttempts
           ) {
             // The kernel reports a restart until its crank records it, so the
             // same incarnation again spends no attempt, though its backoff
-            // still grows, and only as many times as the budget allows.
-            repeats += 1;
+            // still grows, until the budget has doubled.
             budget += 1;
           }
           restartedAs = result.restartedAs;
@@ -284,8 +282,6 @@ export function makeReconnectionLifecycle(
         return null;
       }
       if (handshakeResult.incarnationChanged) {
-        // Closed, not registered: a send sharing this dial closes it on the
-        // same verdict.
         logger.log(
           `${peerId}:: peer restarted during reconnection, re-dialing`,
         );

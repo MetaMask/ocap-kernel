@@ -417,6 +417,33 @@ describe('reconnection-lifecycle', () => {
       },
     );
 
+    it('gives back attempts to the latest restart a peer reports', async () => {
+      const reconnectionManager = new ReconnectionManager();
+      reconnectionManager.startReconnection('peer1');
+      deps.reconnectionManager = reconnectionManager;
+      let handshakes = 0;
+      vi.spyOn(deps, 'doOutboundHandshake').mockImplementation(async () => {
+        handshakes += 1;
+        return {
+          success: true,
+          incarnationChanged: true,
+          remoteIncarnationId:
+            handshakes === 1 ? 'incarnation-B' : 'incarnation-C',
+        };
+      });
+      const attemptsAtDial: number[] = [];
+      vi.spyOn(deps, 'dialPeer').mockImplementation(async () => {
+        attemptsAtDial.push(reconnectionManager.getAttemptCount('peer1'));
+        return mockChannel;
+      });
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1', 3);
+
+      expect(attemptsAtDial).toStrictEqual([1, 1, 2, 3, 4, 5, 6]);
+    });
+
     it('resets backoff on successful reconnection', async () => {
       (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
         .mockReturnValueOnce(true)
