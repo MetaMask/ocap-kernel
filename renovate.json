@@ -21,7 +21,6 @@
       "matchManagers": ["github-actions"],
       "matchPackagePrefixes": ["actions/", "MetaMask/"],
       "enabled": true,
-      "pinDigests": true,
       "minimumReleaseAge": "7 days",
       "groupName": "GitHub Actions updates"
     },
@@ -30,7 +29,6 @@
       "matchManagers": ["github-actions"],
       "matchPackagePrefixes": ["Consensys-Incorporated/github-actions"],
       "enabled": true,
-      "pinDigests": true,
       "minimumReleaseAge": "0 days"
     },
     {
