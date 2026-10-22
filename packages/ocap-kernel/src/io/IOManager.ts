@@ -1,9 +1,9 @@
 import type { Logger } from '@metamask/logger';
 
-import { makeIOService } from './io-service.ts';
-import type { IOChannel, IOChannelFactory } from './types.ts';
+import { makeIOListenerService } from './io-service.ts';
+import type { IOListener, IOListenerFactory } from './types.ts';
 import type { KernelService } from '../KernelServiceManager.ts';
-import type { IOConfig } from '../types.ts';
+import type { IOConfig, KRef } from '../types.ts';
 
 type RegisterService = (
   name: string,
@@ -11,29 +11,40 @@ type RegisterService = (
   options?: { systemOnly?: boolean },
 ) => KernelService;
 type UnregisterService = (name: string) => void;
+type RegisterAnonymous = (service: object, label: string) => KRef;
+type ReleaseAnonymous = (kref: KRef) => void;
 
 type IOManagerOptions = {
-  factory: IOChannelFactory;
+  factory: IOListenerFactory;
   registerService: RegisterService;
   unregisterService: UnregisterService;
+  registerAnonymous: RegisterAnonymous;
+  releaseAnonymous: ReleaseAnonymous;
   logger?: Logger;
 };
 
 type SubclusterIOState = {
-  channels: Map<string, IOChannel>;
+  listeners: Map<string, IOListener>;
   serviceNames: string[];
+  /** Krefs of connections accepted from this subcluster's listeners. */
+  connectionKrefs: Set<KRef>;
 };
 
 /**
- * Manages IO channel lifecycle, creating channels at subcluster launch
- * and destroying them at termination.
+ * Manages IO listener lifecycle, creating listeners at subcluster launch
+ * and destroying them — along with any connections accepted from them — at
+ * termination.
  */
 export class IOManager {
-  readonly #factory: IOChannelFactory;
+  readonly #factory: IOListenerFactory;
 
   readonly #registerService: RegisterService;
 
   readonly #unregisterService: UnregisterService;
+
+  readonly #registerAnonymous: RegisterAnonymous;
+
+  readonly #releaseAnonymous: ReleaseAnonymous;
 
   readonly #logger: Logger | undefined;
 
@@ -44,53 +55,75 @@ export class IOManager {
    * Creates a new IOManager instance.
    *
    * @param options - Constructor options.
-   * @param options.factory - Factory for creating IO channels.
+   * @param options.factory - Factory for creating IO listeners.
    * @param options.registerService - Function to register a kernel service.
    * @param options.unregisterService - Function to unregister a kernel service.
+   * @param options.registerAnonymous - Function to host an accepted
+   * connection as a kernel object reachable only by reference.
+   * @param options.releaseAnonymous - Function to release a hosted connection.
    * @param options.logger - Optional logger for diagnostics.
    */
   constructor({
     factory,
     registerService,
     unregisterService,
+    registerAnonymous,
+    releaseAnonymous,
     logger,
   }: IOManagerOptions) {
     this.#factory = factory;
     this.#registerService = registerService;
     this.#unregisterService = unregisterService;
+    this.#registerAnonymous = registerAnonymous;
+    this.#releaseAnonymous = releaseAnonymous;
     this.#logger = logger;
     harden(this);
   }
 
   /**
-   * Create IO channels for a subcluster and register them as kernel services.
+   * Create IO listeners for a subcluster and register them as kernel services.
    *
    * @param subclusterId - The ID of the subcluster.
-   * @param ioConfig - The IO configuration map from channel names to configs.
+   * @param ioConfig - The IO configuration map from listener names to configs.
    */
   async createChannels(
     subclusterId: string,
     ioConfig: Record<string, IOConfig>,
   ): Promise<void> {
-    const channels = new Map<string, IOChannel>();
+    const listeners = new Map<string, IOListener>();
     const serviceNames: string[] = [];
+    const connectionKrefs = new Set<KRef>();
 
     for (const [name, config] of Object.entries(ioConfig)) {
       const serviceName = `io:${subclusterId}:${name}`;
       try {
-        const channel = await this.#factory(name, config);
-        channels.set(name, channel);
+        const listener = await this.#factory(name, config);
+        listeners.set(name, listener);
 
-        const service = makeIOService(serviceName, channel, config);
+        const service = makeIOListenerService(serviceName, listener, config, {
+          register: (connection, label) => {
+            const kref = this.#registerAnonymous(connection, label);
+            connectionKrefs.add(kref);
+            return kref;
+          },
+          release: (kref) => {
+            connectionKrefs.delete(kref);
+            this.#releaseAnonymous(kref);
+          },
+        });
         this.#registerService(serviceName, service);
         serviceNames.push(serviceName);
 
         this.#logger?.info(
-          `Created IO channel "${name}" for subcluster ${subclusterId}`,
+          `Created IO listener "${name}" for subcluster ${subclusterId}`,
         );
       } catch (error) {
-        // Clean up any channels we already created before re-throwing
-        await this.#closeChannels(channels);
+        // Clean up anything we already created before re-throwing
+        await this.#closeListeners(listeners);
+        for (const kref of connectionKrefs) {
+          this.#releaseAnonymous(kref);
+        }
+        connectionKrefs.clear();
         for (const registeredName of serviceNames) {
           try {
             this.#unregisterService(registeredName);
@@ -105,11 +138,16 @@ export class IOManager {
       }
     }
 
-    this.#subclusters.set(subclusterId, { channels, serviceNames });
+    this.#subclusters.set(subclusterId, {
+      listeners,
+      serviceNames,
+      connectionKrefs,
+    });
   }
 
   /**
-   * Destroy IO channels for a subcluster and unregister their services.
+   * Destroy IO listeners for a subcluster, unregister their services, and
+   * release any connections still accepted from them.
    *
    * @param subclusterId - The ID of the subcluster.
    */
@@ -127,15 +165,21 @@ export class IOManager {
       }
     }
 
-    await this.#closeChannels(state.channels);
+    // Closing a listener closes its connections at the transport level;
+    // stop hosting them so their krefs don't outlive the subcluster.
+    await this.#closeListeners(state.listeners);
+    for (const kref of state.connectionKrefs) {
+      this.#releaseAnonymous(kref);
+    }
+    state.connectionKrefs.clear();
     this.#subclusters.delete(subclusterId);
 
-    this.#logger?.info(`Destroyed IO channels for subcluster ${subclusterId}`);
+    this.#logger?.info(`Destroyed IO listeners for subcluster ${subclusterId}`);
   }
 
   /**
-   * Destroy all IO channels across all subclusters.
-   * Used during kernel reset to ensure no channels are leaked.
+   * Destroy all IO listeners across all subclusters.
+   * Used during kernel reset to ensure nothing is leaked.
    */
   async destroyAllChannels(): Promise<void> {
     for (const subclusterId of [...this.#subclusters.keys()]) {
@@ -144,16 +188,16 @@ export class IOManager {
   }
 
   /**
-   * Close all channels in a map, logging errors.
+   * Close all listeners in a map, logging errors.
    *
-   * @param channels - The channels to close.
+   * @param listeners - The listeners to close.
    */
-  async #closeChannels(channels: Map<string, IOChannel>): Promise<void> {
-    for (const [name, channel] of channels) {
+  async #closeListeners(listeners: Map<string, IOListener>): Promise<void> {
+    for (const [name, listener] of listeners) {
       try {
-        await channel.close();
+        await listener.close();
       } catch (error) {
-        this.#logger?.error(`Error closing IO channel "${name}":`, error);
+        this.#logger?.error(`Error closing IO listener "${name}":`, error);
       }
     }
   }

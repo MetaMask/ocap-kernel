@@ -1,5 +1,6 @@
 import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
+import { VatNotFoundError } from '@metamask/kernel-errors';
 import { Logger } from '@metamask/logger';
 
 import { KernelQueue } from './KernelQueue.ts';
@@ -11,21 +12,50 @@ import { isPromiseRef } from './store/utils/promise-ref.ts';
 import type {
   EndpointId,
   EndpointHandle,
+  ERef,
   KRef,
   KernelMessage,
-  RunQueueItem,
+  RRef,
+  RunLoopItem,
   RunQueueItemSend,
+  RemoteEndpointHandle,
   RunQueueItemBringOutYourDead,
+  RunQueueItemRemoteInbound,
   RunQueueItemNotify,
   RunQueueItemGCAction,
   CrankResult,
+  GCRunQueueType,
+  VatId,
 } from './types.ts';
+import { isRemoteId, isVatId } from './types.ts';
 import { assert, Fail } from './utils/assert.ts';
+import { makeLostVatReason } from './vats/lost-vat-reason.ts';
+
+const GC_DELIVERY = {
+  dropExports: 'deliverDropExports',
+  retireExports: 'deliverRetireExports',
+  retireImports: 'deliverRetireImports',
+} as const satisfies {
+  [Type in GCRunQueueType]: `deliver${Capitalize<Type>}` & keyof EndpointHandle;
+};
 
 type MessageRoute = {
   endpointId?: EndpointId | 'kernel';
   target: KRef;
 } | null;
+
+type KernelRouterOptions = {
+  kernelStore: KernelStore;
+  kernelQueue: KernelQueue;
+  getEndpoint: (endpointId: EndpointId) => EndpointHandle;
+  invokeKernelService: (target: KRef, message: KernelMessage) => void;
+  restartVat: (vatId: VatId) => Promise<CrankResult | undefined>;
+  terminateVat: (
+    vatId: VatId,
+    reason?: CapData<KRef>,
+  ) => Promise<CrankResult | undefined>;
+  logger?: Logger;
+};
 
 /**
  * The KernelRouter is responsible for routing messages to the correct endpoint.
@@ -46,29 +76,51 @@ export class KernelRouter {
   /** A function that invokes a method on a kernel service. */
   readonly #invokeKernelService: (target: KRef, message: KernelMessage) => void;
 
+  /**
+   * A function that replaces a vat's worker, for the crank that carries out a
+   * queued restart request.
+   */
+  readonly #restartVat: (vatId: VatId) => Promise<CrankResult | undefined>;
+
+  /**
+   * A function that ends a vat, for the crank that carries out a queued
+   * termination request.
+   */
+  readonly #terminateVat: (
+    vatId: VatId,
+    reason?: CapData<KRef>,
+  ) => Promise<CrankResult | undefined>;
+
   /** The logger, if any. */
   readonly #logger: Logger | undefined;
 
   /**
    * Construct a new KernelRouter.
    *
-   * @param kernelStore - The kernel's store.
-   * @param kernelQueue - The kernel's queue.
-   * @param getEndpoint - A function that returns an endpoint handle for a given endpoint id.
-   * @param invokeKernelService - A function that calls a method on a kernel service object.
-   * @param logger - The logger. If not provided, no logging will be done.
+   * @param options - Options bag.
+   * @param options.kernelStore - The kernel's store.
+   * @param options.kernelQueue - The kernel's queue.
+   * @param options.getEndpoint - A function that returns an endpoint handle for a given endpoint id.
+   * @param options.invokeKernelService - A function that calls a method on a kernel service object.
+   * @param options.restartVat - A function that replaces a vat's worker.
+   * @param options.terminateVat - A function that ends a vat.
+   * @param options.logger - The logger. If not provided, no logging will be done.
    */
-  constructor(
-    kernelStore: KernelStore,
-    kernelQueue: KernelQueue,
-    getEndpoint: (endpointId: EndpointId) => EndpointHandle,
-    invokeKernelService: (target: KRef, message: KernelMessage) => void,
-    logger?: Logger,
-  ) {
+  constructor({
+    kernelStore,
+    kernelQueue,
+    getEndpoint,
+    invokeKernelService,
+    restartVat,
+    terminateVat,
+    logger,
+  }: KernelRouterOptions) {
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#getEndpoint = getEndpoint;
     this.#invokeKernelService = invokeKernelService;
+    this.#restartVat = restartVat;
+    this.#terminateVat = terminateVat;
     this.#logger = logger;
   }
 
@@ -90,7 +142,7 @@ export class KernelRouter {
    * @param item - The message/notification to deliver.
    * @returns The crank outcome.
    */
-  async deliver(item: RunQueueItem): Promise<CrankResult | undefined> {
+  async deliver(item: RunLoopItem): Promise<CrankResult | undefined> {
     switch (item.type) {
       case 'send':
         return await this.#deliverSend(item);
@@ -102,6 +154,12 @@ export class KernelRouter {
         return await this.#deliverGCAction(item);
       case 'bringOutYourDead':
         return await this.#deliverBringOutYourDead(item);
+      case 'remoteInbound':
+        return await this.#deliverRemoteInbound(item);
+      case 'restartVat':
+        return await this.#restartVat(item.vatId);
+      case 'terminateVat':
+        return await this.#terminateVat(item.vatId, item.reason);
       default:
         // @ts-expect-error Runtime does not respect "never".
         Fail`unsupported or unknown run queue item type ${item.type}`;
@@ -194,6 +252,34 @@ export class KernelRouter {
   }
 
   /**
+   * Reject a message's result promise, unless it is already settled.
+   *
+   * A failed delivery may have settled the result first. Resolving a settled
+   * promise is a `Fail`, thrown from inside the catch that is handling the
+   * failure.
+   *
+   * @param endpointId - The endpoint that was to have decided it.
+   * @param kpid - The result promise.
+   * @param failure - Why the message could not be delivered.
+   */
+  #rejectResultIfPending(
+    endpointId: EndpointId,
+    kpid: KRef,
+    failure: CapData<KRef>,
+  ): void {
+    const { state } = this.#kernelStore.getKernelPromise(kpid);
+    if (state !== 'unresolved') {
+      // The caller gets the endpoint's answer, not the delivery's failure, and
+      // the `error` above is the only other trace of either.
+      this.#logger?.error(
+        `Result ${kpid} of the failed delivery to ${endpointId} is already ${state}; leaving it alone`,
+      );
+      return;
+    }
+    this.#kernelQueue.resolvePromises(endpointId, [[kpid, true, failure]]);
+  }
+
+  /**
    * Deliver a 'send' run queue item.
    *
    * @param item - The send item to deliver.
@@ -255,7 +341,10 @@ export class KernelRouter {
               'deliver|splat|result',
             );
           }
-          this.#kernelStore.decrementRefCount(target, 'deliver|splat|target');
+          this.#kernelStore.decrementRefCount(
+            item.target,
+            'deliver|splat|target',
+          );
           for (const slot of message.methargs.slots) {
             this.#kernelStore.decrementRefCount(slot, 'deliver|splat|slot');
           }
@@ -288,9 +377,8 @@ export class KernelRouter {
           message,
         );
         try {
-          crankResult = await endpoint.deliverMessage(
-            endpointTarget,
-            endpointMessage,
+          crankResult = await this.#deliverUnlessLost(eid, async () =>
+            endpoint.deliverMessage(endpointTarget, endpointMessage),
           );
         } catch (error) {
           // Delivery failed (e.g., remote queue full). Reject the kernel promise
@@ -299,13 +387,11 @@ export class KernelRouter {
           if (message.result) {
             const detail =
               error instanceof Error ? error.message : String(error);
-            this.#kernelQueue.resolvePromises(endpointId, [
-              [
-                message.result,
-                true,
-                makeKernelError('DELIVERY_FAILED', detail),
-              ],
-            ]);
+            this.#rejectResultIfPending(
+              eid,
+              message.result,
+              makeKernelError('DELIVERY_FAILED', detail),
+            );
           }
           // Continue processing other messages - don't let one failure crash the queue
         }
@@ -314,12 +400,24 @@ export class KernelRouter {
       } else {
         Fail`no owner for kernel object ${target}`;
       }
-      this.#kernelStore.decrementRefCount(target, 'deliver|send|target');
+      // `item.target`, not the routed `target`: a message aimed at a promise
+      // is charged against the promise, and routing may have resolved it to a
+      // different object.
+      this.#kernelStore.decrementRefCount(item.target, 'deliver|send|target');
       for (const slot of message.methargs.slots) {
         this.#kernelStore.decrementRefCount(slot, 'deliver|send|slot');
       }
     } else {
+      // The references move from this run queue item to the promise's queue
+      // entry. New holder first, so nothing transiently looks unreferenced.
       this.#kernelStore.enqueuePromiseMessage(target, message);
+      this.#kernelStore.decrementRefCount(item.target, 'requeue|target');
+      if (message.result) {
+        this.#kernelStore.decrementRefCount(message.result, 'requeue|result');
+      }
+      for (const slot of message.methargs.slots) {
+        this.#kernelStore.decrementRefCount(slot, 'requeue|slot');
+      }
     }
 
     return crankResult;
@@ -338,6 +436,58 @@ export class KernelRouter {
   ): CrankResult {
     this.#invokeKernelService(target, message);
     return { didDelivery: 'kernel' };
+  }
+
+  /**
+   * Look up an endpoint for a delivery that has nobody to report to — a notify,
+   * a GC action, a reap.
+   *
+   * An endpoint can be named by persisted state without being live. A
+   * terminated vat's c-lists outlive it until `cleanupTerminatedVat` reaches
+   * them, one vat per crank, and a reap scheduled for it outlives even that. A
+   * remote's state outlives every disconnection, and at startup the run loop
+   * begins inside `Kernel.make`, before an embedder can call `initRemoteComms`
+   * to restore any remote at all. Throwing here escapes the crank and kills the
+   * run loop, and the rollback puts the item back, so the next boot dies on it
+   * too.
+   *
+   * @param endpointId - The endpoint the item is addressed to.
+   * @param what - What was being delivered, for the log.
+   * @param options - Options bag.
+   * @param options.discardable - Whether the delivery loses nothing by being
+   * dropped, and so may skip a remote that is merely out of reach.
+   * @returns The endpoint's handle, or undefined if it is not running.
+   */
+  #lookupEndpoint(
+    endpointId: EndpointId,
+    what: string,
+    { discardable = false }: { discardable?: boolean } = {},
+  ): EndpointHandle | undefined {
+    try {
+      return this.#getEndpoint(endpointId);
+    } catch (error) {
+      // A restart and a termination each happen inside a crank of their own,
+      // so no crank sees a vat between workers. A vat with no handle has
+      // ended, is waiting on the termination its channel's loss queued, failed
+      // to start at boot, or was stranded by a retirement that did not
+      // complete.
+      //
+      // A remote with no handle is only out of reach, so only a delivery with
+      // nothing to lose may skip one.
+      const skippable =
+        error instanceof VatNotFoundError ||
+        (discardable && isRemoteId(endpointId));
+      if (!skippable) {
+        throw error;
+      }
+      // Above the per-delivery trace channel: a delivery dropped on the floor
+      // is the only trace of an endpoint that has quietly stopped listening.
+      this.#logger?.warn(
+        `Skipped ${what} for ${endpointId}, which is not running:`,
+        error,
+      );
+      return undefined;
+    }
   }
 
   /**
@@ -362,6 +512,9 @@ export class KernelRouter {
     if (state === 'unresolved') {
       Fail`notification on unresolved promise ${kpid}`;
     }
+    // Release the queued notification's reference up front, so the paths that
+    // decide there is nothing to deliver don't leak it.
+    this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
     if (!this.#kernelStore.krefToEref(endpointId, kpid)) {
       // no c-list entry, already done
       return { didDelivery: endpointId };
@@ -369,6 +522,13 @@ export class KernelRouter {
     const targets = this.#kernelStore.getKpidsToRetire(kpid, value);
     if (targets.length === 0) {
       // no kpids to retire, already done
+      return { didDelivery: endpointId };
+    }
+    // Before the translations below, which import if needed: minting c-list
+    // entries for an endpoint that will never be told writes rows only that
+    // endpoint could release.
+    const endpoint = this.#lookupEndpoint(endpointId, `notify of ${kpid}`);
+    if (!endpoint) {
       return { didDelivery: endpointId };
     }
     const resolutions: VatOneResolution[] = [];
@@ -385,16 +545,14 @@ export class KernelRouter {
         tPromise.state === 'rejected',
         this.#kernelStore.translateCapDataKtoE(endpointId, tPromise.value),
       ]);
-      // decrement refcount for the promise being notified
-      if (toResolve !== kpid) {
-        this.#kernelStore.decrementRefCount(toResolve, 'deliver|notify|slot');
-      }
     }
-    const endpoint = this.#getEndpoint(endpointId);
-    const crankResult = await endpoint.deliverNotify(resolutions);
-    // Decrement reference count for processed 'notify' item
-    this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
-    return crankResult;
+    // TODO(#1006 follow-up): SwingSet also tears down the c-list entry for each
+    // promise in the batch here, since the endpoint can never refer to a
+    // settled promise by that eref again. Left alone for now because the
+    // debug UI discovers exported ocap URLs by scanning these entries.
+    return await this.#deliverUnlessLost(endpointId, async () =>
+      endpoint.deliverNotify(resolutions),
+    );
   }
 
   /**
@@ -408,15 +566,91 @@ export class KernelRouter {
     this.#logger?.log(
       `@@@@ deliver ${endpointId} ${type} ${JSON.stringify(krefs)}`,
     );
-    const endpoint = this.#getEndpoint(endpointId);
-    const erefs = this.#kernelStore.krefsToExistingErefs(endpointId, krefs);
-    const method =
-      `deliver${(type[0] as string).toUpperCase()}${type.slice(1)}` as
-        | 'deliverDropExports'
-        | 'deliverRetireExports'
-        | 'deliverRetireImports';
-    const crankResult = await endpoint[method](erefs);
-    return crankResult;
+    const endpoint = this.#lookupEndpoint(endpointId, type);
+    // Only a skipped vat gets here without a handle: a remote's GC actions wait
+    // in the set until it has one. One the store does not call terminated has
+    // been cleaned up whole, possibly by `nextTerminatedVatCleanup` earlier in
+    // this crank, or is still persisted. That one keeps its c-list as the vat
+    // last saw it, since a restart would bring up an incarnation still holding
+    // those erefs.
+    if (!endpoint && !this.#kernelStore.isVatTerminated(endpointId as VatId)) {
+      return { didDelivery: endpointId };
+    }
+    const erefs = this.#kernelStore.krefsToErefs(endpointId, krefs);
+    // Telling an endpoint to let go is also the kernel letting go. Otherwise a
+    // dropped export stays flagged reachable, so the same action gets derived
+    // again, and retired entries outlive the objects they name. For a terminated
+    // vat that is skipped, this does now what `cleanupTerminatedVat` would do
+    // later.
+    krefs.forEach((kref, index) => {
+      if (type === 'dropExports') {
+        this.#kernelStore.clearReachableFlag(endpointId, kref);
+      } else {
+        this.#kernelStore.deleteCListEntry(
+          endpointId,
+          kref,
+          erefs[index] as ERef,
+        );
+        if (type === 'retireExports') {
+          // Retiring an export is the owner giving up the last name it has for
+          // the object.
+          this.#kernelStore.orphanKernelObject(kref, endpointId);
+        }
+      }
+    });
+    if (!endpoint) {
+      return { didDelivery: endpointId };
+    }
+    // A remote reads an rref in its own frame, so flip it as `translateRefKtoE`
+    // does for every other delivery.
+    const delivered = isRemoteId(endpointId)
+      ? erefs.map((eref) => this.#kernelStore.invertRRef(eref as RRef))
+      : erefs;
+    return await this.#deliverUnlessLost(endpointId, async () =>
+      endpoint[GC_DELIVERY[type]](delivered),
+    );
+  }
+
+  /**
+   * Take delivery of a message from a remote peer, in a crank of its own.
+   *
+   * The remote can be gone by the time its turn comes: the message was
+   * accepted while it was live and the queue outlives it. Throwing here would
+   * escape the crank and kill the run loop, so the message is dropped.
+   *
+   * @param item - The inbound message.
+   * @returns The crank outcome.
+   */
+  async #deliverRemoteInbound(
+    item: RunQueueItemRemoteInbound,
+  ): Promise<CrankResult> {
+    const { remoteId, peerId, seq, message } = item;
+    const remote = this.#lookupEndpoint(remoteId, 'an inbound message', {
+      discardable: true,
+    }) as RemoteEndpointHandle | undefined;
+    if (!remote) {
+      return { didDelivery: remoteId };
+    }
+    // The remote ID has gone to another peer since (#1183). Delivered, the
+    // message would be read against that peer's c-list and answered to it.
+    if (remote.peerId !== peerId) {
+      this.#logger?.warn(
+        `Dropped inbound message seq=${seq} from peer ${peerId}: ${remoteId} is now another peer's`,
+      );
+      return { didDelivery: remoteId };
+    }
+    try {
+      return await remote.deliverInbound(message);
+    } catch (error) {
+      // What a peer sends can fail here: an unknown method, a reference that
+      // does not resolve, a reply to a redemption that has timed out. None of
+      // it is the kernel's to die of.
+      this.#logger?.error(
+        `Discarded inbound message seq=${seq} from ${remoteId}, which could not be delivered:`,
+        error,
+      );
+      return { didDelivery: remoteId, abort: true };
+    }
   }
 
   /**
@@ -430,8 +664,86 @@ export class KernelRouter {
   ): Promise<CrankResult | undefined> {
     const { endpointId } = item;
     this.#logger?.log(`@@@@ deliver ${endpointId} bringOutYourDead`);
-    const endpoint = this.#getEndpoint(endpointId);
-    const crankResult = await endpoint.deliverBringOutYourDead();
-    return crankResult;
+    const endpoint = this.#lookupEndpoint(endpointId, 'bringOutYourDead', {
+      // A reap is a hint, so dropping one loses nothing.
+      discardable: true,
+    });
+    if (!endpoint) {
+      return { didDelivery: endpointId };
+    }
+    return await this.#deliverUnlessLost(endpointId, async () =>
+      endpoint.deliverBringOutYourDead(),
+    );
+  }
+
+  /**
+   * Make a delivery, and if its vat is lost while it is in flight, roll the
+   * delivery back and terminate the vat in the same crank. After the rollback
+   * nothing the vat did in the delivery takes effect, and a kernel caller
+   * awaiting the result of the message it was handling is told why the vat
+   * ended.
+   *
+   * A vat the kernel retired during the delivery is the exception: the crank
+   * commits, with whatever the vat sent before it was retired.
+   *
+   * @param endpointId - The endpoint the delivery is addressed to.
+   * @param deliver - Makes the delivery.
+   * @returns The crank outcome.
+   */
+  async #deliverUnlessLost(
+    endpointId: EndpointId,
+    deliver: () => Promise<CrankResult>,
+  ): Promise<CrankResult> {
+    try {
+      return await deliver();
+    } catch (error) {
+      // A vat whose channel dies mid-delivery has its pending commands
+      // rejected and its handle taken in one step, so a vat with no handle by
+      // now is what tells that apart from a kernel fault.
+      if (!isVatId(endpointId) || this.#isVatRunning(endpointId)) {
+        throw error;
+      }
+      if (!this.#kernelStore.isVatActive(endpointId)) {
+        // Retired by the kernel inside this crank, as `terminateAllVats` can
+        // do while the run loop runs. A rollback would undo that retirement,
+        // and any other it made in this crank. #1105 is to run
+        // `terminateAllVats` with the loop stopped.
+        return harden({ didDelivery: endpointId });
+      }
+      this.#logger?.warn(
+        `Rolled back a delivery to ${endpointId}, which was lost during it:`,
+        error,
+      );
+      return harden({
+        didDelivery: endpointId,
+        abort: true,
+        terminate: {
+          vatId: endpointId,
+          reject: true,
+          info: makeLostVatReason(
+            endpointId,
+            error instanceof Error ? error : new Error(String(error)),
+          ),
+        },
+      });
+    }
+  }
+
+  /**
+   * Whether a vat still has a handle.
+   *
+   * @param vatId - The vat.
+   * @returns False if the vat has none.
+   */
+  #isVatRunning(vatId: VatId): boolean {
+    try {
+      this.#getEndpoint(vatId);
+      return true;
+    } catch (error) {
+      if (error instanceof VatNotFoundError) {
+        return false;
+      }
+      throw error;
+    }
   }
 }

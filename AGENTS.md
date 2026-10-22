@@ -11,15 +11,19 @@ Development workflows:
 - Use `yarn` and `yarn workspace` to run package scripts:
   - `lint:fix` for linting
   - `test:dev:quiet` for unit tests, add `--coverage=true` to include coverage
+  - `test:types` to type-check source and test files
   - if available, integration and e2e tests invoked separately via
     `test:integration` and `test:e2e`, respectively
-  - `build`, `build:dev`, `test:dev`, and `test:dev:quiet` from root are cached using Turborepo (`turbo`)
+  - `build`, `build:dev`, `test:dev`, `test:dev:quiet`, and `test:types` from root are cached using Turborepo (`turbo`)
     - No other scripts use `turbo`
 - When adding another monorepo package as a dependency, also add it to
-  `references` in both `tsconfig.json` and `tsconfig.build.json`
+  `references` in its `tsconfig.build.json`
 
 General conventions:
 
+- Comments, changelog entries, and PR bodies follow
+  [`.claude/skills/prose-pass/SKILL.md`](./.claude/skills/prose-pass/SKILL.md); apply it to
+  a diff before presenting it (in Claude Code, via the `prose-pass` skill)
 - Use `@metamask/superstruct` for runtime type checking and to define object types
 - kebab-case for package and file names (`@ocap/test-utils`, `kernel-worker.js`, `vat.js`)
 - If a function has more than two arguments or could be expected to grow thereto,

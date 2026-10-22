@@ -137,7 +137,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$PKG_ROOT/../.." && pwd)"
 BUNDLE_DIR="$PKG_ROOT/src/vats"
-OCAP_BIN="$REPO_ROOT/packages/kernel-cli/dist/app.mjs"
+OCAP_BIN="$REPO_ROOT/packages/kernel-cli/dist/app.js"
 
 if [[ ! -f "$OCAP_BIN" ]]; then
   echo "Error: ocap CLI not found at $OCAP_BIN. Run 'yarn workspace @metamask/kernel-cli build' first." >&2
@@ -334,20 +334,20 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$RPC_HOST" 
       vats: {
         coordinator: {
           bundleSpec: bd + '/home-coordinator.bundle',
-          globals: ['TextEncoder', 'TextDecoder', 'Date', 'setTimeout']
+          globals: ['Date', 'setTimeout']
         },
         keyring: {
           bundleSpec: bd + '/keyring-vat.bundle',
-          globals: ['TextEncoder', 'TextDecoder', 'crypto']
+          globals: ['crypto']
         },
         provider: {
           bundleSpec: bd + '/provider-vat.bundle',
-          globals: ['TextEncoder', 'TextDecoder', 'fetch', 'Request', 'Headers', 'Response'],
+          globals: ['fetch', 'Request', 'Headers', 'Response'],
           network: { allowedHosts: hosts }
         },
         delegator: {
           bundleSpec: bd + '/delegator-vat.bundle',
-          globals: ['TextEncoder', 'TextDecoder', 'crypto'],
+          globals: ['crypto'],
           parameters: { delegationManagerAddress: dm }
         }
       }

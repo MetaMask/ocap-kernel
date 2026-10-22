@@ -21,6 +21,8 @@ import type {
 } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { getCListMethods } from './clist.ts';
+import { getReachableMethods } from './reachable.ts';
+import { getRefCountMethods } from './refcount.ts';
 import { getVatMethods } from './vat.ts';
 import { Fail, assert } from '../../utils/assert.ts';
 
@@ -32,9 +34,11 @@ import { Fail, assert } from '../../utils/assert.ts';
  * @returns A translator object that maps various kernel data structures
  * onto `kv`.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function getTranslators(ctx: StoreContext) {
   const { krefToEref, erefToKref, allocateErefForKref } = getCListMethods(ctx);
+  const { setReachableFlag } = getReachableMethods(ctx);
+  const { kernelRefExists } = getRefCountMethods(ctx);
   const { exportFromEndpoint } = getVatMethods(ctx);
 
   /**
@@ -45,7 +49,7 @@ export function getTranslators(ctx: StoreContext) {
    * @returns a copy of `rref` with '+'/'-' changed to '-'/'+'.
    */
   function invertRRef(rref: RRef): RRef {
-    // eslint-disable-next-line require-unicode-regexp
+    // oxlint-disable-next-line require-unicode-regexp
     const parts = rref.match(/^(r[op])([-+])(\d+)$/);
     assert(parts?.length === 4);
     return `${parts[1]}${parts[2] === '+' ? '-' : '+'}${parts[3]}` as RRef;
@@ -53,6 +57,11 @@ export function getTranslators(ctx: StoreContext) {
 
   /**
    * Translate a reference from kernel space into endpoint space.
+   *
+   * Translating is how the kernel hands an endpoint a reference, so it also
+   * re-establishes reachability: a vat given an object it previously dropped
+   * holds it live again. Garbage collection deliveries must not do this, and
+   * don't — they map through `krefsToErefs`, which never touches the flag.
    *
    * @param endpointId - The endpoint for whom translation is desired.
    * @param kref - The KRef of the entity of interest.
@@ -69,11 +78,20 @@ export function getTranslators(ctx: StoreContext) {
     let eref = krefToEref(endpointId, kref);
     if (!eref) {
       if (importIfNeeded) {
+        // A kref the kernel has already deleted must not acquire a new c-list
+        // entry: the entry would be a legitimate holder for the resurrected
+        // count, so even the audit would endorse it. `incrementRefCount`
+        // refuses that increment too; checking here refuses before an eref is
+        // allocated, and says what was attempted. Reached by redeeming an ocap
+        // URL issued for an object that has since been collected.
+        kernelRefExists(kref) ||
+          Fail`cannot import deleted kref ${kref} into ${endpointId}`;
         eref = allocateErefForKref(endpointId, kref);
       } else {
         throw Fail`unmapped kref ${kref} endpoint=${endpointId}`;
       }
     }
+    setReachableFlag(endpointId, kref);
     if (isRemoteId(endpointId)) {
       // The import/export relationship between a vat and the kernel is
       // asymmetric -- the vat always exports to the kernel and imports from the
@@ -268,7 +286,7 @@ export function getTranslators(ctx: StoreContext) {
       }
       default: {
         // Compile-time exhaustiveness check
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        // oxlint-disable-next-line typescript/restrict-template-expressions
         throw Error(`vat ${vatId} issued unknown syscall ${vso[0]}`);
       }
     }

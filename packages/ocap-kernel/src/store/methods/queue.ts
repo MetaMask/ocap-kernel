@@ -8,7 +8,7 @@ import type { StoreContext } from '../types.ts';
  * @returns A queue store object that maps various persistent kernel data
  * structures onto `kv`.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function getQueueMethods(ctx: StoreContext) {
   /**
    * Find out how long some queue is.
@@ -33,6 +33,11 @@ export function getQueueMethods(ctx: StoreContext) {
    * @param message - The message to enqueue.
    */
   function enqueueRun(message: RunQueueItem): void {
+    // Materialize the cache from the database before adjusting it. A
+    // negative cache means "unknown"; incrementing it blindly would turn
+    // that sentinel into a concrete (and wrong) count, and since the
+    // result is no longer negative it would never be re-read.
+    runQueueLength();
     ctx.runQueueLengthCache += 1;
     ctx.runQueue.enqueue(message);
   }
@@ -44,6 +49,9 @@ export function getQueueMethods(ctx: StoreContext) {
    * empty.
    */
   function dequeueRun(): RunQueueItem | undefined {
+    // Materialize the cache before adjusting it, for the same reason as
+    // in `enqueueRun`.
+    runQueueLength();
     ctx.runQueueLengthCache -= 1;
     return ctx.runQueue.dequeue() as RunQueueItem | undefined;
   }

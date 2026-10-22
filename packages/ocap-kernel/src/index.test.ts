@@ -10,6 +10,7 @@ describe('index', () => {
       'ClusterConfigStruct',
       'Kernel',
       'KernelStatusStruct',
+      'RunLoopStatusStruct',
       'SubclusterStruct',
       'VatConfigStruct',
       'VatHandle',

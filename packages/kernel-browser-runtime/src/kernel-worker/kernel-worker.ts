@@ -37,22 +37,28 @@ async function main(): Promise<void> {
     (listener) => globalThis.removeEventListener('message', listener),
   );
 
-  const [messageStream, platformServicesClient, kernelDatabase] =
-    await Promise.all([
-      MessagePortDuplexStream.make<JsonRpcMessage, JsonRpcMessage>(
-        port,
-        isJsonRpcMessage,
-      ),
-      PlatformServicesClient.make(globalThis as PostMessageTarget),
-      makeSQLKernelDatabase({ dbFilename: DB_FILENAME }),
-    ]);
+  const messageStream = await MessagePortDuplexStream.make<
+    JsonRpcMessage,
+    JsonRpcMessage
+  >(port, isJsonRpcMessage);
 
+  // Must precede anything that logs: forwarding swaps out the `console` methods
+  // the logger's transport resolves at dispatch, so earlier lines never leave
+  // the worker.
   setupConsoleForwarding({
     source: 'kernel-worker',
     onMessage: (message) => {
       messageStream.write(message).catch(() => undefined);
     },
   });
+
+  const [platformServicesClient, kernelDatabase] = await Promise.all([
+    PlatformServicesClient.make(globalThis as PostMessageTarget),
+    makeSQLKernelDatabase({
+      dbFilename: DB_FILENAME,
+      logger: logger.subLogger({ tags: ['kernel-store'] }),
+    }),
+  ]);
 
   const urlParams = new URLSearchParams(globalThis.location.search);
   const resetStorage = urlParams.get('reset-storage') === 'true';
@@ -64,6 +70,20 @@ async function main(): Promise<void> {
   const kernelP = Kernel.make(platformServicesClient, kernelDatabase, {
     resetStorage,
     systemSubclusters,
+    // Log and stay up, deliberately. `self.close()` would match what the daemon
+    // does, but here it would remove the only diagnostic without buying any
+    // recovery: nothing respawns this worker, the vat iframes belong to the
+    // offscreen document and would outlive it as orphans, and the panel keeps
+    // its last successful status when polling fails — so it would go on showing
+    // a healthy kernel forever. Staying up is what lets `getStatus` report
+    // `runLoop: failed` and the panel say so. Reviving the browser kernel means
+    // teardown and respawn driven from the offscreen document.
+    onRunLoopFailure: (error) => {
+      logger.error(
+        'Kernel run loop died; this worker must be reloaded.',
+        error,
+      );
+    },
   });
 
   const handlerP = kernelP.then((kernel) => {

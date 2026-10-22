@@ -18,12 +18,17 @@ import {
   runTestVats,
 } from './utils.ts';
 
+// `ERef` is not exported from the package entry point.
+type ERef = Parameters<KernelStore['erefToKref']>[1];
+
 /**
  * Make a test subcluster with vats for GC testing
  *
+ * @param extraImporters - Names of additional importer vats to include, for
+ * topologies where more than one vat shares the same exported object.
  * @returns The test subcluster
  */
-function makeTestSubcluster(): ClusterConfig {
+function makeTestSubcluster(extraImporters: string[] = []): ClusterConfig {
   return {
     bootstrap: 'exporter',
     forceReset: true,
@@ -40,9 +45,21 @@ function makeTestSubcluster(): ClusterConfig {
           name: 'Importer',
         },
       },
+      ...Object.fromEntries(
+        extraImporters.map((name) => [
+          name,
+          {
+            bundleSpec: getBundleSpec('importer-vat'),
+            parameters: { name },
+          },
+        ]),
+      ),
     },
   };
 }
+
+const CRANKS_PER_REAP = 3;
+const MAX_REAP_ATTEMPTS = 10;
 
 describe('Garbage Collection', () => {
   let kernel: Kernel;
@@ -72,6 +89,40 @@ describe('Garbage Collection', () => {
     importerKRef = kernelStore.getRootObject(importerVatId) as KRef;
   });
 
+  /**
+   * Give a vat a chance to notice a dropped object and tell the kernel.
+   *
+   * A reap only reports what the engine collected before `bringOutYourDead`
+   * ran, which one round of `gc()` does not guarantee includes the dropped
+   * presence, hence the retries.
+   *
+   * @param options - Options bag.
+   * @param options.vatId - The vat to reap.
+   * @param options.rootKRef - That vat's root object.
+   * @param options.isSettled - Predicate that holds once the kernel has seen
+   * the drop.
+   */
+  async function reapAndSettle({
+    vatId,
+    rootKRef,
+    isSettled,
+  }: {
+    vatId: VatId;
+    rootKRef: KRef;
+    isSettled: () => boolean;
+  }): Promise<void> {
+    for (let attempt = 0; attempt < MAX_REAP_ATTEMPTS; attempt++) {
+      kernel.reapVats((id) => id === vatId);
+      for (let i = 0; i < CRANKS_PER_REAP; i++) {
+        await kernel.queueMessage(rootKRef, 'noop', []);
+        await waitUntilQuiescent(500);
+      }
+      if (isSettled()) {
+        return;
+      }
+    }
+  }
+
   it('objects are tracked with reference counts', async () => {
     const objectId = 'test-object';
     // Create an object in the exporter vat
@@ -81,10 +132,11 @@ describe('Garbage Collection', () => {
       [objectId],
     );
     const createObjectRef = createObjectData.slots[0] as KRef;
-    // Verify initial reference counts from database
-    const initialRefCounts = kernelStore.getObjectRefCount(createObjectRef);
-    expect(initialRefCounts.reachable).toBe(2);
-    expect(initialRefCounts.recognizable).toBe(2);
+    // Held only by the resolved promise's value, which still carries the slot
+    expect(kernelStore.getObjectRefCount(createObjectRef)).toStrictEqual({
+      reachable: 1,
+      recognizable: 1,
+    });
     // Send the object to the importer vat
     const objectRef = kunser(createObjectData);
     await kernel.queueMessage(importerKRef, 'storeImport', [objectRef]);
@@ -96,7 +148,10 @@ describe('Garbage Collection', () => {
     );
     expect(exporterReachable).toBe(true);
     // Check that the object is reachable as a promise from the importer vat
-    const importerKref = kernelStore.erefToKref(importerVatId, 'p-1') as KRef;
+    const importerKref = kernelStore.erefToKref(
+      importerVatId,
+      'p-1' as ERef,
+    ) as KRef;
     expect(kernelStore.hasCListEntry(importerVatId, importerKref)).toBe(true);
     expect(kernelStore.getRefCount(importerKref)).toBe(1);
     // Use the object
@@ -116,10 +171,10 @@ describe('Garbage Collection', () => {
     await waitUntilQuiescent();
     const createObjectRef = createObjectData.slots[0] as KRef;
 
-    // Store initial reference count information
-    const initialRefCounts = kernelStore.getObjectRefCount(createObjectRef);
-    expect(initialRefCounts.reachable).toBe(2);
-    expect(initialRefCounts.recognizable).toBe(2);
+    expect(kernelStore.getObjectRefCount(createObjectRef)).toStrictEqual({
+      reachable: 1,
+      recognizable: 1,
+    });
 
     // Store the reference in the importer vat
     const objectRef = kunser(createObjectData);
@@ -149,14 +204,15 @@ describe('Garbage Collection', () => {
     await kernel.queueMessage(importerKRef, 'makeWeak', [objectId]);
     await waitUntilQuiescent();
 
-    // Schedule reap to trigger bringOutYourDead on next crank
-    kernel.reapVats((vatId) => vatId === importerVatId);
-
-    // Run 3 cranks to allow bringOutYourDead to be processed
-    for (let i = 0; i < 3; i++) {
-      await kernel.queueMessage(importerKRef, 'noop', []);
-      await waitUntilQuiescent(500);
-    }
+    await reapAndSettle({
+      vatId: importerVatId,
+      rootKRef: importerKRef,
+      isSettled: () => {
+        const { reachable, recognizable } =
+          kernelStore.getObjectRefCount(createObjectRef);
+        return reachable === 1 && recognizable === 2;
+      },
+    });
 
     // Check reference counts after dropImports
     const afterWeakRefCounts = kernelStore.getObjectRefCount(createObjectRef);
@@ -168,13 +224,15 @@ describe('Garbage Collection', () => {
     await kernel.queueMessage(importerKRef, 'forgetImport', []);
     await waitUntilQuiescent();
 
-    // Schedule another reap
-    kernel.reapVats((vatId) => vatId === importerVatId);
-
-    for (let i = 0; i < 3; i++) {
-      await kernel.queueMessage(importerKRef, 'noop', []);
-      await waitUntilQuiescent(500);
-    }
+    await reapAndSettle({
+      vatId: importerVatId,
+      rootKRef: importerKRef,
+      isSettled: () => {
+        const { reachable, recognizable } =
+          kernelStore.getObjectRefCount(createObjectRef);
+        return reachable === 1 && recognizable === 1;
+      },
+    });
 
     // Check reference counts after retireImports
     const afterForgetRefCounts = kernelStore.getObjectRefCount(createObjectRef);
@@ -200,5 +258,120 @@ describe('Garbage Collection', () => {
       [objectId],
     );
     expect(parseReplyBody(exporterFinalCheck.body)).toBe(false);
-  }, 40000);
+  }, 60000);
+
+  describe('an object shared by two importers', () => {
+    let secondImporterKRef: KRef;
+    let secondImporterVatId: VatId;
+
+    beforeEach(async () => {
+      kernelDatabase = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
+      kernelStore = makeKernelStore(kernelDatabase);
+      kernel = await makeKernel(kernelDatabase, true, makeMockLogger());
+      await runTestVats(kernel, makeTestSubcluster(['Importer2']));
+
+      const vats = kernel.getVats();
+      const idOf = (name: string): VatId =>
+        vats.find((row) => row.config.parameters?.name === name)?.id as VatId;
+      exporterVatId = idOf('Exporter');
+      importerVatId = idOf('Importer');
+      secondImporterVatId = idOf('Importer2');
+      exporterKRef = kernelStore.getRootObject(exporterVatId) as KRef;
+      importerKRef = kernelStore.getRootObject(importerVatId) as KRef;
+      secondImporterKRef = kernelStore.getRootObject(
+        secondImporterVatId,
+      ) as KRef;
+    });
+
+    it('survives until both importers let go', async () => {
+      const objectId = 'shared-object';
+      const createObjectData = await kernel.queueMessage(
+        exporterKRef,
+        'createObject',
+        [objectId],
+      );
+      const sharedKRef = createObjectData.slots[0] as KRef;
+      const objectRef = kunser(createObjectData);
+
+      for (const importer of [importerKRef, secondImporterKRef]) {
+        await kernel.queueMessage(importer, 'storeImport', [
+          objectRef,
+          objectId,
+        ]);
+      }
+      await waitUntilQuiescent();
+
+      expect(kernelStore.getImporters(sharedKRef)).toStrictEqual(
+        [importerVatId, secondImporterVatId].sort(),
+      );
+      // Two importers, plus the resolved createObject promise whose value
+      // still carries the slot
+      expect(kernelStore.getObjectRefCount(sharedKRef)).toStrictEqual({
+        reachable: 3,
+        recognizable: 3,
+      });
+
+      await kernel.queueMessage(importerKRef, 'makeWeak', [objectId]);
+      await kernel.queueMessage(importerKRef, 'forgetImport', []);
+      await waitUntilQuiescent();
+      await reapAndSettle({
+        vatId: importerVatId,
+        rootKRef: importerKRef,
+        isSettled: () =>
+          !kernelStore.getImporters(sharedKRef).includes(importerVatId),
+      });
+
+      // The exporter must not have been told to drop it: the second importer
+      // legitimately still holds it
+      expect(kernelStore.getReachableFlag(exporterVatId, sharedKRef)).toBe(
+        true,
+      );
+      expect(kernelStore.getImporters(sharedKRef)).toStrictEqual([
+        secondImporterVatId,
+      ]);
+      expect(
+        parseReplyBody(
+          (
+            await kernel.queueMessage(exporterKRef, 'isObjectPresent', [
+              objectId,
+            ])
+          ).body,
+        ),
+      ).toBe(true);
+
+      expect(
+        parseReplyBody(
+          (
+            await kernel.queueMessage(secondImporterKRef, 'useImport', [
+              objectId,
+            ])
+          ).body,
+        ),
+      ).toBe(objectId);
+
+      await kernel.queueMessage(secondImporterKRef, 'makeWeak', [objectId]);
+      await kernel.queueMessage(secondImporterKRef, 'forgetImport', []);
+      await waitUntilQuiescent();
+      await reapAndSettle({
+        vatId: secondImporterVatId,
+        rootKRef: secondImporterKRef,
+        isSettled: () => {
+          const { reachable, recognizable } =
+            kernelStore.getObjectRefCount(sharedKRef);
+          return (
+            kernelStore.getImporters(sharedKRef).length === 0 &&
+            reachable === 1 &&
+            recognizable === 1
+          );
+        },
+      });
+
+      expect(kernelStore.getImporters(sharedKRef)).toStrictEqual([]);
+      // Only the createObject result's stored value still names it
+      expect(kernelStore.getObjectRefCount(sharedKRef)).toStrictEqual({
+        reachable: 1,
+        recognizable: 1,
+      });
+    }, 60000);
+  });
 });

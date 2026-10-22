@@ -376,14 +376,54 @@ export type RunQueueItemBringOutYourDead = Infer<
   typeof RunQueueItemBringOutYourDeadStruct
 >;
 
+/**
+ * A request to replace a vat's worker, queued so the run loop performs it.
+ */
+const RunQueueItemRestartVatStruct = object({
+  type: literal('restartVat'),
+  vatId: VatIdStruct,
+});
+
+export type RunQueueItemRestartVat = Infer<typeof RunQueueItemRestartVatStruct>;
+
+/**
+ * A request to terminate a vat, queued so the run loop performs it.
+ */
+const RunQueueItemTerminateVatStruct = object({
+  type: literal('terminateVat'),
+  vatId: VatIdStruct,
+  reason: exactOptional(KernelCapDataStruct),
+});
+
+export type RunQueueItemTerminateVat = Infer<
+  typeof RunQueueItemTerminateVatStruct
+>;
+
+export type RunQueueItemRemoteInbound = {
+  type: 'remoteInbound';
+  remoteId: RemoteId;
+  peerId: string;
+  seq: number;
+  message: string;
+};
+
 export const RunQueueItemStruct = union([
   RunQueueItemSendStruct,
   RunQueueItemNotifyStruct,
   RunQueueItemGCActionStruct,
   RunQueueItemBringOutYourDeadStruct,
+  RunQueueItemRestartVatStruct,
+  RunQueueItemTerminateVatStruct,
 ]);
 
 export type RunQueueItem = Infer<typeof RunQueueItemStruct>;
+
+/**
+ * Everything the run loop takes a crank for. An arrival from a peer is held in
+ * memory and never written to the run queue, so it is not a {@link RunQueueItem}
+ * and the store's queue methods do not accept one.
+ */
+export type RunLoopItem = RunQueueItem | RunQueueItemRemoteInbound;
 
 /**
  * Assert that a value is a valid kernel message.
@@ -506,8 +546,8 @@ export type PlatformServices = {
    *
    * @param vatId - The vat id of the worker to terminate.
    * @param error - An optional error to terminate the worker with.
-   * @returns A promise that resolves when the worker has terminated
-   * or rejects if that worker does not exist.
+   * @returns A promise that resolves when the worker has terminated. For a vat
+   * with no worker, a runtime may resolve or reject.
    */
   terminate: (vatId: VatId, error?: Error) => Promise<void>;
   /**
@@ -746,6 +786,8 @@ export type SubclusterLaunchResult = {
   rootKref: KRef;
   /** The CapData result of calling bootstrap() on the root object, if any. */
   bootstrapResult: CapData<KRef> | undefined;
+  /** Map from vat name to root kref for all successfully launched vats. */
+  vatRootKrefs: Record<string, KRef>;
 };
 
 const RemoteCommsDisconnectedStruct = object({
@@ -763,6 +805,34 @@ const RemoteCommsConnectedStruct = object({
   listenAddresses: array(string()),
 });
 
+/**
+ * Whether the kernel is capable of processing its run queue. `idle` means the
+ * run loop was never started, not that it has nothing to do — a loop parked on
+ * an empty queue reports `running`. `failed` means nothing will ever be
+ * processed again and the kernel must be restarted.
+ */
+// The arms are `type()`, not `object()`, so a client shipped against them
+// tolerates a newer kernel adding a field to an arm. Note the limit of that:
+// a newer kernel adding a whole new *state* is rejected by the union either
+// way, so adding an arm here is a breaking wire change for older clients.
+export const RunLoopStatusStruct = union([
+  type({ state: literal('idle') }),
+  type({ state: literal('running') }),
+  // Two strings because one cannot be both: `error` is the message, `detail` the
+  // cause chain. When a crank dies and its rollback then fails, the message names
+  // the rollback and only the chain names what killed the kernel.
+  type({ state: literal('failed'), error: string(), detail: string() }),
+]);
+
+export type RunLoopStatus = Infer<typeof RunLoopStatusStruct>;
+
+/**
+ * Notified when the kernel's run loop dies. Should not be async: the kernel is
+ * reporting a failure it cannot recover from, so there is nothing to await. An
+ * async handler's rejection is logged rather than awaited.
+ */
+export type OnRunLoopFailure = (error: Error) => void;
+
 export const KernelStatusStruct = type({
   subclusters: array(SubclusterStruct),
   vats: array(
@@ -772,6 +842,15 @@ export const KernelStatusStruct = type({
       subclusterId: SubclusterIdStruct,
     }),
   ),
+  // Required, in the type as well as on the wire. `exactOptional` would make the
+  // type say "may be absent" while validation still demanded the key, since
+  // `exactOptional` only permits an absent key inside `object()` and this is a
+  // `type()`. `optional` would agree with the type but cannot be used: it widens
+  // the inferred property to `| undefined`, and `KernelStatus` is an RPC result,
+  // so it must satisfy `Json`. Required is the only self-consistent option — at
+  // the cost that a reply from a kernel predating this field fails validation
+  // outright, which `remoteComms` already implies for older kernels too.
+  runLoop: RunLoopStatusStruct,
   remoteComms: exactOptional(
     union([
       RemoteCommsDisconnectedStruct,
@@ -877,6 +956,27 @@ export type CrankResult = {
   didDelivery?: EndpointId | 'kernel'; // the endpoint to which we made a delivery
   abort?: boolean; // changes should be discarded, not committed
   terminate?: { vatId: VatId; reject: boolean; info: CapData<KRef> };
+  /**
+   * The delivery has done work a caller will be told of, so a later failure in
+   * this crank, from collection or the audit, must not roll it back. Ignored
+   * alongside `abort`, which rolls back first.
+   */
+  irrevocable?: boolean;
+  /**
+   * Work the run loop runs once the crank has committed, skipped if it aborts.
+   * For what a rollback could not undo anyway, and what must not be observable
+   * before the writes it reports on are durable: in-memory state, and sending
+   * a message the crank has already written down.
+   *
+   * While it runs it must not write the kernel store: the crank's transaction
+   * is released by then, so a write would commit on its own, outside the crank
+   * whose outcome it belongs to. That bounds what this hook promises, not what
+   * the kernel needs — work it starts and does not wait for, such as a
+   * transport's failure handling, lands outside every crank too, and is not
+   * fixed by this. A throw from it kills the run loop, after the crank it
+   * follows has committed.
+   */
+  afterCommit?: () => Promise<void>;
 };
 
 export type VatDeliveryResult = [VatCheckpoint, string | null];
@@ -891,6 +991,12 @@ export type EndpointHandle = {
   deliverRetireExports: (erefs: ERef[]) => Promise<CrankResult>;
   deliverRetireImports: (erefs: ERef[]) => Promise<CrankResult>;
   deliverBringOutYourDead: () => Promise<CrankResult>;
+};
+
+/** A remote's endpoint, which also takes delivery of what its peer sends. */
+export type RemoteEndpointHandle = EndpointHandle & {
+  peerId: string;
+  deliverInbound: (message: string) => Promise<CrankResult>;
 };
 
 /**

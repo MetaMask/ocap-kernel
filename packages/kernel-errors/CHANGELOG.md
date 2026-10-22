@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `PeerRestartedError`, `IntentionalCloseError`, and `NetworkStoppedError` sentinel errors for the remote-comms transport ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))
 - Add `isTerminalSendError` utility to discriminate retry-worthy from terminal `sendRemoteMessage` errors ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))
 
+### Removed
+
+- **BREAKING:** Remove the CommonJS build; the package is ESM-only. Its entry points are `.js` and `.d.ts` files, formerly `.mjs`/`.cjs` and `.d.mts`/`.d.cts` ([#1186](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1186))
+
 ## [0.6.0]
 
 ### Added
@@ -61,10 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.6.0...HEAD
-[0.6.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.5.0...@metamask/kernel-errors@0.6.0
-[0.5.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.4.0...@metamask/kernel-errors@0.5.0
-[0.4.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.3.0...@metamask/kernel-errors@0.4.0
-[0.3.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.2.0...@metamask/kernel-errors@0.3.0
-[0.2.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.1.0...@metamask/kernel-errors@0.2.0
-[0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/kernel-errors@0.1.0
+[Unreleased]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/kernel-errors@0.6.0...HEAD
+[0.6.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/kernel-errors@0.5.0...@metamask/kernel-errors@0.6.0
+[0.5.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/kernel-errors@0.4.0...@metamask/kernel-errors@0.5.0
+[0.4.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/kernel-errors@0.3.0...@metamask/kernel-errors@0.4.0
+[0.3.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/kernel-errors@0.2.0...@metamask/kernel-errors@0.3.0
+[0.2.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/kernel-errors@0.1.0...@metamask/kernel-errors@0.2.0
+[0.1.0]: https://github.com/Consensys-Incorporated/ocap-kernel/releases/tag/@metamask/kernel-errors@0.1.0

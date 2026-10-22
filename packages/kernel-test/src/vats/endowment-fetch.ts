@@ -11,7 +11,7 @@ import type { TestPowers } from '../test-powers.ts';
  * @param vatPowers.logger - The logger for the vat.
  * @returns The root object.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export async function buildRootObject(vatPowers: TestPowers) {
   const tlog = unwrapTestLogger(vatPowers, 'endowment-user');
 
@@ -41,6 +41,66 @@ export async function buildRootObject(vatPowers: TestPowers) {
       } catch (error) {
         tlog(`error: ${String(error)}`);
         throw error;
+      }
+    },
+    // The CWE-367 escape: an input that names the allowed host on the
+    // caveat's read and a forbidden one on fetch's.
+    fetchWithTwoFacedUrl: async (decoyUrl: string, targetUrl: string) => {
+      let reads = 0;
+      const twoFaced = {
+        toString: () => {
+          reads += 1;
+          return reads === 1 ? decoyUrl : targetUrl;
+        },
+      };
+      try {
+        const response = await fetch(
+          twoFaced as unknown as Parameters<typeof fetch>[0],
+        );
+        tlog(`fetched: ${response.headers.get('x-fetched-url')}`);
+      } catch (error) {
+        tlog(`error: ${String(error)}`);
+      }
+      tlog(`reads: ${reads}`);
+    },
+    fetchFollowingRedirect: async (url: string) => {
+      try {
+        const response = await fetch(url);
+        tlog(`fetched: ${response.headers.get('x-fetched-url')}`);
+        tlog(`redirect mode: ${response.headers.get('x-redirect-mode')}`);
+        tlog(`redirected: ${String(response.redirected)}`);
+        // Read through the hardened response wrapper the endowment returns,
+        // which is not the plain `Response` the unit tests exercise.
+        tlog(`body: ${await response.text()}`);
+      } catch (error) {
+        tlog(`error: ${String(error)}`);
+      }
+    },
+    fetchWithIntegrity: async (url: string, integrity: string) => {
+      try {
+        const response = await fetch(url, { integrity });
+        tlog(`body: ${await response.text()}`);
+      } catch (error) {
+        tlog(`error: ${String(error)}`);
+      }
+    },
+    fetchWithSpoofedRequest: async (decoyUrl: string, targetUrl: string) => {
+      /**
+       * A `Request` whose `url` getter lies while its internal slot — the one
+       * `fetch` reads — holds the forbidden host.
+       */
+      class SpoofedRequest extends Request {
+        /** @returns The decoy URL, not the URL this request was built with. */
+        // @ts-expect-error Deliberately shadows the `url` property with a getter.
+        override get url(): string {
+          return decoyUrl;
+        }
+      }
+      try {
+        const response = await fetch(new SpoofedRequest(targetUrl));
+        tlog(`fetched: ${response.headers.get('x-fetched-url')}`);
+      } catch (error) {
+        tlog(`error: ${String(error)}`);
       }
     },
   });

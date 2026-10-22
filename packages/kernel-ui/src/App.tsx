@@ -11,6 +11,7 @@ import { DatabaseInspector } from './components/DatabaseInspector.tsx';
 import { MessagePanel } from './components/MessagePanel.tsx';
 import { ObjectRegistry } from './components/ObjectRegistry.tsx';
 import { RemoteComms } from './components/RemoteComms.tsx';
+import { RunLoopBanner } from './components/RunLoopBanner.tsx';
 import { Tabs } from './components/shared/Tabs.tsx';
 import { PanelProvider } from './context/PanelContext.tsx';
 import { useDarkMode } from './hooks/useDarkMode.ts';
@@ -70,6 +71,7 @@ export const App: React.FC = () => {
     <PanelProvider callKernelMethod={callKernelMethod}>
       <Box className={panelStyle}>
         <Box className="min-w-0">
+          <RunLoopBanner />
           <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
           {tabs.find((tab) => tab.value === activeTab)?.component}
         </Box>

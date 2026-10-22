@@ -28,7 +28,7 @@ This guide walks through setting up the OCAP evm-wallet on two devices:
 - The `ocap-kernel` monorepo cloned and built
 
 ```bash
-git clone https://github.com/MetaMask/ocap-kernel.git
+git clone https://github.com/Consensys-Incorporated/ocap-kernel.git
 ```
 
 - OpenClaw installed on the VPS (for the agent integration)
@@ -143,7 +143,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/root/ocap-kernel
-ExecStart=/root/.nvm/versions/node/v24.14.0/bin/node packages/kernel-cli/dist/app.mjs relay
+ExecStart=/root/.nvm/versions/node/v24.14.0/bin/node packages/kernel-cli/dist/app.js relay
 Restart=on-failure
 
 [Install]
@@ -464,20 +464,20 @@ yarn ocap daemon exec launchSubcluster '{
     "vats": {
       "coordinator": {
         "bundleSpec": "packages/evm-wallet-experiment/src/vats/home-coordinator.bundle",
-        "globals": ["TextEncoder", "TextDecoder", "Date", "setTimeout"]
+        "globals": ["Date", "setTimeout"]
       },
       "keyring": {
         "bundleSpec": "packages/evm-wallet-experiment/src/vats/keyring-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder", "crypto"]
+        "globals": ["crypto"]
       },
       "provider": {
         "bundleSpec": "packages/evm-wallet-experiment/src/vats/provider-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder", "fetch", "Request", "Headers", "Response"],
+        "globals": ["fetch", "Request", "Headers", "Response"],
         "network": { "allowedHosts": ["<chain>.infura.io", "api.pimlico.io", "swap.api.cx.metamask.io"] }
       },
       "delegator": {
         "bundleSpec": "packages/evm-wallet-experiment/src/vats/delegator-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder", "crypto"],
+        "globals": ["crypto"],
         "parameters": { "delegationManagerAddress": "0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3" }
       }
     }
@@ -564,20 +564,20 @@ yarn ocap daemon exec launchSubcluster '{
     "vats": {
       "coordinator": {
         "bundleSpec": "packages/evm-wallet-experiment/src/vats/away-coordinator.bundle",
-        "globals": ["TextEncoder", "TextDecoder", "Date", "setTimeout"]
+        "globals": ["Date", "setTimeout"]
       },
       "keyring": {
         "bundleSpec": "packages/evm-wallet-experiment/src/vats/keyring-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder", "crypto"]
+        "globals": ["crypto"]
       },
       "provider": {
         "bundleSpec": "packages/evm-wallet-experiment/src/vats/provider-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder", "fetch", "Request", "Headers", "Response"],
+        "globals": ["fetch", "Request", "Headers", "Response"],
         "network": { "allowedHosts": ["<chain>.infura.io", "api.pimlico.io", "swap.api.cx.metamask.io"] }
       },
       "redeemer": {
         "bundleSpec": "packages/evm-wallet-experiment/src/vats/redeemer-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder"]
+        "globals": []
       }
     }
   }

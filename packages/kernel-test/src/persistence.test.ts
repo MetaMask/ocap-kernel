@@ -2,6 +2,7 @@ import type { CapData } from '@endo/marshal';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { kunser } from '@metamask/ocap-kernel';
+import type { KRef, VatId } from '@metamask/ocap-kernel';
 import { unlink } from 'node:fs/promises';
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
@@ -13,7 +14,7 @@ import {
   runTestVats,
 } from './utils.ts';
 
-const v1Root = 'ko4';
+const v1Root = 'ko4' as KRef;
 
 describe('persistent storage', { timeout: 20_000 }, () => {
   let logger: ReturnType<typeof makeTestLogger>;
@@ -96,10 +97,15 @@ describe('persistent storage', { timeout: 20_000 }, () => {
       false,
       logger.logger.subLogger({ tags: ['test'] }),
     );
-    const result1 = await runTestVats(kernel1, multiVatCluster);
-    expect(result1).toBe('Coordinator initialized with 2 workers');
+    // Capture rootKref directly: concurrent vat launch means the coordinator
+    // may not be assigned ko4, so we cannot use a hardcoded ref here.
+    const { bootstrapResult: launch1Result, rootKref: coordinatorRoot } =
+      await kernel1.launchSubcluster(multiVatCluster);
     await waitUntilQuiescent();
-    const workResult1 = await runResume(kernel1, v1Root);
+    expect(kunser(launch1Result as CapData<KRef>)).toBe(
+      'Coordinator initialized with 2 workers',
+    );
+    const workResult1 = await runResume(kernel1, coordinatorRoot);
     expect(workResult1).toBe('Work completed: Worker1(1), Worker2(1)');
     await waitUntilQuiescent();
     await kernel1.stop();
@@ -110,7 +116,8 @@ describe('persistent storage', { timeout: 20_000 }, () => {
       logger.logger.subLogger({ tags: ['test'] }),
     );
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    const workResult2 = await runResume(kernel2, v1Root);
+    // coordinatorRoot (ko<N>) is stable across kernel restarts.
+    const workResult2 = await runResume(kernel2, coordinatorRoot);
     expect(workResult2).toBe('Work completed: Worker1(2), Worker2(2)');
     await kernel2.stop();
   });
@@ -146,7 +153,7 @@ describe('persistent storage', { timeout: 20_000 }, () => {
     );
     await runTestVats(kernel, testSubcluster);
     await runResume(kernel, v1Root);
-    await kernel.restartVat('v1');
+    await kernel.restartVat('v1' as VatId);
     const resumeResult = await runResume(kernel, v1Root);
     expect(resumeResult).toBe('Counter incremented to: 3');
   });
@@ -160,7 +167,7 @@ describe('persistent storage', { timeout: 20_000 }, () => {
       logger.logger.subLogger({ tags: ['test'] }),
     );
     const { bootstrapResult } = await kernel1.launchSubcluster(testSubcluster);
-    expect(kunser(bootstrapResult as CapData<string>)).toBe(
+    expect(kunser(bootstrapResult as CapData<KRef>)).toBe(
       'Counter initialized with count: 1',
     );
     await waitUntilQuiescent();
@@ -170,7 +177,8 @@ describe('persistent storage', { timeout: 20_000 }, () => {
     // Enqueue a send message into the database
     kv1.set('queue.run.head', '4');
     kv1.set('nextPromiseId', '4');
-    kv1.set(`${v1Root}.refCount`, '3,3');
+    // The root's pin, plus the send being injected below.
+    kv1.set(`${v1Root}.refCount`, '2,2');
     kv1.set('queue.kp3.head', '1');
     kv1.set('queue.kp3.tail', '1');
     kv1.set('kp3.state', 'unresolved');

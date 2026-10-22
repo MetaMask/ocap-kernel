@@ -228,6 +228,30 @@ describe('methodSchemaToMethodSpec', () => {
     });
   });
 
+  it('marks args absent from `required` as optional parameters', () => {
+    const spec: MethodSpec = methodSchemaToMethodSpec({
+      description: 'send a message',
+      args: {
+        text: { type: 'string' },
+        attachments: { type: 'object', properties: {} },
+      },
+      required: ['text'],
+      returns: { type: 'string' },
+    });
+    expect(spec).toStrictEqual({
+      description: 'send a message',
+      parameters: [
+        { description: 'text', type: { kind: 'string' } },
+        {
+          description: 'attachments',
+          type: { kind: 'object', spec: { properties: {} } },
+          optional: true,
+        },
+      ],
+      returnType: { kind: 'string' },
+    });
+  });
+
   it('defaults returnType to void when unspecified', () => {
     expect(
       methodSchemaToMethodSpec({ description: 'do a thing', args: {} }),
@@ -280,6 +304,99 @@ describe('methodsToRemotableSpec', () => {
             { description: 'message', type: { kind: 'string' } },
           ],
           returnType: { kind: 'string' },
+        },
+      },
+    });
+  });
+
+  it('translates interface-typed returns into RemotableTypeSpec', () => {
+    const result: RemotableSpec = methodsToRemotableSpec({
+      methods: {
+        makeCounter: {
+          description: 'make a counter',
+          args: {},
+          returns: {
+            type: 'interface',
+            description: 'a stateful counter',
+            methods: {
+              increment: {
+                description: 'bump and return',
+                args: {},
+                returns: { type: 'number' },
+              },
+              reset: {
+                description: 'reset to zero',
+                args: {},
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result.methods.makeCounter?.returnType).toStrictEqual({
+      kind: 'remotable',
+      spec: {
+        description: 'a stateful counter',
+        methods: {
+          increment: {
+            description: 'bump and return',
+            parameters: [],
+            returnType: { kind: 'number' },
+          },
+          reset: {
+            description: 'reset to zero',
+            parameters: [],
+            returnType: { kind: 'void' },
+          },
+        },
+      },
+    });
+  });
+
+  it('supports interfaces nested inside object returns', () => {
+    const result: RemotableSpec = methodsToRemotableSpec({
+      methods: {
+        buy: {
+          description: 'buy something',
+          args: {},
+          returns: {
+            type: 'object',
+            description: 'purchase result',
+            properties: {
+              handle: { type: 'string' },
+              reviser: {
+                type: 'interface',
+                description: 'follow-up reviser',
+                methods: {
+                  revise: {
+                    description: 'produce next revision',
+                    args: { feedback: { type: 'string' } },
+                    returns: { type: 'string' },
+                  },
+                },
+              },
+            },
+            required: ['handle', 'reviser'],
+          },
+        },
+      },
+    });
+    const returnType = result.methods.buy?.returnType;
+    expect(returnType?.kind).toBe('object');
+    const objectReturn = returnType as Extract<
+      typeof returnType,
+      { kind: 'object' }
+    >;
+    expect(objectReturn.spec.properties.reviser?.type).toStrictEqual({
+      kind: 'remotable',
+      spec: {
+        description: 'follow-up reviser',
+        methods: {
+          revise: {
+            description: 'produce next revision',
+            parameters: [{ description: 'feedback', type: { kind: 'string' } }],
+            returnType: { kind: 'string' },
+          },
         },
       },
     });

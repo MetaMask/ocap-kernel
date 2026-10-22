@@ -9,7 +9,7 @@ import type { StoredQueue, StoredValue } from '../types.ts';
  * @param kv - The key/value store to provide the underlying persistence mechanism.
  * @returns An object with methods for managing stored values and queues.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function getBaseMethods(kv: KVStore) {
   /**
    * Get the key for the reachable flag and vatSlot for a given endpoint and kref.
@@ -19,7 +19,18 @@ export function getBaseMethods(kv: KVStore) {
    * @returns The key for the reachable flag and vatSlot.
    */
   function getSlotKey(endpointId: EndpointId, ref: Ref): string {
-    return `${endpointId}.c.${ref}`;
+    return `${getCListPrefix(endpointId)}${ref}`;
+  }
+
+  /**
+   * Get the prefix shared by both directions of every entry in an endpoint's
+   * c-list, for iterating over the whole thing.
+   *
+   * @param endpointId - The endpoint whose c-list is of interest.
+   * @returns The prefix that all of that endpoint's c-list keys begin with.
+   */
+  function getCListPrefix(endpointId: EndpointId): string {
+    return `${endpointId}.c.`;
   }
 
   /**
@@ -206,6 +217,7 @@ export function getBaseMethods(kv: KVStore) {
 
   return {
     getSlotKey,
+    getCListPrefix,
     refCountKey,
     getOwnerKey,
     getRevokedKey,

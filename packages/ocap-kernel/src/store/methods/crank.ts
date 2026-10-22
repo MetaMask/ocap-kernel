@@ -2,7 +2,7 @@ import { Fail, q } from '@endo/errors';
 import { makePromiseKit } from '@endo/promise-kit';
 import type { KernelDatabase } from '@metamask/kernel-store';
 
-import type { CrankBufferItem, StoreContext } from '../types.ts';
+import type { CrankBufferItem, Savepoint, StoreContext } from '../types.ts';
 
 /**
  * Get the crank methods.
@@ -11,7 +11,7 @@ import type { CrankBufferItem, StoreContext } from '../types.ts';
  * @param kdb - The kernel database.
  * @returns The crank methods.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
   /**
    * Start a crank.
@@ -32,8 +32,13 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
   function createCrankSavepoint(name: string): void {
     ctx.inCrank || Fail`createCrankSavepoint outside of crank`;
     const ordinal = ctx.savepoints.length;
-    ctx.savepoints.push(name);
+    // Record the name only once the database has the savepoint. Recording it
+    // first would leave `endCrank` trying to release a savepoint that was never
+    // created, and that error would replace whatever really went wrong.
     kdb.createSavepoint(`t${ordinal}`);
+    // Copied, not referenced: `maybeFreeKrefs` is mutated in place from here
+    // on, and this is the "before" a rollback restores.
+    ctx.savepoints.push({ name, maybeFreeKrefs: new Set(ctx.maybeFreeKrefs) });
   }
 
   /**
@@ -45,16 +50,24 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
     ctx.inCrank || Fail`rollbackCrank outside of crank`;
     ctx.crankBuffer.length = 0; // Discard buffered outputs
     for (const ordinal of ctx.savepoints.keys()) {
-      if (ctx.savepoints[ordinal] === savepoint) {
-        kdb.rollbackSavepoint(`t${ordinal}`);
-        ctx.savepoints.length = ordinal;
-        // The rollback reverted DB state but in-memory caches are stale.
-        // Recreate the run queue so its cached head/tail are re-read from DB.
-        ctx.refreshRunQueue();
-        // Invalidate the run queue length cache so it's recalculated from
-        // the database on next access, since the rollback may have restored
-        // dequeued items.
-        ctx.runQueueLengthCache = -1;
+      const restored = ctx.savepoints[ordinal];
+      if (restored?.name === savepoint) {
+        try {
+          kdb.rollbackSavepoint(`t${ordinal}`);
+          ctx.savepoints.length = ordinal;
+        } catch (error) {
+          // A failed rollback discards the whole transaction (see
+          // `rollbackSavepoint`), so no savepoint survives it and RAM goes back
+          // to where the outermost one was taken, not to the named one.
+          // Reverting before the rethrow, because leaving the caches as they
+          // are would have the dying crank still holding the GC action it
+          // consumed and the freed krefs it was about to collect.
+          const outermost = ctx.savepoints[0] ?? restored;
+          ctx.savepoints.length = 0;
+          revertStateBeneathRollback(outermost, error);
+          throw error;
+        }
+        revertStateBeneathRollback(restored);
         return;
       }
     }
@@ -62,24 +75,81 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
   }
 
   /**
-   * Release all savepoints.
+   * Revert what a database rollback cannot reach: the in-memory caches built
+   * over the abandoned crank's writes.
+   *
+   * @param restored - The savepoint being rolled back to, whose snapshot of
+   * `maybeFreeKrefs` is the "before" this restores.
+   * @param rollbackError - The error the rollback or release threw, if it
+   * threw.
    */
-  function releaseAllSavepoints(): void {
-    if (ctx.savepoints.length > 0) {
-      kdb.releaseSavepoint('t0');
-      ctx.savepoints.length = 0;
+  function revertStateBeneathRollback(
+    restored: Savepoint,
+    rollbackError?: unknown,
+  ): void {
+    // Nothing rolls back RAM. Krefs the abandoned crank added are collection
+    // candidates only because of decrements that were just undone; left in
+    // place, `collectGarbage` throws on a later crank for any promise that
+    // crank created, killing the run loop over work that no longer exists.
+    // Restored to the snapshot rather than cleared, because the set is not
+    // per-crank: only `collectGarbage` empties it, so a candidate added while
+    // the run loop was idle is still owed a collection. Done first, being the
+    // one step that cannot fail.
+    ctx.maybeFreeKrefs.clear();
+    for (const kref of restored.maybeFreeKrefs) {
+      ctx.maybeFreeKrefs.add(kref);
+    }
+    try {
+      ctx.refreshRunQueue();
+      ctx.runQueueLengthCache = -1;
+      ctx.refreshCachedValues();
+    } catch (revertError) {
+      if (rollbackError === undefined) {
+        throw revertError;
+      }
+      throw new Error(
+        `Crank's savepoints were lost and its caches could not be reverted: ${String(revertError)}`,
+        { cause: rollbackError },
+      );
     }
   }
 
   /**
-   * End a crank.
+   * Release all savepoints.
+   */
+  function releaseAllSavepoints(): void {
+    const [outermost] = ctx.savepoints;
+    if (outermost === undefined) {
+      return;
+    }
+    try {
+      kdb.releaseSavepoint('t0');
+    } catch (error) {
+      // The store has discarded the crank's writes and its savepoints, unless
+      // `t0` is nested in a savepoint taken outside the run loop. If the abort
+      // doing that failed, this reload still sees those writes, and the store
+      // refuses every write until it is reopened. A `t0` left listed would make
+      // `reset` throw before restoring its keys.
+      ctx.savepoints.length = 0;
+      revertStateBeneathRollback(outermost, error);
+      throw error;
+    }
+    ctx.savepoints.length = 0;
+  }
+
+  /**
+   * End a crank. Settles even if releasing the savepoints fails, so that a
+   * database error can't strand every `waitForCrank()` waiter forever.
    */
   function endCrank(): void {
     ctx.inCrank || Fail`endCrank outside of crank`;
-    releaseAllSavepoints();
-    ctx.inCrank = false;
-    ctx.resolveCrank?.();
-    ctx.resolveCrank = undefined;
+    try {
+      releaseAllSavepoints();
+    } finally {
+      ctx.inCrank = false;
+      ctx.resolveCrank?.();
+      ctx.resolveCrank = undefined;
+    }
   }
 
   /**

@@ -7,8 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `isIframeWindow` for authenticating `message` events from vat iframes, whose origin is opaque, by their `source` window ([#1122](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1122))
+- Log a fatal message when the kernel's run loop dies, since the worker outlives the kernel and has no exit to take ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+
+### Changed
+
+- The kernel worker gives the kernel store a `kernel-store`-tagged sub-logger, and installs console forwarding before opening the database, so the driver's warning that OPFS is unavailable — and that the store is therefore in-memory — reaches the background console instead of dying in the worker ([#1086](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1086))
+
+### Removed
+
+- **BREAKING:** Remove the CommonJS build; the package is ESM-only. Its entry points are `.js` and `.d.ts` files, formerly `.mjs`/`.cjs` and `.d.mts`/`.d.cts` ([#1186](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1186))
+
 ### Fixed
 
+- The platform services server forgets a vat worker that fails to terminate, so the vat's next worker is no longer refused as a duplicate ([#1149](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1149))
 - Process platform-services RPC request handlers in the background so a request handler that fires a reentrant outbound RPC (e.g. transport handshake calling back into the kernel) cannot deadlock waiting for its response ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))
 
 ## [0.6.0]
@@ -91,10 +105,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-browser-runtime@0.6.0...HEAD
-[0.6.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-browser-runtime@0.5.0...@metamask/kernel-browser-runtime@0.6.0
-[0.5.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-browser-runtime@0.4.0...@metamask/kernel-browser-runtime@0.5.0
-[0.4.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-browser-runtime@0.3.0...@metamask/kernel-browser-runtime@0.4.0
-[0.3.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-browser-runtime@0.2.0...@metamask/kernel-browser-runtime@0.3.0
-[0.2.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-browser-runtime@0.1.0...@metamask/kernel-browser-runtime@0.2.0
-[0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/kernel-browser-runtime@0.1.0
+[Unreleased]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/kernel-browser-runtime@0.6.0...HEAD
+[0.6.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/kernel-browser-runtime@0.5.0...@metamask/kernel-browser-runtime@0.6.0
+[0.5.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/kernel-browser-runtime@0.4.0...@metamask/kernel-browser-runtime@0.5.0
+[0.4.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/kernel-browser-runtime@0.3.0...@metamask/kernel-browser-runtime@0.4.0
+[0.3.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/kernel-browser-runtime@0.2.0...@metamask/kernel-browser-runtime@0.3.0
+[0.2.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/kernel-browser-runtime@0.1.0...@metamask/kernel-browser-runtime@0.2.0
+[0.1.0]: https://github.com/Consensys-Incorporated/ocap-kernel/releases/tag/@metamask/kernel-browser-runtime@0.1.0

@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import * as remoteComms from './remote-comms.ts';
 import { RemoteManager } from './RemoteManager.ts';
+import { asRRef, asRemoteId } from '../../../test/branded.ts';
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
 import type { KernelQueue } from '../../KernelQueue.ts';
@@ -23,16 +24,13 @@ describe('RemoteManager', () => {
   let remoteManager: RemoteManager;
   let mockPlatformServices: PlatformServices;
   let kernelStore: ReturnType<typeof makeKernelStore>;
-  let kernelKVStore: ReturnType<typeof makeMapKernelDatabase>['kernelKVStore'];
   let mockKernelQueue: KernelQueue;
   let logger: Logger;
   let mockRemoteComms: RemoteComms;
   let mockFactory: ReturnType<typeof createMockRemotesFactory>;
 
   beforeEach(() => {
-    const kernelDatabase = makeMapKernelDatabase();
-    kernelKVStore = kernelDatabase.kernelKVStore;
-    kernelStore = makeKernelStore(kernelDatabase);
+    kernelStore = makeKernelStore(makeMapKernelDatabase());
     logger = new Logger('test');
 
     mockFactory = createMockRemotesFactory({
@@ -508,23 +506,32 @@ describe('RemoteManager', () => {
       expect(retrieved).toBe(established);
     });
 
+    it('says whether a remote has a handle', () => {
+      const established = remoteManager.establishRemote('peer123');
+      expect([
+        remoteManager.hasRemote(established.remoteId),
+        remoteManager.hasRemote(asRemoteId('r999')),
+      ]).toStrictEqual([true, false]);
+    });
+
     it('throws error when getting non-existent remote by ID', () => {
-      expect(() => remoteManager.getRemote('r999')).toThrow(
+      expect(() => remoteManager.getRemote(asRemoteId('r999'))).toThrow(
         'Remote not found: r999',
       );
     });
 
-    it('handles remote message', async () => {
-      const mockHandleMessage = vi.fn().mockResolvedValue('response');
+    it('hands a remote message to the peer it came from', async () => {
+      const receiveFromPeer = vi.fn();
       const remote = remoteManager.establishRemote('peer123');
-      remote.handleRemoteMessage = mockHandleMessage;
+      remote.receiveFromPeer = receiveFromPeer;
 
       const response = await remoteManager.handleRemoteMessage(
         'peer123',
         'test message',
       );
-      expect(response).toBe('response');
-      expect(mockHandleMessage).toHaveBeenCalledWith('test message');
+
+      expect(response).toBeNull();
+      expect(receiveFromPeer).toHaveBeenCalledWith('test message');
     });
 
     it('creates new remote when handling message from unknown peer', async () => {
@@ -538,15 +545,17 @@ describe('RemoteManager', () => {
         ],
       });
 
-      // This will create a new remote and try to handle the message
-      // We expect it to fail because the remote doesn't have the necessary setup
-      await expect(
-        remoteManager.handleRemoteMessage('new-peer', message),
-      ).rejects.toThrow('ko1 is not an ERef');
+      // The message is only queued here, so the reference in it is not looked
+      // at until the crank that delivers it.
+      expect(
+        await remoteManager.handleRemoteMessage('new-peer', message),
+      ).toBeNull();
 
-      // But verify that a new remote was created
       const remote = remoteManager.remoteFor('new-peer');
       expect(remote).toBeDefined();
+      await expect(remote.deliverInbound(message)).rejects.toThrow(
+        'ko1 is not an ERef',
+      );
     });
 
     it('preserves location hints across stop/restart cycle', async () => {
@@ -776,7 +785,7 @@ describe('RemoteManager', () => {
       // Set up a promise where the remote is the decider
       const [kpid] = kernelStore.initKernelPromise();
       kernelStore.setPromiseDecider(kpid, remoteId);
-      kernelKVStore.set(`cle.${remoteId}.p+1`, kpid);
+      kernelStore.addCListEntry(remoteId, kpid, asRRef('rp+1'));
 
       const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');
 
@@ -847,6 +856,18 @@ describe('RemoteManager', () => {
       expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-B');
     });
 
+    // A live restart arrives here, never through `handlePeerRestart`.
+    it('discards what the old incarnation sent', async () => {
+      const peerId = 'peer-that-restarted';
+      const { remoteId } = remoteManager.establishRemote(peerId);
+      const discardSpy = vi.spyOn(mockKernelQueue, 'discardRemoteInbound');
+      kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
+
+      await getOnIncarnationChange()(peerId, 'incarnation-B');
+
+      expect(discardSpy).toHaveBeenCalledWith(remoteId);
+    });
+
     it('does not trigger restart on first observation of a peer', async () => {
       const peerId = 'peer-first-contact';
       const remote = remoteManager.establishRemote(peerId);
@@ -882,7 +903,7 @@ describe('RemoteManager', () => {
 
       const [kpid] = kernelStore.initKernelPromise();
       kernelStore.setPromiseDecider(kpid, remoteId);
-      kernelKVStore.set(`cle.${remoteId}.p+1`, kpid);
+      kernelStore.addCListEntry(remoteId, kpid, asRRef('rp+1'));
       kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
 
       const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');

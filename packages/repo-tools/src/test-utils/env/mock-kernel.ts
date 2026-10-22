@@ -8,6 +8,7 @@ import {
   exactOptional,
   array,
   type,
+  union,
 } from '@metamask/superstruct';
 import { vi } from 'vitest';
 
@@ -44,6 +45,12 @@ export const setupOcapKernelMock = (): {
 
     const KRefStruct = define<unknown>('KRef', () => isKRefMock);
 
+    const RunLoopStatusStruct = union([
+      type({ state: literal('idle') }),
+      type({ state: literal('running') }),
+      type({ state: literal('failed'), error: string(), detail: string() }),
+    ]);
+
     return {
       isVatId: () => isVatIdMock,
       isVatConfig: () => isVatConfigMock,
@@ -63,6 +70,7 @@ export const setupOcapKernelMock = (): {
         slots: array(string()),
       }),
       ClusterConfigStruct,
+      RunLoopStatusStruct,
       KernelStatusStruct: type({
         subclusters: array(SubclusterStruct),
         vats: array(
@@ -72,6 +80,7 @@ export const setupOcapKernelMock = (): {
             subclusterId: SubclusterIdStruct,
           }),
         ),
+        runLoop: RunLoopStatusStruct,
       }),
       KernelSendMessageStruct: object({
         id: literal('v0'),

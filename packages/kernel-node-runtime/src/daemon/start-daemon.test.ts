@@ -50,6 +50,8 @@ describe('startDaemon', () => {
       socketPath: tmpSocket,
       kernel: mockKernel,
       kernelDatabase: mockKernelDatabase,
+      onShutdown: undefined,
+      devMode: false,
     });
   });
 

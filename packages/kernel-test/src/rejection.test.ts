@@ -12,7 +12,7 @@ import {
 
 describe('rejection', () => {
   it('throwing from remotable method rejects result', async () => {
-    const vatIds: VatId[] = ['v1', 'v2'];
+    const vatIds: VatId[] = ['v1' as VatId, 'v2' as VatId];
     const { logger, entries } = makeTestLogger();
     const database = await makeSQLKernelDatabase({});
     const kernel = await makeKernel(database, true, logger);
@@ -31,7 +31,7 @@ describe('rejection', () => {
     });
     expect(vat).toBeDefined();
     const vats = kernel.getVatIds();
-    expect(vats).toStrictEqual(vatIds);
+    expect([...vats].sort()).toStrictEqual([...vatIds].sort());
 
     await waitUntilQuiescent();
     const vatLogs = vatIds.map((vatId) => extractTestLogs(entries, vatId));

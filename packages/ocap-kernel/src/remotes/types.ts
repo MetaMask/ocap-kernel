@@ -1,5 +1,5 @@
 import type { Stream } from '@libp2p/interface';
-import type { ByteStream } from '@libp2p/utils';
+import type { LengthPrefixedStream } from '@libp2p/utils';
 import type { Logger } from '@metamask/logger';
 
 import type { KRef } from '../types.ts';
@@ -11,7 +11,7 @@ export type InboundConnectionHandler = (
 export type PeerDisconnectHandler = (peerId: string) => void;
 
 export type Channel = {
-  msgStream: ByteStream<Stream>;
+  msgStream: LengthPrefixedStream<Stream>;
   stream: Stream;
   peerId: string;
 };
@@ -126,12 +126,17 @@ export type RemoteCommsOptions = {
    */
   maxConnectionAttemptsPerMinute?: number | undefined;
   /**
-   * Base delay in milliseconds for reconnection exponential backoff (default: 500ms).
+   * Base delay in milliseconds for the exponential backoff of reconnection and
+   * of a send's dial retries (default: 500ms).
    * Used as the starting delay that doubles with each subsequent attempt.
+   * A send's dial retries skip `maxConnectionAttemptsPerMinute`, so with low
+   * delays a send to an unreachable peer re-dials it that fast, for as long as
+   * `maxRetryAttempts` allows (forever by default).
    */
   reconnectionBaseDelayMs?: number | undefined;
   /**
-   * Maximum delay in milliseconds for reconnection exponential backoff (default: 10s).
+   * Maximum delay in milliseconds for the exponential backoff of reconnection
+   * and of a send's dial retries (default: 10s).
    * The backoff delay is capped at this value regardless of attempt count.
    */
   reconnectionMaxDelayMs?: number | undefined;
@@ -211,6 +216,16 @@ export type ConnectionFactoryOptions = {
   logger: Logger;
   signal: AbortSignal;
   maxRetryAttempts?: number | undefined;
+  reconnectionBaseDelayMs?: number | undefined;
+  reconnectionMaxDelayMs?: number | undefined;
+  /**
+   * Maximum inbound message payload size in bytes. Used as `maxDataLength`
+   * on every `lpStream` constructed for a channel — must match the
+   * sender-side validator's limit (`maxMessageSizeBytes` on
+   * `RemoteCommsOptions`) so that a deployment which raises one also raises
+   * the other. Defaults to `DEFAULT_MAX_MESSAGE_SIZE_BYTES` (1 MB).
+   */
+  maxMessageSizeBytes?: number | undefined;
   directTransports?: DirectTransport[] | undefined;
   allowedWsHosts?: string[] | undefined;
 };

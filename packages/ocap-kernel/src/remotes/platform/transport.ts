@@ -1,6 +1,10 @@
 import { StreamResetError } from '@libp2p/interface';
 import type { StreamCloseEvent } from '@libp2p/interface';
 import {
+  InvalidDataLengthError,
+  InvalidDataLengthLengthError,
+} from '@libp2p/utils';
+import {
   AbortError,
   IntentionalCloseError,
   NetworkStoppedError,
@@ -171,6 +175,9 @@ export async function initTransport(
     logger,
     signal,
     maxRetryAttempts,
+    reconnectionBaseDelayMs,
+    reconnectionMaxDelayMs,
+    maxMessageSizeBytes,
     directTransports,
     allowedWsHosts,
   });
@@ -189,24 +196,50 @@ export async function initTransport(
       }
     : undefined;
 
+  // `dialIdempotent` gives every concurrent dialer of a peer the same channel.
+  // The peer acks one handshake, so a second one reads the peer's next message
+  // instead, or times out, and its caller closes the shared channel.
+  const outboundHandshakes = new WeakMap<
+    Channel,
+    ReturnType<typeof runOutboundHandshake>
+  >();
+
   /**
-   * Perform outbound handshake and handle incarnation changes.
+   * Perform the outbound handshake on a channel once, however many callers
+   * ask for it.
    *
    * @param channel - The channel to perform handshake on.
    * @returns Object with success status and whether incarnation changed.
    */
   async function doOutboundHandshake(
     channel: Channel,
+  ): ReturnType<typeof runOutboundHandshake> {
+    let handshake = outboundHandshakes.get(channel);
+    if (!handshake) {
+      handshake = runOutboundHandshake(channel);
+      outboundHandshakes.set(channel, handshake);
+    }
+    return handshake;
+  }
+
+  /**
+   * Perform outbound handshake and handle incarnation changes.
+   *
+   * @param channel - The channel to perform handshake on.
+   * @returns Object with success status and whether incarnation changed.
+   */
+  async function runOutboundHandshake(
+    channel: Channel,
   ): Promise<{ success: boolean; incarnationChanged: boolean }> {
     if (!handshakeDeps) {
-      return { success: true, incarnationChanged: false }; // No handshake configured, skip
+      return harden({ success: true, incarnationChanged: false }); // No handshake configured, skip
     }
     let result;
     try {
       result = await performOutboundHandshake(channel, handshakeDeps);
     } catch (problem) {
       outputError(channel.peerId, 'outbound handshake', problem);
-      return { success: false, incarnationChanged: false };
+      return harden({ success: false, incarnationChanged: false });
     }
     // The PSM-detected change is unreliable across receiver-side state loss;
     // the kernel-side callback (backed by persistent storage) is the
@@ -226,7 +259,7 @@ export async function initTransport(
         )) ?? false;
     } catch (problem) {
       outputError(channel.peerId, 'outbound incarnation callback', problem);
-      return { success: false, incarnationChanged: false };
+      return harden({ success: false, incarnationChanged: false });
     }
     const incarnationChanged =
       result.incarnationChanged || kernelDetectedRestart;
@@ -235,7 +268,7 @@ export async function initTransport(
         `${channel.peerId.slice(0, 8)}:: incarnation changed during outbound handshake, resetting remote state`,
       );
     }
-    return { success: true, incarnationChanged };
+    return harden({ success: true, incarnationChanged });
   }
 
   /**
@@ -323,6 +356,10 @@ export async function initTransport(
   ): void {
     const state = peerStateManager.getState(peerId);
     const previousChannel = state.channel;
+    if (previousChannel === channel) {
+      // Every caller that shared the channel's dial registers it.
+      return;
+    }
     state.channel = channel;
     peerStateManager.updateConnectionTime(peerId);
 
@@ -356,7 +393,7 @@ export async function initTransport(
     });
 
     // If we replaced an existing channel, close it to avoid leaks and stale readers.
-    if (previousChannel && previousChannel !== channel) {
+    if (previousChannel) {
       const closePromise = connectionFactory.closeChannel(
         previousChannel,
         peerId,
@@ -463,6 +500,31 @@ export async function initTransport(
         try {
           readBuf = await channel.msgStream.read();
         } catch (problem) {
+          if (
+            problem instanceof InvalidDataLengthError ||
+            problem instanceof InvalidDataLengthLengthError
+          ) {
+            // Peer announced a payload larger than maxMessageSizeBytes. The
+            // length-prefixed framing is now poisoned (subsequent bytes are
+            // not on a message boundary), so we cannot continue on this
+            // stream. Surface a uniform "message too long" error to match the
+            // sender-side validator.
+            const sizeError = new ResourceLimitError(
+              `Inbound message exceeds size limit: ${problem.message}`,
+              {
+                cause: problem,
+                data: { limitType: 'messageSize' },
+              },
+            );
+            outputError(
+              channel.peerId,
+              `reading message from ${channel.peerId}`,
+              sizeError,
+            );
+            handleConnectionLoss(channel.peerId);
+            logger.log(`closed channel to ${channel.peerId}`);
+            throw sizeError;
+          }
           if (problem instanceof StreamResetError) {
             // Remote-initiated stream reset: treat as connection loss and
             // reconnect. Do NOT mark as intentionally closed — a malicious
@@ -487,15 +549,9 @@ export async function initTransport(
           logger.log(`closed channel to ${channel.peerId}`);
           throw problem;
         }
-        if (readBuf) {
-          reconnectionManager.resetBackoff(channel.peerId); // successful inbound traffic
-          peerStateManager.updateConnectionTime(channel.peerId);
-          await receiveMessage(channel.peerId, bufToString(readBuf.subarray()));
-        } else {
-          // Stream ended (returned undefined), exit the read loop
-          logger.log(`${channel.peerId}:: stream ended`);
-          break;
-        }
+        reconnectionManager.resetBackoff(channel.peerId); // successful inbound traffic
+        peerStateManager.updateConnectionTime(channel.peerId);
+        await receiveMessage(channel.peerId, bufToString(readBuf.subarray()));
       }
     } finally {
       // Always remove the channel when readChannel exits to prevent stale channels

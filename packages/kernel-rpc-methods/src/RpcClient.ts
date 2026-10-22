@@ -3,6 +3,7 @@ import { makeCounter, stringify } from '@metamask/kernel-utils';
 import type { PromiseCallbacks } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { assert as assertStruct } from '@metamask/superstruct';
+import type { StructError } from '@metamask/superstruct';
 import { isJsonRpcFailure, isJsonRpcSuccess } from '@metamask/utils';
 import type {
   JsonRpcNotification,
@@ -29,7 +30,7 @@ export type SendMessage = (
 export class RpcClient<
   // The class picks up its type from the `methods` argument,
   // so using `any` in this constraint is safe.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   Methods extends MethodSpecRecord<MethodSpec<string, any, any>>,
 > {
   readonly #methods: Methods;
@@ -152,7 +153,22 @@ export class RpcClient<
       // `Method` must be a key of `this.#methods`.
       assertStruct(result, this.#methods[method].result);
     } catch (error) {
-      throw new Error(`Invalid result: ${(error as Error).message}`);
+      // A union's own message names only the union, so which branch mismatched
+      // and at which key is reachable only through `failures()` — the detail that
+      // distinguishes a bad value from a peer built against an older schema.
+      const { message, failures } = error as StructError;
+      const detail =
+        typeof failures === 'function'
+          ? failures()
+              .map(({ path, message: why }) =>
+                path.length > 0 ? `${path.join('.')}: ${why}` : why,
+              )
+              .filter((why) => why !== message)
+              .join('; ')
+          : '';
+      throw new Error(
+        `Invalid result: ${message}${detail ? ` (${detail})` : ''}`,
+      );
     }
   }
 

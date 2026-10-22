@@ -1,23 +1,23 @@
-import type { IOChannelFactory, IOConfig } from '@metamask/ocap-kernel';
+import type { IOListenerFactory, IOConfig } from '@metamask/ocap-kernel';
 
-import { makeSocketIOChannel } from './socket-channel.ts';
+import { makeSocketIOListener } from './socket-listener.ts';
 
-export { makeSocketIOChannel } from './socket-channel.ts';
+export { makeSocketIOListener } from './socket-listener.ts';
 
 /**
- * Create an IOChannelFactory for the Node.js environment.
- * Dispatches on `config.type` to the appropriate channel implementation.
+ * Create an IOListenerFactory for the Node.js environment.
+ * Dispatches on `config.type` to the appropriate listener implementation.
  *
- * @returns An IOChannelFactory.
+ * @returns An IOListenerFactory.
  */
-export function makeIOChannelFactory(): IOChannelFactory {
+export function makeIOListenerFactory(): IOListenerFactory {
   return async (name: string, config: IOConfig) => {
     switch (config.type) {
       case 'socket':
-        return makeSocketIOChannel(name, config.path);
+        return makeSocketIOListener(name, config.path);
       default:
         throw new Error(
-          `Unsupported IO channel type "${config.type}" for channel "${name}"`,
+          `Unsupported IO listener type "${config.type}" for listener "${name}"`,
         );
     }
   };

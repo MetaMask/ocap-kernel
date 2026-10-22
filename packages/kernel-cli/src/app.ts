@@ -37,7 +37,6 @@ function consoleTransport(entry: LogEntry): void {
     ...(entry.message ? [entry.message] : []),
     ...(entry.data ?? []),
   ];
-  // eslint-disable-next-line no-console
   console[entry.level](...args);
 }
 
@@ -331,7 +330,7 @@ const yargsInstance = yargs(hideBin(process.argv))
               )
               .example(
                 '$0 daemon exec executeDBQuery \'{"sql":"SELECT * FROM kv LIMIT 5"}\'',
-                'Run a SQL query',
+                'Run a SQL query (requires a daemon started with OCAP_DEV_MODE=true)',
               )
               .option('timeout', {
                 describe: 'Read timeout in seconds (default: no timeout)',

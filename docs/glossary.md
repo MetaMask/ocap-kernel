@@ -76,10 +76,10 @@ management, and [syscall](#syscall) coordination.
 
 ### crank
 
-A single execution cycle in the kernel's [run queue](#run-queue). Each crank processes one
-item from the run queue, delivering a single message or notification to [a vat](#vat). The
-"message or notification" is whatever item is taken of the run queue. Cranks can be
-aborted and rolled back if errors occur. See the
+A single execution cycle of the kernel's [run loop](#run-loop). Each crank processes one
+item: an item off the [run queue](#run-queue), such as a message or notification for
+[a vat](#vat), or a message from a remote peer, which waits in memory until its crank
+comes. Cranks can be aborted and rolled back if errors occur. See the
 [KernelQueue](../packages/ocap-kernel/src/KernelQueue.ts) for the run loop implementation.
 
 ### syscall
@@ -157,6 +157,15 @@ The process of invalidating an object reference, preventing further access to th
 Revoked objects return errors when accessed. See the [revocation
 methods](../packages/ocap-kernel/src/store/methods/revocation.ts) for implementation.
 
+### narrowing
+
+A form of attenuation in which every method of the derived [exo](#exo) is an unaltered
+forward to the same method of the exo it narrows, admitting a subset of that method's
+arguments. Narrowings of a common capability form a lattice whose join is
+computable syntactically, which is what separates narrowing from attenuations that
+rewrite arguments or add behavior. See [Attenuation by
+narrowing](../docs/attenuation-by-narrowing.md).
+
 ### channel
 
 A communication pathway between different components, such as between a [vat](#vat) and
@@ -190,10 +199,23 @@ across kernel restarts and are identified by a unique name. See the
 ### run queue
 
 The kernel's main execution queue that processes messages, notifications, and [garbage
-collection](#garbage-collection-gc) actions. Each [crank](#crank) processes one item from
-this queue. See the [KernelQueue](../packages/ocap-kernel/src/KernelQueue.ts) class and
+collection](#garbage-collection-gc) actions. See the
+[KernelQueue](../packages/ocap-kernel/src/KernelQueue.ts) class and
 [queue methods](../packages/ocap-kernel/src/store/methods/queue.ts) for implementation
 details.
+
+### run loop
+
+The loop in [KernelQueue](../packages/ocap-kernel/src/KernelQueue.ts) that takes items one
+at a time, each in a [crank](#crank) of its own, and sleeps when none are waiting. After
+any garbage collection action or reap, it takes from the [run queue](#run-queue) and from
+the messages remote peers have sent, in turns, so a peer that sends faster than cranks
+finish cannot crowd out the run queue. It is the one writer meant to change the kernel
+store: work asked for from outside it, such as a vat restart or termination, or a peer's
+message (though not yet the acknowledgement it carries), is queued for it to carry out
+rather than written into whichever crank happens to be open. A crank that throws kills the
+run loop for the life of the kernel instance; callers still waiting on queued work are
+then rejected.
 
 ### kernel router
 

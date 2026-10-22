@@ -25,22 +25,25 @@
  * Queues
  *   queue.${queueName}.head = NN             // queue head index
  *   queue.${queueName}.tail = NN             // queue tail index
- *   queue.${queueName}.${NN} = JSON(CAPDATA) // queue entry #NN
+ *   queue.${queueName}.${NN} = JSON(ITEM)    // queue entry #NN: a RunQueueItem
+ *                                            // on `run`, a KernelMessage on a
+ *                                            // ${kpid} queue
  *
  * Kernel objects
- *   ${koid}.refCount = NN                    // reference count
- *   ${koid}.owner = ${vatid}                 // owner (where the object is)
+ *   ${koid}.refCount = NN,NN                 // reachable,recognizable counts
+ *   ${koid}.owner = ${endid} | kernel        // owner (where the object is)
  *
  * Kernel promises
  *   ${kpid}.refCount = NN                    // reference count
  *   ${kpid}.state = unresolved | fulfilled | rejected  // current state of settlement
  *   ${kpid}.subscribers = JSON([${endid}])   // array of who is waiting for settlement
- *   ${kpid}.decider = ${endid}               // who decides on settlement
+ *   ${kpid}.decider = ${endid} | kernel      // who decides on settlement
  *   ${kpid}.value = JSON(CAPDATA)            // value settled to, if settled
  *
- * C-lists
- *   cle.${endid}.${eref} = ${kref}           // ERef->KRef mapping
- *   clk.${endid}.${kref} = ${eref}           // KRef->ERef mapping
+ * C-lists (both directions share one prefix; see `getCListPrefix`)
+ *   ${endid}.c.${eref} = ${kref}             // ERef->KRef mapping
+ *   ${endid}.c.${kref} = R|_ ${eref}         // KRef->ERef mapping, plus the
+ *                                            // endpoint's reachable flag
  *
  * Vat bookkeeping
  *   e.nextObjectId.${endid} = NN             // allocation counter for imported object ERefs
@@ -58,12 +61,14 @@
  *   initialized = true                       // if set, indicates the store has been initialized
  *   nextVatId = NN                           // allocation counter for vat IDs
  *   nextRemoteId = NN                        // allocation counter for remote IDs
- *   k.nextObjectId = NN                      // allocation counter for object KRefs
- *   k.nextPromiseId = NN                     // allocation counter for promise KRefs
- *   pinnedObjects = ${kref}[,${kref}]*       // pinned object list
+ *   nextObjectId = NN                        // allocation counter for object KRefs
+ *   nextPromiseId = NN                       // allocation counter for promise KRefs
+ *   pinned.${kref} = NN                      // number of pins held on ${kref}
+ *   ocapURLObjects.${kref} = NN              // number of ocap URLs naming ${kref}
  *   kernelService.${serviceName} = ${koid}   // kref of kernel service object ${serviceName}
  */
 
+import { Fail } from '@endo/errors';
 import type { KernelDatabase, KVStore, VatStore } from '@metamask/kernel-store';
 import { Logger } from '@metamask/logger';
 
@@ -79,6 +84,7 @@ import { getPinMethods } from './methods/pinned.ts';
 import { getPromiseMethods } from './methods/promise.ts';
 import { getQueueMethods } from './methods/queue.ts';
 import { getReachableMethods } from './methods/reachable.ts';
+import { getRefCountAuditMethods } from './methods/refcount-audit.ts';
 import { getRefCountMethods } from './methods/refcount.ts';
 import { getRelayMethods } from './methods/relay.ts';
 import { getRemoteMethods } from './methods/remote.ts';
@@ -86,7 +92,22 @@ import { getRevocationMethods } from './methods/revocation.ts';
 import { getSubclusterMethods } from './methods/subclusters.ts';
 import { getTranslators } from './methods/translators.ts';
 import { getVatMethods } from './methods/vat.ts';
-import type { StoreContext } from './types.ts';
+import type { StoreContext, StoredValue } from './types.ts';
+
+/**
+ * The prefix shared by the issuance count of every object an ocap URL names,
+ * for iterating over them. A count per object, rather than one row listing
+ * every issuance, because the number of URLs a kernel hands out is bounded by
+ * nothing the kernel controls.
+ */
+const OCAP_URL_PREFIX = 'ocapURLObjects.';
+
+/** The context fields holding a cached stored value. */
+type CachedValueField = {
+  [Field in keyof StoreContext]-?: StoreContext[Field] extends StoredValue
+    ? Field
+    : never;
+}[keyof StoreContext];
 
 /**
  * Create a new KernelStore object wrapped around a raw kernel database. The
@@ -103,14 +124,57 @@ import type { StoreContext } from './types.ts';
  * @returns A KernelStore object that maps various persistent kernel data
  * structures onto `kdb`.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
   // Initialize core state
 
   /** KV store in which all the kernel's own state is kept. */
   const kv: KVStore = kdb.kernelKVStore;
 
-  const { provideCachedStoredValue, provideStoredQueue } = getBaseMethods(kv);
+  const { getPrefixedKeys, provideCachedStoredValue, provideStoredQueue } =
+    getBaseMethods(kv);
+
+  /**
+   * Every cached stored value the context holds, as `field: [key, initial]`.
+   * Declared once so that initialization and `refreshCachedValues` cannot
+   * disagree about which values exist; keyed by {@link CachedValueField} so
+   * that a value added to the context and not to this table does not compile.
+   */
+  const CACHED_VALUES = {
+    /** Counter for allocating kernel object IDs */
+    nextObjectId: ['nextObjectId', '1'],
+    /** Counter for allocating kernel promise IDs */
+    nextPromiseId: ['nextPromiseId', '1'],
+    /** Counter for allocating VatIDs */
+    nextVatId: ['nextVatId', '1'],
+    /** Counter for allocating RemoteIDs */
+    nextRemoteId: ['nextRemoteId', '1'],
+    // Garbage collection
+    gcActions: ['gcActions', '[]'],
+    reapQueue: ['reapQueue', '[]'],
+    terminatedVats: ['vats.terminated', '[]'],
+    // Subclusters
+    subclusters: ['subclusters', '[]'],
+    nextSubclusterId: ['nextSubclusterId', '1'],
+    vatToSubclusterMap: ['vatToSubclusterMap', '{}'],
+  } as const satisfies Record<
+    CachedValueField,
+    readonly [key: string, init: string]
+  >;
+
+  /**
+   * Provide a fresh stored value for each of {@link CACHED_VALUES}.
+   *
+   * @returns The stored values, keyed by the context field that holds each.
+   */
+  function provideCachedValues(): Record<CachedValueField, StoredValue> {
+    return Object.fromEntries(
+      Object.entries(CACHED_VALUES).map(([field, [key, init]]) => [
+        field,
+        provideCachedStoredValue(key, init),
+      ]),
+    ) as Record<CachedValueField, StoredValue>;
+  }
 
   const context: StoreContext = {
     kv,
@@ -122,14 +186,16 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     refreshRunQueue: () => {
       context.runQueue = provideStoredQueue('run', true);
     },
-    /** Counter for allocating kernel object IDs */
-    nextObjectId: provideCachedStoredValue('nextObjectId', '1'),
-    /** Counter for allocating kernel promise IDs */
-    nextPromiseId: provideCachedStoredValue('nextPromiseId', '1'),
-    /** Counter for allocating VatIDs */
-    nextVatId: provideCachedStoredValue('nextVatId', '1'),
-    /** Counter for allocating RemoteIDs */
-    nextRemoteId: provideCachedStoredValue('nextRemoteId', '1'),
+    ...provideCachedValues(),
+    /**
+     * Re-read every cached stored value from the database. Each closes over the
+     * last value written through it (see `provideCachedStoredValue`), so after a
+     * rollback the closure would otherwise still hold the abandoned value and
+     * the next `set` would write it straight back.
+     */
+    refreshCachedValues: () => {
+      Object.assign(context, provideCachedValues());
+    },
     // As refcounts are decremented, we accumulate a set of krefs for which
     // action might need to be taken:
     //   * promises which are now resolved and unreferenced can be deleted
@@ -141,23 +207,17 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     // the change, else removals might be lost (not performed during the next
     // replay).
     maybeFreeKrefs: new Set<KRef>(),
-    // Garbage collection
-    gcActions: provideCachedStoredValue('gcActions', '[]'),
-    reapQueue: provideCachedStoredValue('reapQueue', '[]'),
-    terminatedVats: provideCachedStoredValue('vats.terminated', '[]'),
     inCrank: false,
     savepoints: [],
     crankBuffer: [],
-    // Subclusters
-    subclusters: provideCachedStoredValue('subclusters', '[]'),
-    nextSubclusterId: provideCachedStoredValue('nextSubclusterId', '1'),
-    vatToSubclusterMap: provideCachedStoredValue('vatToSubclusterMap', '{}'),
+    auditRefCounts: false,
     // Logging
     logger: logger?.subLogger({ tags: ['kernel-store'] }),
   };
 
   const id = getIdMethods(context);
   const refCount = getRefCountMethods(context);
+  const refCountAudit = getRefCountAuditMethods(context);
   const object = getObjectMethods(context);
   const promise = getPromiseMethods(context);
   const revocation = getRevocationMethods(context);
@@ -191,9 +251,23 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
    * @param vatId - The vat whose state is to be deleted.
    */
   function deleteVat(vatId: VatId): void {
-    vat.deleteVatConfig(vatId);
     kdb.deleteVatStore(vatId);
     subclusters.removeVatFromSubcluster(vatId);
+    // Last: a retry finds the vat by this row.
+    vat.deleteVatConfig(vatId);
+  }
+
+  /**
+   * Forget everything held in memory over the database, for when the database
+   * has been emptied out from under it. A cached run queue head names a row
+   * that is gone, and the next crank dies dequeueing it.
+   */
+  function discardCachedState(): void {
+    context.maybeFreeKrefs.clear();
+    context.crankBuffer.length = 0;
+    context.refreshRunQueue();
+    context.runQueueLengthCache = -1;
+    context.refreshCachedValues();
   }
 
   /**
@@ -208,26 +282,8 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
       value: context.kv.get(key),
     }));
     kdb.clear();
-    context.maybeFreeKrefs.clear();
-    context.runQueue = provideStoredQueue('run', true);
-    context.gcActions = provideCachedStoredValue('gcActions', '[]');
-    context.reapQueue = provideCachedStoredValue('reapQueue', '[]');
-    context.terminatedVats = provideCachedStoredValue('vats.terminated', '[]');
-    context.nextObjectId = provideCachedStoredValue('nextObjectId', '1');
-    context.nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
-    context.nextVatId = provideCachedStoredValue('nextVatId', '1');
-    context.nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
-    context.subclusters = provideCachedStoredValue('subclusters', '[]');
-    context.nextSubclusterId = provideCachedStoredValue(
-      'nextSubclusterId',
-      '1',
-    );
-    context.vatToSubclusterMap = provideCachedStoredValue(
-      'vatToSubclusterMap',
-      '{}',
-    );
+    discardCachedState();
     crank.releaseAllSavepoints();
-    context.crankBuffer.length = 0;
     preservedState?.forEach(({ key, value }) => {
       if (value) {
         context.kv.set(key, value);
@@ -240,6 +296,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
    */
   function clear(): void {
     kdb.clear();
+    discardCachedState();
   }
 
   /**
@@ -254,7 +311,6 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     if (existing) {
       return existing;
     }
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins
     const newId = globalThis.crypto.randomUUID();
     context.kv.set('incarnationId', newId);
     return newId;
@@ -291,6 +347,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     ...id,
     ...queue,
     ...refCount,
+    ...refCountAudit,
     ...object,
     ...promise,
     ...revocation,
@@ -334,8 +391,100 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     deleteKernelServiceKref(name: string): void {
       kv.delete(`kernelService.${name}`);
     },
+
+    // Anonymous kernel-hosted objects
+    //
+    // Recorded so they can be swept at kernel init. Unlike a named service,
+    // an anonymous object has no name to be re-registered under on boot, so
+    // one surviving a restart is unreachable but still pinned — and a
+    // delivery to it would find nothing registered and kill the run loop.
+    // They are used for things like accepted IO connections, which cannot
+    // outlive the process anyway.
+    getAnonymousKernelObjects(): KRef[] {
+      const raw = kv.get('anonymousKernelObjects');
+      return raw ? (raw.split(',') as KRef[]) : [];
+    },
+    addAnonymousKernelObject(kref: KRef): void {
+      const krefs = new Set(this.getAnonymousKernelObjects());
+      krefs.add(kref);
+      kv.set('anonymousKernelObjects', [...krefs].sort().join(','));
+    },
+    removeAnonymousKernelObject(kref: KRef): void {
+      const krefs = new Set(this.getAnonymousKernelObjects());
+      if (!krefs.delete(kref)) {
+        return;
+      }
+      if (krefs.size === 0) {
+        kv.delete('anonymousKernelObjects');
+      } else {
+        kv.set('anonymousKernelObjects', [...krefs].sort().join(','));
+      }
+    },
+
+    // Objects named by an issued ocap URL
+    //
+    // An ocap URL is a durable bearer token: it carries an encrypted kref and
+    // nothing else, so the kernel cannot discover from its own state that a
+    // holder exists. Retaining the target is therefore the only thing keeping
+    // the URL redeemable, and it has to outlive every other reference — the
+    // token is persistent, unexpiring, and may be redeemed by a peer that was
+    // not running when it was issued.
+    //
+    // The ledger counts, per target, how many URLs name it, and holds one pin
+    // for as long as that count is nonzero. Counting is what makes overlapping
+    // issuances safe: minting awaits, so a second `issue` for the same target
+    // can run to completion while the first is still in flight, and the first's
+    // failure must then unwind its own issuance without disturbing the
+    // retention the second's live URL depends on.
+    //
+    // Ending a retention comes in two kinds, so it comes in two methods.
+    // `undoOcapURLRetention` unwinds one issuance whose URL was never minted
+    // and leaves the others standing; `releaseOcapURLRetentions` drops the
+    // target's whole retention at once, for disavowing every URL naming it.
+    // Revocation is neither: it writes only the revoked flag, so a revoked
+    // object's URLs stay retained, redeemable, and undeliverable.
+    getOcapURLObjects(): KRef[] {
+      return [...getPrefixedKeys(OCAP_URL_PREFIX)].map(
+        (key) => key.slice(OCAP_URL_PREFIX.length) as KRef,
+      );
+    },
+    getOcapURLIssuanceCount(kref: KRef): number {
+      return Number(kv.get(`${OCAP_URL_PREFIX}${kref}`) ?? 0);
+    },
+    retainForOcapURL(kref: KRef): void {
+      // Refuse to mint a token for something already collected: the URL would
+      // name a capability that can never be delivered to. Refusing here names
+      // what was attempted, and does it before anything has been written.
+      this.kernelRefExists(kref) ||
+        Fail`cannot issue an ocap URL for deleted kref ${kref}`;
+      const issuances = this.getOcapURLIssuanceCount(kref);
+      if (issuances === 0) {
+        this.pinObject(kref);
+      }
+      kv.set(`${OCAP_URL_PREFIX}${kref}`, `${issuances + 1}`);
+    },
+    undoOcapURLRetention(kref: KRef): void {
+      const issuances = this.getOcapURLIssuanceCount(kref);
+      if (issuances > 1) {
+        kv.set(`${OCAP_URL_PREFIX}${kref}`, `${issuances - 1}`);
+        return;
+      }
+      // The last issuance, or none at all: either way, what is left of the
+      // retention is exactly what a release drops.
+      this.releaseOcapURLRetentions(kref);
+    },
+    releaseOcapURLRetentions(kref: KRef): void {
+      if (this.getOcapURLIssuanceCount(kref) === 0) {
+        return;
+      }
+      // Spend the pin before forgetting the retention, so a failure to release
+      // it leaves a ledger that still says the retention is held.
+      this.unpinObject(kref);
+      kv.delete(`${OCAP_URL_PREFIX}${kref}`);
+    },
   });
 }
 
 export type KernelStore = ReturnType<typeof makeKernelStore>;
 export type { RelayEntry } from './types.ts';
+export type { RefCountViolation } from './methods/refcount-audit.ts';

@@ -4,16 +4,21 @@ import type { Mocked } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelQueue } from '../KernelQueue.ts';
+import { kser, makeKernelError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
   VatId,
   KRef,
   ClusterConfig,
   Subcluster,
+  SubclusterId,
   SystemSubclusterConfig,
 } from '../types.ts';
 import { SubclusterManager } from './SubclusterManager.ts';
 import type { VatManager } from './VatManager.ts';
+import { asKRef, asSubclusterId, asVatId } from '../../test/branded.ts';
+
+const s1 = asSubclusterId('s1');
 
 describe('SubclusterManager', () => {
   let mockKernelStore: Mocked<KernelStore>;
@@ -21,13 +26,17 @@ describe('SubclusterManager', () => {
   let mockVatManager: Mocked<VatManager>;
   let mockGetKernelService: (
     name: string,
-  ) => { kref: string; systemOnly: boolean } | undefined;
+  ) => { kref: KRef; systemOnly: boolean } | undefined;
   let mockQueueMessage: (
     target: KRef,
     method: string,
     args: unknown[],
   ) => Promise<CapData<KRef>>;
   let subclusterManager: SubclusterManager;
+  // Whether a vat has a handle until it is terminated, and the vats that have
+  // been: what `hasVat` and `isVatActive` read.
+  let vatsRunning: boolean;
+  let retiredVats: Set<string>;
 
   const createMockClusterConfig = (name = 'test'): ClusterConfig => ({
     bootstrap: `${name}Vat`,
@@ -39,23 +48,26 @@ describe('SubclusterManager', () => {
   });
 
   const createMockSubcluster = (
-    id: string,
+    id: SubclusterId,
     config: ClusterConfig,
   ): Subcluster => ({
     id,
     config,
-    vats: { [`${config.bootstrap}`]: 'v1', vat2: 'v2' } as Record<
-      string,
-      VatId
-    >,
+    vats: {
+      [`${config.bootstrap}`]: asVatId('v1'),
+      vat2: asVatId('v2'),
+    },
   });
 
   beforeEach(() => {
+    vatsRunning = false;
+    retiredVats = new Set();
     mockKernelStore = {
       addSubcluster: vi.fn().mockReturnValue('s1'),
       getSubcluster: vi.fn(),
       getSubclusters: vi.fn().mockReturnValue([]),
       getSubclusterVats: vi.fn().mockReturnValue([]),
+      isVatActive: vi.fn((vatId: string) => !retiredVats.has(vatId)),
       deleteSubcluster: vi.fn(),
       getVatSubcluster: vi.fn().mockReturnValue('s1'),
       getAllSystemSubclusterMappings: vi.fn().mockReturnValue(new Map()),
@@ -64,22 +76,32 @@ describe('SubclusterManager', () => {
       getRootObject: vi.fn(),
       deleteVatConfig: vi.fn(),
       markVatAsTerminated: vi.fn(),
+      initKernelPromise: vi
+        .fn()
+        .mockReturnValue(['kp1', { state: 'unresolved', subscribers: [] }]),
+      setPromiseDecider: vi.fn(),
     } as unknown as Mocked<KernelStore>;
 
     mockKernelQueue = {
       waitForCrank: vi.fn().mockResolvedValue(undefined),
+      resolvePromises: vi.fn(),
+      assertRunLoopAlive: vi.fn(),
     } as unknown as Mocked<KernelQueue>;
 
     mockVatManager = {
       launchVat: vi.fn().mockResolvedValue('ko1'),
-      terminateVat: vi.fn().mockResolvedValue(undefined),
+      terminateVat: vi.fn(async (vatId: string) => {
+        retiredVats.add(vatId);
+      }),
       collectGarbage: vi.fn(),
       terminateAllVats: vi.fn().mockResolvedValue(undefined),
+      hasVat: vi.fn((vatId: string) => vatsRunning && !retiredVats.has(vatId)),
+      releaseVatRootPin: vi.fn(),
     } as unknown as Mocked<VatManager>;
 
     mockGetKernelService = vi.fn().mockReturnValue(undefined) as unknown as (
       name: string,
-    ) => { kref: string; systemOnly: boolean } | undefined;
+    ) => { kref: KRef; systemOnly: boolean } | undefined;
     mockQueueMessage = vi
       .fn()
       .mockResolvedValue({ body: '{"result":"ok"}', slots: [] }) as unknown as (
@@ -115,15 +137,33 @@ describe('SubclusterManager', () => {
         'testVat',
         's1',
       );
+      // queueMessage targets the real root KRef once all vats have launched
       expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
         { testVat: expect.anything() },
         {},
       ]);
+      expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
       expect(result).toStrictEqual({
         subclusterId: 's1',
         rootKref: 'ko1',
         bootstrapResult: { body: '{"result":"ok"}', slots: [] },
+        vatRootKrefs: { testVat: 'ko1' },
       });
+    });
+
+    // The launch fails at the bootstrap message either way; only refusing up
+    // front keeps it from leaking a spawned worker per vat in the config.
+    it('refuses to launch when the run loop has died', async () => {
+      vi.mocked(mockKernelQueue.assertRunLoopAlive).mockImplementation(() => {
+        throw new Error('Kernel run loop died; cannot launch a subcluster');
+      });
+
+      await expect(
+        subclusterManager.launchSubcluster(createMockClusterConfig()),
+      ).rejects.toThrow('Kernel run loop died; cannot launch a subcluster');
+
+      expect(mockVatManager.launchVat).not.toHaveBeenCalled();
+      expect(mockKernelStore.addSubcluster).not.toHaveBeenCalled();
     });
 
     it('launches subcluster with multiple vats', async () => {
@@ -151,6 +191,220 @@ describe('SubclusterManager', () => {
         'bob',
         's1',
       );
+      // bootstrap receives real ko<N> refs for both vats; no kernel promises allocated
+      expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
+        { alice: expect.anything(), bob: expect.anything() },
+        {},
+      ]);
+      expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
+    });
+
+    it('rejects peer kernel promise when a non-bootstrap vat fails to launch', async () => {
+      const config: ClusterConfig = {
+        bootstrap: 'alice',
+        vats: {
+          alice: { sourceSpec: 'alice.js' },
+          bob: { sourceSpec: 'bob.js' },
+        },
+      };
+      const bobError = new Error('bob exploded');
+      mockVatManager.launchVat
+        .mockResolvedValueOnce('ko1' as KRef)
+        .mockRejectedValueOnce(bobError);
+
+      await expect(subclusterManager.launchSubcluster(config)).rejects.toThrow(
+        'bob exploded',
+      );
+
+      // bootstrap receives alice's real ko1 root ref as queueMessage target
+      expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
+        { alice: expect.anything(), bob: expect.anything() },
+        {},
+      ]);
+      // initKernelPromise called once — only for bob's rejected promise
+      expect(mockKernelStore.initKernelPromise).toHaveBeenCalledTimes(1);
+      // bob's promise rejected with a VAT_TERMINATED kernel error
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledTimes(1);
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
+        ['kp1', true, makeKernelError('VAT_TERMINATED', 'bob exploded')],
+      ]);
+    });
+
+    it('terminates successfully-launched vats when a peer vat fails', async () => {
+      const config: ClusterConfig = {
+        bootstrap: 'alice',
+        vats: {
+          alice: { sourceSpec: 'alice.js' },
+          bob: { sourceSpec: 'bob.js' },
+        },
+      };
+      mockVatManager.launchVat
+        .mockResolvedValueOnce('ko1' as KRef)
+        .mockRejectedValueOnce(new Error('bob exploded'));
+      // Simulate alice's vatId being registered in the subcluster store.
+      mockKernelStore.getSubclusterVats.mockReturnValue(['v1' as VatId]);
+      // alice's vat worker is running
+      vatsRunning = true;
+
+      await expect(subclusterManager.launchSubcluster(config)).rejects.toThrow(
+        'bob exploded',
+      );
+
+      expect(mockVatManager.terminateVat).toHaveBeenCalledWith('v1');
+      expect(mockVatManager.collectGarbage).toHaveBeenCalled();
+      expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
+    });
+
+    it("keeps a failed launch's record when its teardown cannot finish", async () => {
+      mockVatManager.launchVat.mockRejectedValueOnce(new Error('boom'));
+      mockKernelStore.getSubclusterVats.mockImplementation(() => {
+        throw new Error('store unreadable');
+      });
+
+      await expect(
+        subclusterManager.launchSubcluster(createMockClusterConfig()),
+      ).rejects.toThrow('boom');
+
+      expect(mockKernelStore.deleteSubcluster).not.toHaveBeenCalled();
+    });
+
+    it("destroys a failed launch's channels when collection already took its record", async () => {
+      const ioManager = {
+        createChannels: vi.fn().mockResolvedValue(undefined),
+        destroyChannels: vi.fn().mockResolvedValue(undefined),
+      };
+      const mgr = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+        ioManager: ioManager as never,
+      });
+      mockVatManager.launchVat.mockRejectedValueOnce(new Error('boom'));
+      mockKernelStore.getSubclusterVats.mockImplementation(() => {
+        throw new SubclusterNotFoundError('s1');
+      });
+
+      await expect(
+        mgr.launchSubcluster(createMockClusterConfig()),
+      ).rejects.toThrow('boom');
+
+      expect(ioManager.destroyChannels).toHaveBeenCalledWith('s1');
+    });
+
+    it("waits for the crank to end before deleting a failed launch's record", async () => {
+      mockVatManager.launchVat.mockRejectedValueOnce(new Error('boom'));
+      mockKernelStore.getSubclusterVats.mockReturnValue(['v1' as VatId]);
+      vatsRunning = true;
+
+      await expect(
+        subclusterManager.launchSubcluster(createMockClusterConfig()),
+      ).rejects.toThrow('boom');
+
+      const [terminated] = mockVatManager.terminateVat.mock.invocationCallOrder;
+      const [deleted] =
+        mockKernelStore.deleteSubcluster.mock.invocationCallOrder;
+      const waited =
+        mockKernelQueue.waitForCrank.mock.invocationCallOrder.at(-1);
+      expect(waited).toBeGreaterThan(terminated as number);
+      expect(waited).toBeLessThan(deleted as number);
+    });
+
+    it('terminates the remaining vats when one of them fails to terminate', async () => {
+      const config: ClusterConfig = {
+        bootstrap: 'alice',
+        vats: {
+          alice: { sourceSpec: 'alice.js' },
+          bob: { sourceSpec: 'bob.js' },
+          carol: { sourceSpec: 'carol.js' },
+        },
+      };
+      mockVatManager.launchVat
+        .mockResolvedValueOnce('ko1' as KRef)
+        .mockResolvedValueOnce('ko2' as KRef)
+        .mockRejectedValueOnce(new Error('carol exploded'));
+      mockKernelStore.getSubclusterVats.mockReturnValue([
+        'v1',
+        'v2',
+      ] as VatId[]);
+      vatsRunning = true;
+      // Cleanup runs in reverse, so bob (v2) is terminated first and dies badly.
+      mockVatManager.terminateVat.mockRejectedValueOnce(
+        new Error('bob will not die'),
+      );
+
+      await expect(subclusterManager.launchSubcluster(config)).rejects.toThrow(
+        'carol exploded',
+      );
+
+      expect(mockVatManager.terminateVat).toHaveBeenCalledWith('v2');
+      expect(mockVatManager.terminateVat).toHaveBeenCalledWith('v1');
+      expect(mockKernelStore.deleteSubcluster).not.toHaveBeenCalled();
+    });
+
+    it("keeps a failed launch's IO channels while a member survives", async () => {
+      const ioManager = {
+        createChannels: vi.fn().mockResolvedValue(undefined),
+        destroyChannels: vi.fn().mockResolvedValue(undefined),
+      };
+      const mgr = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+        ioManager: ioManager as never,
+      });
+      (mockGetKernelService as ReturnType<typeof vi.fn>).mockReturnValue({
+        kref: 'ko99',
+      });
+      mockVatManager.launchVat.mockRejectedValueOnce(new Error('boom'));
+      mockKernelStore.getSubclusterVats.mockReturnValue(['v1' as VatId]);
+      vatsRunning = true;
+      mockVatManager.terminateVat.mockRejectedValueOnce(
+        new Error('vat will not die'),
+      );
+
+      await expect(
+        mgr.launchSubcluster({
+          bootstrap: 'testVat',
+          vats: { testVat: { sourceSpec: 'test.js' } },
+          io: { repl: { type: 'socket', path: '/tmp/repl.sock' } },
+        }),
+      ).rejects.toThrow('boom');
+
+      expect(ioManager.destroyChannels).not.toHaveBeenCalled();
+      expect(mockKernelStore.deleteSubcluster).not.toHaveBeenCalled();
+    });
+
+    it('keeps the subcluster record when the run loop dies during launch', async () => {
+      mockVatManager.launchVat.mockResolvedValueOnce('ko1' as KRef);
+      mockQueueMessage = vi
+        .fn()
+        .mockRejectedValue(
+          new Error('run loop died'),
+        ) as typeof mockQueueMessage;
+      subclusterManager = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+      });
+      mockKernelStore.getSubclusterVats.mockReturnValue(['v1' as VatId]);
+      vatsRunning = true;
+      // What `terminateVat` does once the run loop is dead.
+      mockVatManager.terminateVat.mockRejectedValue(
+        new Error('Kernel run loop died; cannot terminate a vat'),
+      );
+
+      await expect(
+        subclusterManager.launchSubcluster(createMockClusterConfig()),
+      ).rejects.toThrow('run loop died');
+
+      expect(mockVatManager.terminateVat).toHaveBeenCalledWith('v1');
+      expect(mockKernelStore.deleteSubcluster).not.toHaveBeenCalled();
     });
 
     it('includes unrestricted kernel services when specified', async () => {
@@ -173,6 +427,27 @@ describe('SubclusterManager', () => {
         expect.anything(),
         { testService: expect.anything() },
       ]);
+    });
+
+    it('passes a service named __proto__ as an own property', async () => {
+      const config: ClusterConfig = {
+        bootstrap: 'testVat',
+        vats: {
+          testVat: { sourceSpec: 'test.js' },
+        },
+        services: ['__proto__'],
+      };
+      (mockGetKernelService as ReturnType<typeof vi.fn>).mockReturnValue({
+        kref: 'ko99',
+        systemOnly: false,
+      });
+
+      await subclusterManager.launchSubcluster(config);
+
+      const [, services] = (mockQueueMessage as ReturnType<typeof vi.fn>).mock
+        .calls[0]![2] as [unknown, object];
+      expect(Object.getPrototypeOf(services)).toBe(Object.prototype);
+      expect(Object.keys(services)).toStrictEqual(['__proto__']);
     });
 
     it('throws when user subcluster requests a restricted service', async () => {
@@ -302,6 +577,12 @@ describe('SubclusterManager', () => {
       });
 
       mockVatManager.launchVat.mockRejectedValue(new Error('vat boom'));
+      // Service lookup now happens before vat launch, so the IO channel
+      // service must be registered for the test to reach the vat launch step.
+      (mockGetKernelService as ReturnType<typeof vi.fn>).mockReturnValue({
+        kref: 'ko99',
+        systemOnly: false,
+      });
 
       const config: ClusterConfig = {
         bootstrap: 'testVat',
@@ -364,6 +645,12 @@ describe('SubclusterManager', () => {
       });
 
       mockVatManager.launchVat.mockRejectedValue(new Error('launch boom'));
+      // Service lookup now happens before vat launch, so the IO channel
+      // service must be registered for the test to reach the vat launch step.
+      (mockGetKernelService as ReturnType<typeof vi.fn>).mockReturnValue({
+        kref: 'ko99',
+        systemOnly: false,
+      });
 
       const config: ClusterConfig = {
         bootstrap: 'testVat',
@@ -429,42 +716,171 @@ describe('SubclusterManager', () => {
         subclusterId: 's1',
         rootKref: 'ko1',
         bootstrapResult,
+        vatRootKrefs: { testVat: 'ko1' },
+      });
+    });
+
+    describe('bootstrap failure propagation', () => {
+      it('rejects with the underlying error when the bootstrap message rejects', async () => {
+        const config = createMockClusterConfig();
+        (mockQueueMessage as ReturnType<typeof vi.fn>).mockRejectedValue(
+          new Error('vat failed to build root object'),
+        );
+
+        await expect(
+          subclusterManager.launchSubcluster(config),
+        ).rejects.toThrow('vat failed to build root object');
+
+        // Not the old cryptic run-queue message.
+        await expect(
+          subclusterManager.launchSubcluster(config),
+        ).rejects.not.toThrow('no record matching key');
+
+        // The subcluster is rolled back rather than left half-initialized.
+        expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
+      });
+
+      it('rethrows when the bootstrap message resolves to a serialized error', async () => {
+        const config = createMockClusterConfig();
+        (mockQueueMessage as ReturnType<typeof vi.fn>).mockResolvedValue(
+          kser(new Error('bootstrap threw')),
+        );
+
+        await expect(
+          subclusterManager.launchSubcluster(config),
+        ).rejects.toThrow('bootstrap threw');
+
+        expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
       });
     });
   });
 
   describe('terminateSubcluster', () => {
     it('terminates a subcluster successfully', async () => {
-      const subcluster = createMockSubcluster('s1', createMockClusterConfig());
+      const subcluster = createMockSubcluster(s1, createMockClusterConfig());
       mockKernelStore.getSubcluster.mockReturnValue(subcluster);
       mockKernelStore.getSubclusterVats.mockReturnValue([
         'v1',
         'v2',
       ] as VatId[]);
+      vatsRunning = true;
 
-      await subclusterManager.terminateSubcluster('s1');
+      await subclusterManager.terminateSubcluster(s1);
 
-      expect(mockKernelQueue.waitForCrank).toHaveBeenCalled();
       expect(mockVatManager.terminateVat).toHaveBeenCalledWith('v2');
       expect(mockVatManager.terminateVat).toHaveBeenCalledWith('v1');
       expect(mockVatManager.collectGarbage).toHaveBeenCalledTimes(2);
       expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
     });
 
+    it('retires a member the kernel has no handle for', async () => {
+      const subcluster = createMockSubcluster(s1, createMockClusterConfig());
+      mockKernelStore.getSubcluster.mockReturnValue(subcluster);
+      mockKernelStore.getSubclusterVats.mockReturnValue(['v1'] as VatId[]);
+      vatsRunning = false;
+
+      await subclusterManager.terminateSubcluster(s1);
+
+      expect(mockVatManager.terminateVat).toHaveBeenCalledWith('v1');
+      expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
+    });
+
+    it('skips a member with neither a handle nor a record', async () => {
+      const subcluster = createMockSubcluster(s1, createMockClusterConfig());
+      mockKernelStore.getSubcluster.mockReturnValue(subcluster);
+      mockKernelStore.getSubclusterVats.mockReturnValue(['v1'] as VatId[]);
+      // Added to the subcluster, but its launch failed before its record.
+      retiredVats.add('v1');
+
+      await subclusterManager.terminateSubcluster(s1);
+
+      expect(mockVatManager.terminateVat).not.toHaveBeenCalled();
+      expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
+    });
+
+    it('counts a member as gone when something after its death threw', async () => {
+      const subcluster = createMockSubcluster(s1, createMockClusterConfig());
+      mockKernelStore.getSubcluster.mockReturnValue(subcluster);
+      mockKernelStore.getSubclusterVats.mockReturnValue(['v1'] as VatId[]);
+      mockVatManager.terminateVat.mockImplementationOnce(async (vatId) => {
+        retiredVats.add(vatId);
+        throw new Error('failed after the death');
+      });
+      mockVatManager.collectGarbage.mockImplementationOnce(() => {
+        throw new Error('collection failed');
+      });
+
+      await subclusterManager.terminateSubcluster(s1);
+
+      expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
+    });
+
+    it('rejects with what each surviving member threw', async () => {
+      const subcluster = createMockSubcluster(s1, createMockClusterConfig());
+      mockKernelStore.getSubcluster.mockReturnValue(subcluster);
+      mockKernelStore.getSubclusterVats.mockReturnValue([
+        'v1',
+        'v2',
+      ] as VatId[]);
+      const failures = [new Error('v2 will not die'), new Error('v1 neither')];
+      mockVatManager.terminateVat
+        .mockRejectedValueOnce(failures[0])
+        .mockRejectedValueOnce(failures[1]);
+
+      await expect(subclusterManager.terminateSubcluster(s1)).rejects.toThrow(
+        expect.objectContaining({
+          message: 'subcluster s1 still has vats: v2, v1',
+          errors: failures,
+        }),
+      );
+    });
+
+    it('tries every member even when one will not die, then refuses', async () => {
+      const subcluster = createMockSubcluster(s1, createMockClusterConfig());
+      mockKernelStore.getSubcluster.mockReturnValue(subcluster);
+      mockKernelStore.getSubclusterVats.mockReturnValue([
+        'v1',
+        'v2',
+      ] as VatId[]);
+      mockVatManager.terminateVat.mockRejectedValueOnce(
+        new Error('vat will not die'),
+      );
+
+      await expect(subclusterManager.terminateSubcluster(s1)).rejects.toThrow(
+        'subcluster s1 still has vats: v2',
+      );
+
+      expect(mockVatManager.terminateVat).toHaveBeenCalledWith('v1');
+      expect(mockKernelStore.deleteSubcluster).not.toHaveBeenCalled();
+    });
+
+    it('refuses once the run loop is dead', async () => {
+      const subcluster = createMockSubcluster(s1, createMockClusterConfig());
+      mockKernelStore.getSubcluster.mockReturnValue(subcluster);
+      mockKernelQueue.assertRunLoopAlive.mockImplementationOnce(() => {
+        throw new Error('Kernel run loop died; cannot terminate a subcluster');
+      });
+
+      await expect(subclusterManager.terminateSubcluster(s1)).rejects.toThrow(
+        'cannot terminate a subcluster',
+      );
+      expect(mockKernelStore.deleteSubcluster).not.toHaveBeenCalled();
+    });
+
     it('throws when subcluster not found', async () => {
       mockKernelStore.getSubcluster.mockReturnValue(undefined);
 
       await expect(
-        subclusterManager.terminateSubcluster('nonexistent'),
+        subclusterManager.terminateSubcluster('nonexistent' as SubclusterId),
       ).rejects.toThrow(SubclusterNotFoundError);
     });
 
     it('handles empty vat list', async () => {
-      const subcluster = createMockSubcluster('s1', createMockClusterConfig());
+      const subcluster = createMockSubcluster(s1, createMockClusterConfig());
       mockKernelStore.getSubcluster.mockReturnValue(subcluster);
       mockKernelStore.getSubclusterVats.mockReturnValue([]);
 
-      await subclusterManager.terminateSubcluster('s1');
+      await subclusterManager.terminateSubcluster(s1);
 
       expect(mockVatManager.terminateVat).not.toHaveBeenCalled();
       expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
@@ -473,10 +889,10 @@ describe('SubclusterManager', () => {
 
   describe('getSubcluster', () => {
     it('returns subcluster when found', () => {
-      const subcluster = createMockSubcluster('s1', createMockClusterConfig());
+      const subcluster = createMockSubcluster(s1, createMockClusterConfig());
       mockKernelStore.getSubcluster.mockReturnValue(subcluster);
 
-      const result = subclusterManager.getSubcluster('s1');
+      const result = subclusterManager.getSubcluster(s1);
 
       expect(result).toStrictEqual(subcluster);
       expect(mockKernelStore.getSubcluster).toHaveBeenCalledWith('s1');
@@ -485,7 +901,9 @@ describe('SubclusterManager', () => {
     it('returns undefined when not found', () => {
       mockKernelStore.getSubcluster.mockReturnValue(undefined);
 
-      const result = subclusterManager.getSubcluster('nonexistent');
+      const result = subclusterManager.getSubcluster(
+        'nonexistent' as SubclusterId,
+      );
 
       expect(result).toBeUndefined();
     });
@@ -494,8 +912,11 @@ describe('SubclusterManager', () => {
   describe('getSubclusters', () => {
     it('returns all subclusters', () => {
       const subclusters = [
-        createMockSubcluster('s1', createMockClusterConfig('test1')),
-        createMockSubcluster('s2', createMockClusterConfig('test2')),
+        createMockSubcluster(s1, createMockClusterConfig('test1')),
+        createMockSubcluster(
+          asSubclusterId('s2'),
+          createMockClusterConfig('test2'),
+        ),
       ];
       mockKernelStore.getSubclusters.mockReturnValue(subclusters);
 
@@ -516,18 +937,18 @@ describe('SubclusterManager', () => {
 
   describe('isVatInSubcluster', () => {
     it('returns true when vat is in subcluster', () => {
-      mockKernelStore.getVatSubcluster.mockReturnValue('s1');
+      mockKernelStore.getVatSubcluster.mockReturnValue(s1);
 
-      const result = subclusterManager.isVatInSubcluster('v1', 's1');
+      const result = subclusterManager.isVatInSubcluster(asVatId('v1'), s1);
 
       expect(result).toBe(true);
       expect(mockKernelStore.getVatSubcluster).toHaveBeenCalledWith('v1');
     });
 
     it('returns false when vat is not in subcluster', () => {
-      mockKernelStore.getVatSubcluster.mockReturnValue('s2');
+      mockKernelStore.getVatSubcluster.mockReturnValue(asSubclusterId('s2'));
 
-      const result = subclusterManager.isVatInSubcluster('v1', 's1');
+      const result = subclusterManager.isVatInSubcluster(asVatId('v1'), s1);
 
       expect(result).toBe(false);
     });
@@ -536,7 +957,7 @@ describe('SubclusterManager', () => {
       // @ts-expect-error mock
       mockKernelStore.getVatSubcluster.mockReturnValue(undefined);
 
-      const result = subclusterManager.isVatInSubcluster('v1', 's1');
+      const result = subclusterManager.isVatInSubcluster(asVatId('v1'), s1);
 
       expect(result).toBe(false);
     });
@@ -547,7 +968,7 @@ describe('SubclusterManager', () => {
       const vatIds = ['v1', 'v2', 'v3'] as VatId[];
       mockKernelStore.getSubclusterVats.mockReturnValue(vatIds);
 
-      const result = subclusterManager.getSubclusterVats('s1');
+      const result = subclusterManager.getSubclusterVats(s1);
 
       expect(result).toStrictEqual(vatIds);
       expect(mockKernelStore.getSubclusterVats).toHaveBeenCalledWith('s1');
@@ -556,7 +977,7 @@ describe('SubclusterManager', () => {
     it('returns empty array when no vats', () => {
       mockKernelStore.getSubclusterVats.mockReturnValue([]);
 
-      const result = subclusterManager.getSubclusterVats('s1');
+      const result = subclusterManager.getSubclusterVats(s1);
 
       expect(result).toStrictEqual([]);
     });
@@ -585,9 +1006,9 @@ describe('SubclusterManager', () => {
     });
 
     it('deletes orphaned system subclusters no longer in config', () => {
-      const subcluster = createMockSubcluster('s1', createMockClusterConfig());
+      const subcluster = createMockSubcluster(s1, createMockClusterConfig());
       mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
-        new Map([['orphan', 's1']]),
+        new Map([['orphan', s1]]),
       );
       mockKernelStore.getSubcluster.mockReturnValue(subcluster);
 
@@ -600,16 +1021,21 @@ describe('SubclusterManager', () => {
       expect(
         mockKernelStore.deleteSystemSubclusterMapping,
       ).toHaveBeenCalledWith('orphan');
+      // These vats never ran here, so nothing else releases the root pin the
+      // incarnation that did run them took.
+      for (const vatId of Object.values(subcluster.vats)) {
+        expect(mockVatManager.releaseVatRootPin).toHaveBeenCalledWith(vatId);
+      }
     });
 
     it('restores valid persisted system subclusters', () => {
       const config = createMockClusterConfig('sys');
-      const subcluster = createMockSubcluster('s1', config);
+      const subcluster = createMockSubcluster(s1, config);
       mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
-        new Map([['sys', 's1']]),
+        new Map([['sys', s1]]),
       );
       mockKernelStore.getSubcluster.mockReturnValue(subcluster);
-      mockKernelStore.getRootObject.mockReturnValue('ko1');
+      mockKernelStore.getRootObject.mockReturnValue(asKRef('ko1'));
 
       subclusterManager.initSystemSubclusters([makeSystemConfig('sys')]);
 
@@ -618,7 +1044,7 @@ describe('SubclusterManager', () => {
 
     it('cleans up mapping when subcluster no longer exists', () => {
       mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
-        new Map([['sys', 's99']]),
+        new Map([['sys', asSubclusterId('s99')]]),
       );
       mockKernelStore.getSubcluster.mockReturnValue(undefined);
 
@@ -632,9 +1058,13 @@ describe('SubclusterManager', () => {
     it('throws when persisted system subcluster has no bootstrap vat', () => {
       const config = createMockClusterConfig('sys');
       // Subcluster with empty vats - no bootstrap vat
-      const subcluster: Subcluster = { id: 's1', config, vats: {} };
+      const subcluster: Subcluster = {
+        id: s1,
+        config,
+        vats: {},
+      };
       mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
-        new Map([['sys', 's1']]),
+        new Map([['sys', s1]]),
       );
       mockKernelStore.getSubcluster.mockReturnValue(subcluster);
 
@@ -645,9 +1075,9 @@ describe('SubclusterManager', () => {
 
     it('throws when persisted system subcluster has no root object', () => {
       const config = createMockClusterConfig('sys');
-      const subcluster = createMockSubcluster('s1', config);
+      const subcluster = createMockSubcluster(s1, config);
       mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
-        new Map([['sys', 's1']]),
+        new Map([['sys', s1]]),
       );
       mockKernelStore.getSubcluster.mockReturnValue(subcluster);
       mockKernelStore.getRootObject.mockReturnValue(undefined);
@@ -667,12 +1097,12 @@ describe('SubclusterManager', () => {
     it('launches configs not already restored from persistence', async () => {
       // First restore a persisted subcluster
       const config = createMockClusterConfig('existing');
-      const subcluster = createMockSubcluster('s1', config);
+      const subcluster = createMockSubcluster(s1, config);
       mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
-        new Map([['existing', 's1']]),
+        new Map([['existing', s1]]),
       );
       mockKernelStore.getSubcluster.mockReturnValue(subcluster);
-      mockKernelStore.getRootObject.mockReturnValue('ko-existing');
+      mockKernelStore.getRootObject.mockReturnValue('ko-existing' as KRef);
 
       subclusterManager.initSystemSubclusters([
         makeSystemConfig('existing'),
@@ -680,7 +1110,7 @@ describe('SubclusterManager', () => {
       ]);
 
       // Now launch new ones — "existing" should be skipped
-      mockKernelStore.addSubcluster.mockReturnValue('s2');
+      mockKernelStore.addSubcluster.mockReturnValue(asSubclusterId('s2'));
       await subclusterManager.launchNewSystemSubclusters([
         makeSystemConfig('existing'),
         makeSystemConfig('newOne'),
@@ -696,12 +1126,12 @@ describe('SubclusterManager', () => {
 
     it('does nothing when all configs are already restored', async () => {
       const config = createMockClusterConfig('sys');
-      const subcluster = createMockSubcluster('s1', config);
+      const subcluster = createMockSubcluster(s1, config);
       mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
-        new Map([['sys', 's1']]),
+        new Map([['sys', s1]]),
       );
       mockKernelStore.getSubcluster.mockReturnValue(subcluster);
-      mockKernelStore.getRootObject.mockReturnValue('ko1');
+      mockKernelStore.getRootObject.mockReturnValue(asKRef('ko1'));
 
       subclusterManager.initSystemSubclusters([makeSystemConfig('sys')]);
 
@@ -713,7 +1143,7 @@ describe('SubclusterManager', () => {
     });
 
     it('persists mappings for newly launched subclusters', async () => {
-      mockKernelStore.addSubcluster.mockReturnValue('s1');
+      mockKernelStore.addSubcluster.mockReturnValue(s1);
 
       await subclusterManager.launchNewSystemSubclusters([
         makeSystemConfig('newSys'),
@@ -731,12 +1161,12 @@ describe('SubclusterManager', () => {
     it('returns kref for a known system subcluster', () => {
       // Set up state via initSystemSubclusters
       const config = createMockClusterConfig('sys');
-      const subcluster = createMockSubcluster('s1', config);
+      const subcluster = createMockSubcluster(s1, config);
       mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
-        new Map([['sys', 's1']]),
+        new Map([['sys', s1]]),
       );
       mockKernelStore.getSubcluster.mockReturnValue(subcluster);
-      mockKernelStore.getRootObject.mockReturnValue('ko42');
+      mockKernelStore.getRootObject.mockReturnValue(asKRef('ko42'));
 
       subclusterManager.initSystemSubclusters([
         { name: 'sys', config: createMockClusterConfig('sys') },
@@ -756,12 +1186,12 @@ describe('SubclusterManager', () => {
     it('clears all system subcluster root state', () => {
       // Set up state via initSystemSubclusters
       const config = createMockClusterConfig('sys');
-      const subcluster = createMockSubcluster('s1', config);
+      const subcluster = createMockSubcluster(s1, config);
       mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
-        new Map([['sys', 's1']]),
+        new Map([['sys', s1]]),
       );
       mockKernelStore.getSubcluster.mockReturnValue(subcluster);
-      mockKernelStore.getRootObject.mockReturnValue('ko42');
+      mockKernelStore.getRootObject.mockReturnValue(asKRef('ko42'));
 
       subclusterManager.initSystemSubclusters([
         { name: 'sys', config: createMockClusterConfig('sys') },
@@ -781,12 +1211,12 @@ describe('SubclusterManager', () => {
     it('cleans up system subcluster mapping when terminating a system subcluster', async () => {
       // Set up a system subcluster via init
       const config = createMockClusterConfig('sys');
-      const subcluster = createMockSubcluster('s1', config);
+      const subcluster = createMockSubcluster(s1, config);
       mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
-        new Map([['sys', 's1']]),
+        new Map([['sys', s1]]),
       );
       mockKernelStore.getSubcluster.mockReturnValue(subcluster);
-      mockKernelStore.getRootObject.mockReturnValue('ko1');
+      mockKernelStore.getRootObject.mockReturnValue(asKRef('ko1'));
       mockKernelStore.getSubclusterVats.mockReturnValue([
         'v1',
         'v2',
@@ -798,7 +1228,7 @@ describe('SubclusterManager', () => {
 
       expect(subclusterManager.getSystemSubclusterRoot('sys')).toBe('ko1');
 
-      await subclusterManager.terminateSubcluster('s1');
+      await subclusterManager.terminateSubcluster(s1);
 
       expect(
         mockKernelStore.deleteSystemSubclusterMapping,
@@ -808,17 +1238,260 @@ describe('SubclusterManager', () => {
       );
     });
 
+    it('keeps the name and IO channels while a member survives', async () => {
+      const ioManager = {
+        createChannels: vi.fn().mockResolvedValue(undefined),
+        destroyChannels: vi.fn().mockResolvedValue(undefined),
+      };
+      const mgr = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+        ioManager: ioManager as never,
+      });
+      mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
+        new Map([['sys', s1]]),
+      );
+      mockKernelStore.getSubcluster.mockReturnValue(
+        createMockSubcluster(s1, createMockClusterConfig('sys')),
+      );
+      mockKernelStore.getRootObject.mockReturnValue(asKRef('ko1'));
+      mockKernelStore.getSubclusterVats.mockReturnValue(['v1'] as VatId[]);
+      mgr.initSystemSubclusters([
+        { name: 'sys', config: createMockClusterConfig('sys') },
+      ]);
+      mockVatManager.terminateVat.mockRejectedValueOnce(
+        new Error('vat will not die'),
+      );
+
+      await expect(mgr.terminateSubcluster(s1)).rejects.toThrow(
+        'subcluster s1 still has vats: v1',
+      );
+
+      expect(ioManager.destroyChannels).not.toHaveBeenCalled();
+      expect(
+        mockKernelStore.deleteSystemSubclusterMapping,
+      ).not.toHaveBeenCalled();
+      expect(mgr.getSystemSubclusterRoot('sys')).toBe('ko1');
+    });
+
+    it('drops the name when only non-bootstrap members survive', async () => {
+      mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
+        new Map([['sys', s1]]),
+      );
+      mockKernelStore.getSubcluster.mockReturnValue({
+        id: s1,
+        config: {
+          bootstrap: 'boot',
+          vats: {
+            boot: { sourceSpec: 'boot.js' },
+            worker: { sourceSpec: 'worker.js' },
+          },
+        },
+        vats: { boot: 'v1' as VatId, worker: 'v2' as VatId },
+      });
+      mockKernelStore.getSubclusterVats.mockReturnValue([
+        'v1',
+        'v2',
+      ] as VatId[]);
+      // Reverse order: the worker goes first, and will not die.
+      mockVatManager.terminateVat.mockRejectedValueOnce(
+        new Error('vat will not die'),
+      );
+
+      await expect(subclusterManager.terminateSubcluster(s1)).rejects.toThrow(
+        'subcluster s1 still has vats: v2',
+      );
+
+      expect(
+        mockKernelStore.deleteSystemSubclusterMapping,
+      ).toHaveBeenCalledWith('sys');
+      expect(mockKernelStore.deleteSubcluster).not.toHaveBeenCalled();
+    });
+
+    it('drops the name of a subcluster with survivors only once the crank has ended', async () => {
+      mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
+        new Map([['sys', s1]]),
+      );
+      mockKernelStore.getSubcluster.mockReturnValue({
+        id: s1,
+        config: {
+          bootstrap: 'boot',
+          vats: {
+            boot: { sourceSpec: 'boot.js' },
+            worker: { sourceSpec: 'worker.js' },
+          },
+        },
+        vats: { boot: 'v1' as VatId, worker: 'v2' as VatId },
+      });
+      mockKernelStore.getSubclusterVats.mockReturnValue([
+        'v1',
+        'v2',
+      ] as VatId[]);
+      mockVatManager.terminateVat.mockRejectedValueOnce(
+        new Error('vat will not die'),
+      );
+
+      await expect(subclusterManager.terminateSubcluster(s1)).rejects.toThrow(
+        'still has vats',
+      );
+
+      const [dropped] =
+        mockKernelStore.deleteSystemSubclusterMapping.mock.invocationCallOrder;
+      const [lastTerminated] =
+        mockVatManager.terminateVat.mock.invocationCallOrder.slice(-1);
+      const waited =
+        mockKernelQueue.waitForCrank.mock.invocationCallOrder.at(-1);
+      expect(waited).toBeGreaterThan(lastTerminated as number);
+      expect(waited).toBeLessThan(dropped as number);
+    });
+
+    it('drops the mapping only once the crank has ended', async () => {
+      mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
+        new Map([['sys', s1]]),
+      );
+      mockKernelStore.getSubcluster.mockReturnValue(
+        createMockSubcluster(s1, createMockClusterConfig('sys')),
+      );
+      mockKernelStore.getSubclusterVats.mockReturnValue(['v1'] as VatId[]);
+
+      await subclusterManager.terminateSubcluster(s1);
+
+      const [dropped] =
+        mockKernelStore.deleteSystemSubclusterMapping.mock.invocationCallOrder;
+      const waited =
+        mockKernelQueue.waitForCrank.mock.invocationCallOrder.at(-1);
+      expect(waited).toBeLessThan(dropped as number);
+    });
+
     it('does not clean up mappings for non-system subclusters', async () => {
-      const subcluster = createMockSubcluster('s1', createMockClusterConfig());
+      const subcluster = createMockSubcluster(s1, createMockClusterConfig());
       mockKernelStore.getSubcluster.mockReturnValue(subcluster);
       mockKernelStore.getSubclusterVats.mockReturnValue([]);
       mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(new Map());
 
-      await subclusterManager.terminateSubcluster('s1');
+      await subclusterManager.terminateSubcluster(s1);
 
       expect(
         mockKernelStore.deleteSystemSubclusterMapping,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('restorePersistedIOChannels', () => {
+    const makeMockIOManager = () => ({
+      createChannels: vi.fn().mockResolvedValue(undefined),
+      destroyChannels: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const subclusterWithIO = (
+      id: SubclusterId,
+      io: Record<string, { type: 'socket'; path: string }>,
+    ): Subcluster => ({
+      id,
+      config: {
+        bootstrap: 'svc',
+        vats: { svc: { sourceSpec: 'svc.js' } },
+        io,
+      },
+      vats: { svc: 'v1' as VatId },
+    });
+
+    const subclusterWithoutIO = (id: SubclusterId): Subcluster => ({
+      id,
+      config: createMockClusterConfig(`s-${id}`),
+      vats: { [`s-${id}Vat`]: 'v1' as VatId },
+    });
+
+    it('re-creates channels for every persisted subcluster declaring io', async () => {
+      const ioA = { llm: { type: 'socket' as const, path: '/tmp/a.sock' } };
+      const ioB = { wire: { type: 'socket' as const, path: '/tmp/b.sock' } };
+      mockKernelStore.getSubclusters.mockReturnValue([
+        subclusterWithIO(s1, ioA),
+        subclusterWithIO(asSubclusterId('s2'), ioB),
+      ]);
+      const ioManager = makeMockIOManager();
+      const mgr = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+        ioManager: ioManager as never,
+      });
+
+      await mgr.restorePersistedIOChannels();
+
+      expect(ioManager.createChannels).toHaveBeenCalledTimes(2);
+      expect(ioManager.createChannels).toHaveBeenCalledWith('s1', ioA);
+      expect(ioManager.createChannels).toHaveBeenCalledWith('s2', ioB);
+    });
+
+    it('skips subclusters whose config does not declare io', async () => {
+      mockKernelStore.getSubclusters.mockReturnValue([
+        subclusterWithoutIO(s1),
+        subclusterWithIO(asSubclusterId('s2'), {
+          io: { type: 'socket' as const, path: '/tmp/s2.sock' },
+        }),
+      ]);
+      const ioManager = makeMockIOManager();
+      const mgr = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+        ioManager: ioManager as never,
+      });
+
+      await mgr.restorePersistedIOChannels();
+
+      expect(ioManager.createChannels).toHaveBeenCalledTimes(1);
+      expect(ioManager.createChannels).toHaveBeenCalledWith(
+        's2',
+        expect.objectContaining({ io: expect.anything() }),
+      );
+    });
+
+    it('is a no-op when no IOManager was provided', async () => {
+      mockKernelStore.getSubclusters.mockReturnValue([
+        subclusterWithIO(s1, {
+          llm: { type: 'socket' as const, path: '/tmp/a.sock' },
+        }),
+      ]);
+      // Default subclusterManager from beforeEach has no ioManager;
+      // a missing manager must not cause an error here.
+      expect(
+        await subclusterManager.restorePersistedIOChannels(),
+      ).toBeUndefined();
+    });
+
+    it('continues past a per-subcluster failure', async () => {
+      mockKernelStore.getSubclusters.mockReturnValue([
+        subclusterWithIO(s1, {
+          llm: { type: 'socket' as const, path: '/tmp/a.sock' },
+        }),
+        subclusterWithIO(asSubclusterId('s2'), {
+          wire: { type: 'socket' as const, path: '/tmp/b.sock' },
+        }),
+      ]);
+      const ioManager = makeMockIOManager();
+      ioManager.createChannels.mockImplementationOnce(async () => {
+        throw new Error('socket in use');
+      });
+      const mgr = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+        ioManager: ioManager as never,
+      });
+
+      expect(await mgr.restorePersistedIOChannels()).toBeUndefined();
+      expect(ioManager.createChannels).toHaveBeenCalledTimes(2);
     });
   });
 });

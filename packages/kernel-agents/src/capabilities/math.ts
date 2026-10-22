@@ -1,44 +1,43 @@
-import { capability } from './capability.ts';
+import { S } from '@metamask/kernel-utils';
 
-export const count = capability(
-  async ({ word }: { word: string }) => word.length,
+import { makeInternalCapabilities } from './discover.ts';
+
+const capabilities = makeInternalCapabilities(
+  'Math',
   {
-    description: 'Count the number of characters in an arbitrary string',
-    args: {
-      word: { type: 'string', description: 'The string to get the length of.' },
+    async count(word: string) {
+      return word.length;
     },
-    returns: {
-      type: 'number',
-      description: 'The number of characters in the string.',
+    async add(summands: number[]) {
+      return summands.reduce((acc, summand) => acc + summand, 0);
+    },
+    async multiply(factors: number[]) {
+      return factors.reduce((acc, factor) => acc * factor, 1);
     },
   },
+  S.interface('Math', {
+    count: S.method(
+      'Count the number of characters in an arbitrary string',
+      [S.arg('word', S.string('The string to get the length of.'))],
+      S.number('The number of characters in the string.'),
+    ),
+    add: S.method(
+      'Add a list of numbers.',
+      [S.arg('summands', S.arrayOf(S.number()))],
+      S.number('The sum of the numbers.'),
+    ),
+    multiply: S.method(
+      'Multiply a list of numbers.',
+      [
+        S.arg(
+          'factors',
+          S.arrayOf(S.number(), 'The list of numbers to multiply.'),
+        ),
+      ],
+      S.number('The product of the factors.'),
+    ),
+  }),
 );
 
-export const add = capability(
-  async ({ summands }: { summands: number[] }) =>
-    summands.reduce((acc, summand) => acc + summand, 0),
-  {
-    description: 'Add a list of numbers.',
-    args: { summands: { type: 'array', items: { type: 'number' } } },
-    returns: { type: 'number', description: 'The sum of the numbers.' },
-  },
-);
-
-export const multiply = capability(
-  async ({ factors }: { factors: number[] }) =>
-    factors.reduce((acc, factor) => acc * factor, 1),
-  {
-    description: 'Multiply a list of numbers.',
-    args: {
-      factors: {
-        type: 'array',
-        description: 'The list of numbers to multiply.',
-        items: { type: 'number' },
-      },
-    },
-    returns: { type: 'number', description: 'The product of the factors.' },
-  },
-);
-
-const capabilities = { count, add, multiply };
+export const { count, add, multiply } = capabilities;
 export default capabilities;

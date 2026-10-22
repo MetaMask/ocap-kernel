@@ -1,6 +1,6 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
-import type { KRef } from '@metamask/ocap-kernel';
+import type { KRef, VatId } from '@metamask/ocap-kernel';
 import { makeKernelStore } from '@metamask/ocap-kernel';
 import { describe, expect, it, beforeEach } from 'vitest';
 
@@ -78,7 +78,7 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
     const vats = kernel.getVats();
     const exporterVat = vats[0];
     const exporterKRef = kernelStore.getRootObject(
-      exporterVat?.id as string,
+      exporterVat?.id as VatId,
     ) as KRef;
     // Create an object in the exporter vat
     const objectId = 'test-revocation-object';
@@ -127,7 +127,7 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
     const vats = kernel.getVats();
     const exporterVat = vats[0];
     const exporterKRef = kernelStore.getRootObject(
-      exporterVat?.id as string,
+      exporterVat?.id as VatId,
     ) as KRef;
     // Create an object
     const objectId = 'promise-revocation-test';
@@ -185,7 +185,7 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
     const vats = kernel.getVats();
     const exporterVat = vats[0];
     const exporterKRef = kernelStore.getRootObject(
-      exporterVat?.id as string,
+      exporterVat?.id as VatId,
     ) as KRef;
 
     // Create multiple objects

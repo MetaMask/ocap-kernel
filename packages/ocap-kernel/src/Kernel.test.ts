@@ -1,6 +1,8 @@
+import { makePromiseKit } from '@endo/promise-kit';
 import { VatNotFoundError } from '@metamask/kernel-errors';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
+import { delay, waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { DuplexStream } from '@metamask/streams';
 import type { Mocked, MockInstance } from 'vitest';
@@ -9,12 +11,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Kernel } from './Kernel.ts';
 import { kser } from './liveslots/kernel-marshal.ts';
 import type {
-  VatId,
   VatConfig,
+  OnRunLoopFailure,
   PlatformServices,
   ClusterConfig,
+  CrankResult,
+  EndpointId,
+  RunQueueItem,
+  SubclusterId,
 } from './types.ts';
 import { VatHandle } from './vats/VatHandle.ts';
+import { asKRef, asSubclusterId, asVatId } from '../test/branded.ts';
 import { makeMapKernelDatabase } from '../test/storage.ts';
 
 const mocks = vi.hoisted(() => {
@@ -25,7 +32,115 @@ const mocks = vi.hoisted(() => {
       .fn()
       .mockResolvedValue({ body: '{"result":"ok"}', slots: [] });
 
-    run = vi.fn().mockResolvedValue(undefined);
+    #runLoopFailure: Error | undefined;
+
+    #rejectRunLoop: ((error: Error) => void) | undefined;
+
+    /**
+     * The router's dispatch, so queued work can be carried out as a crank
+     * would carry it out.
+     */
+    #deliver: ((item: RunQueueItem) => Promise<unknown>) | undefined;
+
+    // Like the real run loop, this settles only if the kernel dies.
+    run = vi.fn(
+      async (
+        deliver: (item: RunQueueItem) => Promise<unknown>,
+        _options?: { isOffline?: (endpointId: EndpointId) => boolean },
+      ) => {
+        this.#deliver = deliver;
+        return new Promise<never>((_resolve, reject) => {
+          this.#rejectRunLoop = reject;
+        });
+      },
+    );
+
+    recheckGCActions = vi.fn();
+
+    /**
+     * Fail the run loop, in the order the real `KernelQueue.run` does: the
+     * status flips before the rejection is observable. Does not reproduce
+     * `#failRunLoop`'s rejection of in-flight subscriptions.
+     *
+     * @param error - The error that killed the run loop.
+     */
+    killRunLoop(error: Error): void {
+      this.#runLoopFailure = error;
+      this.#rejectRunLoop?.(error);
+      for (const reject of this.#runLoopDeathWaiters) {
+        reject(error);
+      }
+      this.#runLoopDeathWaiters.clear();
+    }
+
+    getRunLoopStatus = vi.fn(() =>
+      this.#runLoopFailure
+        ? {
+            state: 'failed',
+            error: this.#runLoopFailure.message,
+            detail: `{"message":"${this.#runLoopFailure.message}"}`,
+          }
+        : { state: 'running' },
+    );
+
+    // A stand-in for the run loop: the item is delivered through the router,
+    // on a later turn, exactly as a crank would deliver it.
+    enqueueRestartVat = vi.fn((vatId: string) => {
+      this.#deliverLater({ type: 'restartVat', vatId } as RunQueueItem);
+    });
+
+    discardHeldRequests = vi.fn();
+
+    discardArrivals = vi.fn();
+
+    enqueueTerminateVat = vi.fn((vatId: string, reason?: unknown) => {
+      this.#deliverLater({
+        type: 'terminateVat',
+        vatId,
+        ...(reason ? { reason } : {}),
+      } as RunQueueItem);
+    });
+
+    /**
+     * @param item - The queued item to hand to the router on a later turn.
+     */
+    #deliverLater(item: RunQueueItem): void {
+      queueMicrotask(() => {
+        this.#runCrank(item).catch((error: unknown) => {
+          throw error;
+        });
+      });
+    }
+
+    /**
+     * Deliver an item and run what follows its commit, as a crank does. No
+     * test here aborts one.
+     *
+     * @param item - The item to deliver.
+     */
+    async #runCrank(item: RunQueueItem): Promise<void> {
+      const crankResult = (await this.#deliver?.(item)) as
+        | CrankResult
+        | undefined;
+      await crankResult?.afterCommit?.();
+    }
+
+    onRunLoopDeath = vi.fn((reject: (error: Error) => void) => {
+      this.#runLoopDeathWaiters.add(reject);
+      return () => {
+        this.#runLoopDeathWaiters.delete(reject);
+      };
+    });
+
+    readonly #runLoopDeathWaiters = new Set<(error: Error) => void>();
+
+    assertRunLoopAlive = vi.fn((what: string) => {
+      if (this.#runLoopFailure) {
+        throw new Error(`Kernel run loop died; cannot ${what}`, {
+          cause: this.#runLoopFailure,
+        });
+      }
+    });
 
     stop = vi.fn();
 
@@ -34,6 +149,8 @@ const mocks = vi.hoisted(() => {
     }
 
     waitForCrank = vi.fn().mockResolvedValue(undefined);
+
+    resolvePromises = vi.fn();
   }
 
   class RemoteManager {
@@ -50,6 +167,8 @@ const mocks = vi.hoisted(() => {
     initIdentity = vi.fn().mockResolvedValue(undefined);
 
     initRemoteComms = vi.fn().mockResolvedValue(undefined);
+
+    hasRemote = vi.fn().mockReturnValue(false);
 
     closeConnection = vi.fn().mockResolvedValue(undefined);
 
@@ -135,7 +254,8 @@ describe('Kernel', () => {
           vatId,
           config: vatConfig,
           init: vi.fn(),
-          terminate: vi.fn(),
+          terminate: vi.fn().mockResolvedValue(undefined),
+          expectClose: vi.fn(),
           handleMessage: vi.fn(),
           deliverMessage: vi.fn(),
           deliverNotify: vi.fn(),
@@ -212,7 +332,7 @@ describe('Kernel', () => {
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
-      const result = await kernel.queueMessage('ko1', 'hello', []);
+      const result = await kernel.queueMessage(asKRef('ko1'), 'hello', []);
       expect(result).toStrictEqual({ body: '{"result":"ok"}', slots: [] });
     });
 
@@ -224,9 +344,9 @@ describe('Kernel', () => {
       mocks.KernelQueue.lastInstance.enqueueMessage.mockRejectedValueOnce(
         kser(new Error('vat rejection message')),
       );
-      await expect(kernel.queueMessage('ko1', 'hello', [])).rejects.toThrow(
-        'vat rejection message',
-      );
+      await expect(
+        kernel.queueMessage(asKRef('ko1'), 'hello', []),
+      ).rejects.toThrow('vat rejection message');
     });
 
     it('propagates non-CapData rejections as-is', async () => {
@@ -238,9 +358,9 @@ describe('Kernel', () => {
       mocks.KernelQueue.lastInstance.enqueueMessage.mockRejectedValueOnce(
         internalError,
       );
-      await expect(kernel.queueMessage('ko1', 'hello', [])).rejects.toThrow(
-        'internal kernel error',
-      );
+      await expect(
+        kernel.queueMessage(asKRef('ko1'), 'hello', []),
+      ).rejects.toThrow('internal kernel error');
     });
   });
 
@@ -299,6 +419,7 @@ describe('Kernel', () => {
         subclusterId: 's1',
         bootstrapResult: { body: '{"result":"ok"}', slots: [] },
         rootKref: expect.stringMatching(/^ko\d+$/u),
+        vatRootKrefs: { alice: expect.stringMatching(/^ko\d+$/u) },
       });
     });
   });
@@ -320,7 +441,7 @@ describe('Kernel', () => {
       const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
-      const subclusterId = firstSubcluster?.id as string;
+      const subclusterId = firstSubcluster?.id as SubclusterId;
       expect(subclusterId).toBeDefined();
       await kernel.terminateSubcluster(subclusterId);
       expect(terminateWorkerMock).toHaveBeenCalledTimes(2);
@@ -333,9 +454,9 @@ describe('Kernel', () => {
         mockPlatformServices,
         mockKernelDatabase,
       );
-      await expect(kernel.terminateSubcluster('non-existent')).rejects.toThrow(
-        'Subcluster does not exist.',
-      );
+      await expect(
+        kernel.terminateSubcluster('non-existent' as SubclusterId),
+      ).rejects.toThrow('Subcluster does not exist.');
     });
   });
 
@@ -350,7 +471,7 @@ describe('Kernel', () => {
       const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
-      const subclusterId = firstSubcluster?.id as string;
+      const subclusterId = firstSubcluster?.id as SubclusterId;
       expect(subclusterId).toBeDefined();
       const subcluster = kernel.getSubcluster(subclusterId);
       expect(subcluster).toBeDefined();
@@ -363,7 +484,7 @@ describe('Kernel', () => {
         mockKernelDatabase,
       );
       // Use valid subcluster ID format (s + number) that doesn't exist
-      expect(kernel.getSubcluster('s999')).toBeUndefined();
+      expect(kernel.getSubcluster(asSubclusterId('s999'))).toBeUndefined();
     });
   });
 
@@ -378,11 +499,13 @@ describe('Kernel', () => {
       const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
-      const subclusterId = firstSubcluster?.id as string;
+      const subclusterId = firstSubcluster?.id as SubclusterId;
       expect(subclusterId).toBeDefined();
-      expect(kernel.isVatInSubcluster('v1', subclusterId)).toBe(true);
+      expect(kernel.isVatInSubcluster(asVatId('v1'), subclusterId)).toBe(true);
       // Use valid subcluster ID format (s + number) that doesn't match
-      expect(kernel.isVatInSubcluster('v1', 's999')).toBe(false);
+      expect(
+        kernel.isVatInSubcluster(asVatId('v1'), asSubclusterId('s999')),
+      ).toBe(false);
     });
   });
 
@@ -403,7 +526,7 @@ describe('Kernel', () => {
       const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
-      const subclusterId = firstSubcluster?.id as string;
+      const subclusterId = firstSubcluster?.id as SubclusterId;
       expect(subclusterId).toBeDefined();
       const vatIds = kernel.getSubclusterVats(subclusterId);
       expect(vatIds).toStrictEqual(['v1', 'v2']);
@@ -419,6 +542,17 @@ describe('Kernel', () => {
       const clearSpy = vi.spyOn(mockKernelDatabase, 'clear');
       await kernel.clearStorage();
       expect(clearSpy).toHaveBeenCalledOnce();
+    });
+
+    it("discards the peers' arrivals", async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.clearStorage();
+      expect(
+        mocks.KernelQueue.lastInstance.discardArrivals,
+      ).toHaveBeenCalledOnce();
     });
   });
 
@@ -505,9 +639,73 @@ describe('Kernel', () => {
       expect(status).toStrictEqual({
         vats: [],
         subclusters: [],
+        runLoop: { state: 'running' },
         remoteComms: {
           state: 'disconnected',
         },
+      });
+      // A healthy status must not race an in-flight crank.
+      expect(
+        mocks.KernelQueue.lastInstance.waitForCrank,
+      ).toHaveBeenCalledOnce();
+    });
+
+    it('reports a run loop that dies while waiting for the crank', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      const queue = mocks.KernelQueue.lastInstance;
+      // An in-flight crank is exactly when the loop is most likely to die.
+      queue.waitForCrank.mockImplementationOnce(async () => {
+        queue.killRunLoop(new Error('died mid-crank'));
+      });
+
+      expect((await kernel.getStatus()).runLoop).toStrictEqual({
+        state: 'failed',
+        error: 'died mid-crank',
+        detail: expect.stringContaining('died mid-crank'),
+      });
+    });
+
+    it('reports the kernel as failed once the run loop dies', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      expect((await kernel.getStatus()).runLoop).toStrictEqual({
+        state: 'running',
+      });
+
+      mocks.KernelQueue.lastInstance.killRunLoop(new Error('run loop boom'));
+      await waitUntilQuiescent();
+
+      const status = await kernel.getStatus();
+      expect(status.runLoop).toStrictEqual({
+        state: 'failed',
+        error: 'run loop boom',
+        detail: expect.stringContaining('run loop boom'),
+      });
+      // The vats are still in the store, but nothing is delivering to them.
+      expect(status.vats).toHaveLength(1);
+    });
+
+    it('reports a failed run loop without waiting for the crank to finish', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      const { waitForCrank } = mocks.KernelQueue.lastInstance;
+      // A crank that never finishes, as when the run loop died mid-crank.
+      waitForCrank.mockReturnValue(new Promise(() => undefined));
+      mocks.KernelQueue.lastInstance.killRunLoop(new Error('run loop boom'));
+      await waitUntilQuiescent();
+
+      expect((await kernel.getStatus()).runLoop).toStrictEqual({
+        state: 'failed',
+        error: 'run loop boom',
+        detail: expect.stringContaining('run loop boom'),
       });
     });
 
@@ -554,6 +752,43 @@ describe('Kernel', () => {
   });
 
   describe('terminateVat()', () => {
+    it.each([
+      { method: 'clearStorage', message: 'Kernel storage was cleared' },
+      { method: 'reset', message: 'Kernel was reset' },
+      { method: 'stop', message: 'Kernel was stopped' },
+    ] as const)(
+      'rejects a queued termination on $method',
+      async ({ method, message }) => {
+        const kernel = await Kernel.make(
+          mockPlatformServices,
+          mockKernelDatabase,
+        );
+        await kernel.launchSubcluster(makeSingleVatClusterConfig());
+        mocks.KernelQueue.lastInstance.enqueueTerminateVat.mockImplementationOnce(
+          () => undefined,
+        );
+
+        const terminating = kernel.terminateVat(asVatId('v1'));
+        await kernel[method]();
+
+        await expect(terminating).rejects.toThrow(message);
+      },
+    );
+
+    it('asks the run loop to terminate the vat', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+
+      await kernel.terminateVat(asVatId('v1'));
+
+      expect(
+        mocks.KernelQueue.lastInstance.enqueueTerminateVat,
+      ).toHaveBeenCalledWith('v1', undefined);
+    });
+
     it('deletes a vat from the kernel without errors when the vat exists', async () => {
       const kernel = await Kernel.make(
         mockPlatformServices,
@@ -561,7 +796,7 @@ describe('Kernel', () => {
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
-      await kernel.terminateVat('v1');
+      await kernel.terminateVat(asVatId('v1'));
       expect(vatHandles[0]?.terminate).toHaveBeenCalledOnce();
       expect(terminateWorkerMock).toHaveBeenCalledOnce();
       expect(kernel.getVatIds()).toStrictEqual([]);
@@ -572,23 +807,24 @@ describe('Kernel', () => {
         mockPlatformServices,
         mockKernelDatabase,
       );
-      const nonExistentVatId: VatId = 'v9';
+      const nonExistentVatId = asVatId('v9');
       await expect(async () =>
         kernel.terminateVat(nonExistentVatId),
       ).rejects.toThrow(VatNotFoundError);
       expect(vatHandles).toHaveLength(0);
     });
 
-    it('throws an error when a vat terminate method throws', async () => {
+    it('terminates a vat whose channel will not close', async () => {
       const kernel = await Kernel.make(
         mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       vatHandles[0]?.terminate.mockRejectedValueOnce('Test error');
-      await expect(async () => kernel.terminateVat('v1')).rejects.toThrow(
-        'Test error',
-      );
+
+      await kernel.terminateVat(asVatId('v1'));
+
+      expect(kernel.getVatIds()).toStrictEqual([]);
     });
   });
 
@@ -614,6 +850,17 @@ describe('Kernel', () => {
   });
 
   describe('stop()', () => {
+    it("leaves the peers' arrivals for the run loop", async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.stop();
+      expect(
+        mocks.KernelQueue.lastInstance.discardArrivals,
+      ).not.toHaveBeenCalled();
+    });
+
     it('gracefully stops the kernel without terminating vats', async () => {
       const workerTerminateAllMock = vi
         .spyOn(mockPlatformServices, 'terminateAll')
@@ -648,6 +895,47 @@ describe('Kernel', () => {
       expect(workerTerminateAllMock).toHaveBeenCalledOnce();
     });
 
+    it('tells each vat its channel is closing only once the crank it waits for has ended', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      const crank = makePromiseKit<void>();
+      mocks.KernelQueue.lastInstance.waitForCrank.mockReturnValueOnce(
+        crank.promise,
+      );
+
+      const stopping = kernel.stop();
+      await delay(0);
+      const closingEarly = vatHandles[0]?.expectClose.mock.calls.length;
+      crank.resolve();
+      await stopping;
+
+      expect({
+        closingEarly,
+        closing: vatHandles[0]?.expectClose.mock.calls.length,
+      }).toStrictEqual({ closingEarly: 0, closing: 1 });
+    });
+
+    it('tells each vat its channel is closing before stopping remote comms', async () => {
+      const stopRemoteCommsMock = vi
+        .spyOn(mockPlatformServices, 'stopRemoteComms')
+        .mockResolvedValue(undefined);
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+
+      await kernel.stop();
+
+      const [expectClose] =
+        vatHandles[0]?.expectClose.mock.invocationCallOrder ?? [];
+      const [stopRemoteComms] = stopRemoteCommsMock.mock.invocationCallOrder;
+      expect(expectClose).toBeLessThan(stopRemoteComms as number);
+    });
+
     it('waits for crank before stopping', async () => {
       const kernel = await Kernel.make(
         mockPlatformServices,
@@ -678,97 +966,112 @@ describe('Kernel', () => {
       expect(timestamp).toBeGreaterThanOrEqual(before);
       expect(timestamp).toBeLessThanOrEqual(after);
     });
-  });
 
-  describe('restartVat()', () => {
-    it('preserves vat state across multiple restarts', async () => {
+    it('releases everything even if the timestamp cannot be written', async () => {
+      const stopRemoteCommsMock = vi
+        .spyOn(mockPlatformServices, 'stopRemoteComms')
+        .mockResolvedValue(undefined);
+      const workerTerminateAllMock = vi
+        .spyOn(mockPlatformServices, 'terminateAll')
+        .mockResolvedValue(undefined);
+      const closeSpy = vi.spyOn(mockKernelDatabase, 'close');
+      const logger = new Logger('test');
+      const logErrorSpy = vi.spyOn(logger, 'error');
       const kernel = await Kernel.make(
         mockPlatformServices,
         mockKernelDatabase,
+        { logger },
       );
-      await kernel.launchSubcluster(makeSingleVatClusterConfig());
-      await kernel.restartVat('v1');
-      expect(kernel.getVatIds()).toStrictEqual(['v1']);
-      await kernel.restartVat('v1');
-      expect(kernel.getVatIds()).toStrictEqual(['v1']);
-      expect(vatHandles).toHaveLength(3); // Three instances created
-      expect(vatHandles[0]?.terminate).toHaveBeenCalledTimes(1);
-      expect(vatHandles[1]?.terminate).toHaveBeenCalledTimes(1);
-      expect(vatHandles[2]?.terminate).not.toHaveBeenCalled();
-      expect(launchWorkerMock).toHaveBeenCalledTimes(3); // initial + 2 restarts
-      expect(launchWorkerMock).toHaveBeenLastCalledWith(
-        'v1',
-        makeMockVatConfig(),
+      const refusal = new Error('refusing further writes on this connection');
+      vi.spyOn(mockKernelDatabase.kernelKVStore, 'set').mockImplementation(
+        () => {
+          throw refusal;
+        },
+      );
+
+      await kernel.stop();
+
+      expect(stopRemoteCommsMock).toHaveBeenCalledOnce();
+      expect(workerTerminateAllMock).toHaveBeenCalledOnce();
+      expect(closeSpy).toHaveBeenCalledOnce();
+      expect(logErrorSpy).toHaveBeenCalledWith(
+        'could not record last active time',
+        refusal,
       );
     });
+  });
 
+  describe('restartVat()', () => {
     it('restarts a vat', async () => {
       const kernel = await Kernel.make(
         mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
-      expect(kernel.getVatIds()).toStrictEqual(['v1']);
-      await kernel.restartVat('v1');
+
+      const returnedHandle = await kernel.restartVat(asVatId('v1'));
+
+      expect(
+        mocks.KernelQueue.lastInstance.enqueueRestartVat,
+      ).toHaveBeenCalledWith('v1');
       expect(vatHandles[0]?.terminate).toHaveBeenCalledOnce();
       expect(terminateWorkerMock).toHaveBeenCalledOnce();
       expect(launchWorkerMock).toHaveBeenCalledTimes(2);
-      expect(launchWorkerMock).toHaveBeenLastCalledWith(
-        'v1',
-        makeMockVatConfig(),
-      );
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
-      expect(makeVatHandleMock).toHaveBeenCalledTimes(2);
+      expect(returnedHandle).toBe(vatHandles[1]);
     });
+
+    it('rejects its caller when the run loop dies first', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      const queue = mocks.KernelQueue.lastInstance;
+      queue.enqueueRestartVat.mockImplementationOnce(() => undefined);
+
+      const restarting = kernel.restartVat(asVatId('v1'));
+      queue.killRunLoop(new Error('run loop boom'));
+
+      await expect(restarting).rejects.toThrow('run loop boom');
+    });
+
+    it.each([
+      { method: 'clearStorage', message: 'Kernel storage was cleared' },
+      { method: 'reset', message: 'Kernel was reset' },
+      { method: 'stop', message: 'Kernel was stopped' },
+    ] as const)(
+      'rejects a queued restart on $method',
+      async ({ method, message }) => {
+        const kernel = await Kernel.make(
+          mockPlatformServices,
+          mockKernelDatabase,
+        );
+        await kernel.launchSubcluster(makeSingleVatClusterConfig());
+        mocks.KernelQueue.lastInstance.enqueueRestartVat.mockImplementationOnce(
+          () => undefined,
+        );
+
+        const restarting = kernel.restartVat(asVatId('v1'));
+        await kernel[method]();
+
+        await expect(restarting).rejects.toThrow(message);
+      },
+    );
 
     it('throws error when restarting non-existent vat', async () => {
       const kernel = await Kernel.make(
         mockPlatformServices,
         mockKernelDatabase,
       );
-      await expect(kernel.restartVat('v999')).rejects.toThrow(VatNotFoundError);
+      await expect(kernel.restartVat(asVatId('v999'))).rejects.toThrow(
+        VatNotFoundError,
+      );
       expect(vatHandles).toHaveLength(0);
       expect(launchWorkerMock).not.toHaveBeenCalled();
-    });
-
-    it('handles restart failure during termination', async () => {
-      const kernel = await Kernel.make(
-        mockPlatformServices,
-        mockKernelDatabase,
-      );
-      await kernel.launchSubcluster(makeSingleVatClusterConfig());
-      vatHandles[0]?.terminate.mockRejectedValueOnce(
-        new Error('Termination failed'),
-      );
-      await expect(kernel.restartVat('v1')).rejects.toThrow(
-        'Termination failed',
-      );
-      expect(launchWorkerMock).toHaveBeenCalledTimes(1);
-    });
-
-    it('handles restart failure during launch', async () => {
-      const kernel = await Kernel.make(
-        mockPlatformServices,
-        mockKernelDatabase,
-      );
-      await kernel.launchSubcluster(makeSingleVatClusterConfig());
-      launchWorkerMock.mockRejectedValueOnce(new Error('Launch failed'));
-      await expect(kernel.restartVat('v1')).rejects.toThrow('Launch failed');
-      expect(vatHandles[0]?.terminate).toHaveBeenCalledOnce();
-      expect(kernel.getVatIds()).toStrictEqual([]);
-    });
-
-    it('returns the new vat handle', async () => {
-      const kernel = await Kernel.make(
-        mockPlatformServices,
-        mockKernelDatabase,
-      );
-      await kernel.launchSubcluster(makeSingleVatClusterConfig());
-      const originalHandle = vatHandles[0];
-      const returnedHandle = await kernel.restartVat('v1');
-      expect(returnedHandle).not.toBe(originalHandle);
-      expect(returnedHandle).toBe(vatHandles[1]);
-      expect(returnedHandle.vatId).toBe('v1');
+      expect(
+        mocks.KernelQueue.lastInstance.enqueueRestartVat,
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -780,7 +1083,7 @@ describe('Kernel', () => {
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       vatHandles[0]?.ping.mockResolvedValueOnce('pong');
-      const result = await kernel.pingVat('v1');
+      const result = await kernel.pingVat(asVatId('v1'));
       expect(vatHandles[0]?.ping).toHaveBeenCalledTimes(1);
       expect(result).toBe('pong');
     });
@@ -790,7 +1093,7 @@ describe('Kernel', () => {
         mockPlatformServices,
         mockKernelDatabase,
       );
-      const nonExistentVatId: VatId = 'v9';
+      const nonExistentVatId = asVatId('v9');
       await expect(async () =>
         kernel.pingVat(nonExistentVatId),
       ).rejects.toThrow(VatNotFoundError);
@@ -804,7 +1107,9 @@ describe('Kernel', () => {
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       const pingError = new Error('Ping failed');
       vatHandles[0]?.ping.mockRejectedValueOnce(pingError);
-      await expect(async () => kernel.pingVat('v1')).rejects.toThrow(pingError);
+      await expect(async () => kernel.pingVat(asVatId('v1'))).rejects.toThrow(
+        pingError,
+      );
     });
   });
 
@@ -817,6 +1122,17 @@ describe('Kernel', () => {
       await kernel.reset();
       expect(clearSpy).toHaveBeenCalled();
       expect(kernel.getVatIds()).toHaveLength(0);
+    });
+
+    it("discards the peers' arrivals", async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        makeMapKernelDatabase(),
+      );
+      await kernel.reset();
+      expect(
+        mocks.KernelQueue.lastInstance.discardArrivals,
+      ).toHaveBeenCalledOnce();
     });
 
     it('clears system subcluster roots', async () => {
@@ -868,6 +1184,117 @@ describe('Kernel', () => {
       expect(logErrorSpy).toHaveBeenCalledWith(
         'Error resetting kernel:',
         new Error('test error'),
+      );
+    });
+  });
+
+  describe('run loop failure', () => {
+    it('logs and notifies the embedder when the run loop dies', async () => {
+      const logger = new Logger('test');
+      const logErrorSpy = vi.spyOn(logger, 'error');
+      const onRunLoopFailure = vi.fn();
+      await Kernel.make(mockPlatformServices, mockKernelDatabase, {
+        logger,
+        onRunLoopFailure,
+      });
+      const failure = new Error('run loop boom');
+
+      mocks.KernelQueue.lastInstance.killRunLoop(failure);
+      await waitUntilQuiescent();
+
+      expect(logErrorSpy).toHaveBeenCalledWith(
+        'Run loop died; the kernel can no longer process messages and must be restarted:',
+        failure,
+      );
+      expect(onRunLoopFailure).toHaveBeenCalledWith(failure);
+    });
+
+    it('does not hand the kernel to the failure handler as its receiver', async () => {
+      let gotAReceiver = true;
+      await Kernel.make(mockPlatformServices, mockKernelDatabase, {
+        onRunLoopFailure: function onRunLoopFailure(this: unknown): void {
+          gotAReceiver = this !== undefined;
+        },
+      });
+
+      mocks.KernelQueue.lastInstance.killRunLoop(new Error('run loop boom'));
+      await waitUntilQuiescent();
+
+      expect(gotAReceiver).toBe(false);
+    });
+
+    // `run` rejects with the same object its status reports, so re-wrapping here
+    // would leave the embedder and `getStatus` describing two different errors.
+    it('hands the embedder the error the run loop died with, unwrapped', async () => {
+      const onRunLoopFailure = vi.fn();
+      await Kernel.make(mockPlatformServices, mockKernelDatabase, {
+        onRunLoopFailure,
+      });
+      const failure = new Error('run loop boom');
+
+      mocks.KernelQueue.lastInstance.killRunLoop(failure);
+      await waitUntilQuiescent();
+
+      expect(onRunLoopFailure).toHaveBeenCalledOnce();
+      expect(onRunLoopFailure.mock.calls[0]?.[0]).toBe(failure);
+    });
+
+    // The handler slot returns void, but TypeScript admits anything thenable
+    // there, and an escaping rejection is what the containment exists to stop.
+    it.each([
+      {
+        kind: 'an async handler',
+        makeHandler: (handlerError: Error) => async (): Promise<never> => {
+          throw handlerError;
+        },
+      },
+      {
+        kind: 'a non-native thenable',
+        makeHandler: (handlerError: Error) => (): PromiseLike<void> => ({
+          then: (_onFulfilled, onRejected) =>
+            onRejected?.(handlerError) as PromiseLike<never>,
+        }),
+      },
+    ])(
+      'logs a failure handler that rejects, given $kind',
+      async ({ makeHandler }) => {
+        const logger = new Logger('test');
+        const logErrorSpy = vi.spyOn(logger, 'error');
+        const handlerError = new Error('handler boom');
+        await Kernel.make(mockPlatformServices, mockKernelDatabase, {
+          logger,
+          onRunLoopFailure: makeHandler(
+            handlerError,
+          ) as unknown as OnRunLoopFailure,
+        });
+
+        mocks.KernelQueue.lastInstance.killRunLoop(new Error('run loop boom'));
+        await waitUntilQuiescent();
+
+        expect(logErrorSpy).toHaveBeenCalledWith(
+          'Run loop failure handler rejected:',
+          handlerError,
+        );
+      },
+    );
+
+    it('logs a failure handler that throws', async () => {
+      const logger = new Logger('test');
+      const logErrorSpy = vi.spyOn(logger, 'error');
+      const handlerError = new Error('handler boom');
+      await Kernel.make(mockPlatformServices, mockKernelDatabase, {
+        logger,
+        onRunLoopFailure: () => {
+          throw handlerError;
+        },
+      });
+
+      mocks.KernelQueue.lastInstance.killRunLoop(new Error('run loop boom'));
+      await waitUntilQuiescent();
+
+      expect(logErrorSpy).toHaveBeenCalledWith(
+        'Run loop failure handler threw:',
+        handlerError,
       );
     });
   });
@@ -993,9 +1420,9 @@ describe('Kernel', () => {
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
-      expect(kernel.isRevoked('ko1')).toBe(false);
-      kernel.revoke('ko1');
-      expect(kernel.isRevoked('ko1')).toBe(true);
+      expect(kernel.isRevoked(asKRef('ko1'))).toBe(false);
+      kernel.revoke(asKRef('ko1'));
+      expect(kernel.isRevoked(asKRef('ko1'))).toBe(true);
     });
 
     it('throws when revoking a promise', async () => {
@@ -1004,7 +1431,7 @@ describe('Kernel', () => {
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
-      expect(() => kernel.revoke('kp1')).toThrow(Error);
+      expect(() => kernel.revoke(asKRef('kp1'))).toThrow(Error);
     });
   });
 
@@ -1017,17 +1444,75 @@ describe('Kernel', () => {
       const config = makeSingleVatClusterConfig();
       await kernel.launchSubcluster(config);
       // Pinning existing vat root should return the kref
-      expect(kernel.pinVatRoot('v1')).toBe('ko4');
+      expect(kernel.pinVatRoot(asVatId('v1'))).toBe('ko4');
       // Pinning non-existent vat should throw
-      expect(() => kernel.pinVatRoot('v2')).toThrow(VatNotFoundError);
+      expect(() => kernel.pinVatRoot(asVatId('v2'))).toThrow(VatNotFoundError);
       // Unpinning existing vat root should succeed
-      expect(() => kernel.unpinVatRoot('v1')).not.toThrow();
+      expect(() => kernel.unpinVatRoot(asVatId('v1'))).not.toThrow();
       // Unpinning non-existent vat should throw
-      expect(() => kernel.unpinVatRoot('v3')).toThrow(VatNotFoundError);
+      expect(() => kernel.unpinVatRoot(asVatId('v3'))).toThrow(
+        VatNotFoundError,
+      );
     });
   });
 
   describe('remote communications', () => {
+    it('holds GC actions back for a remote with no handle', async () => {
+      await Kernel.make(mockPlatformServices, mockKernelDatabase);
+      mocks.RemoteManager.lastInstance.hasRemote.mockImplementation(
+        (remoteId: string) => remoteId === 'r2',
+      );
+      const isOffline =
+        mocks.KernelQueue.lastInstance.run.mock.calls[0]?.[1]?.isOffline;
+
+      expect(
+        (['r1', 'r2', 'v1'] as EndpointId[]).map((endpointId) =>
+          isOffline?.(endpointId),
+        ),
+      ).toStrictEqual([true, false, false]);
+    });
+
+    describe('initRemoteComms()', () => {
+      it('wakes the run loop for GC actions once the remotes are up', async () => {
+        const kernel = await Kernel.make(
+          mockPlatformServices,
+          mockKernelDatabase,
+        );
+        let remotesUp = false;
+        mocks.RemoteManager.lastInstance.initRemoteComms.mockImplementationOnce(
+          async () => {
+            await Promise.resolve();
+            remotesUp = true;
+          },
+        );
+        const remotesUpAtRecheck: boolean[] = [];
+        mocks.KernelQueue.lastInstance.recheckGCActions.mockImplementationOnce(
+          () => remotesUpAtRecheck.push(remotesUp),
+        );
+
+        await kernel.initRemoteComms();
+
+        expect(remotesUpAtRecheck).toStrictEqual([true]);
+      });
+
+      it('wakes the run loop even when restoring the remotes fails', async () => {
+        const kernel = await Kernel.make(
+          mockPlatformServices,
+          mockKernelDatabase,
+        );
+        mocks.RemoteManager.lastInstance.initRemoteComms.mockRejectedValueOnce(
+          new Error('restore failed'),
+        );
+
+        await expect(kernel.initRemoteComms()).rejects.toThrow(
+          'restore failed',
+        );
+        expect(
+          mocks.KernelQueue.lastInstance.recheckGCActions,
+        ).toHaveBeenCalledOnce();
+      });
+    });
+
     describe('closeConnection()', () => {
       it('closes connection via RemoteManager', async () => {
         const kernel = await Kernel.make(

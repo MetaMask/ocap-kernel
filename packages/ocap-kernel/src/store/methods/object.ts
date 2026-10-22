@@ -13,16 +13,17 @@ import { makeKernelSlot } from '../utils/kernel-slots.ts';
  * @returns An object store object that maps various persistent kernel data
  * structures onto `kv`.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// oxlint-disable-next-line typescript/explicit-function-return-type
 export function getObjectMethods(ctx: StoreContext) {
   const { getSlotKey, incCounter, refCountKey, getOwnerKey, getRevokedKey } =
     getBaseMethods(ctx.kv);
 
   /**
-   * Create a new kernel object.  The new object will be born with reference and
-   * recognizability counts of 1, on the assumption that the new object
-   * corresponds to an object that has just been imported from somewhere. The
-   * object is initially unrevoked.
+   * Create a new kernel object, born unreferenced at `(0, 0)`. Every unit of
+   * an object's counts is owed to a reference someone else holds — an
+   * importer's c-list entry, a queued message, a promise's resolution value, a
+   * pin — and the owner's own export entry is not one of them. The object is
+   * initially unrevoked.
    *
    * @param owner - The endpoint or 'kernel' that is the owner of the new object.
    * @returns The new object's KRef.
@@ -30,7 +31,7 @@ export function getObjectMethods(ctx: StoreContext) {
   function initKernelObject(owner: EndpointId | 'kernel'): KRef {
     const koId = getNextObjectId();
     ctx.kv.set(getOwnerKey(koId), owner);
-    setObjectRefCount(koId, { reachable: 1, recognizable: 1 });
+    setObjectRefCount(koId, { reachable: 0, recognizable: 0 });
     return koId;
   }
 

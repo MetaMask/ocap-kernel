@@ -18,13 +18,13 @@ jobs:
       skip-merge-queue: ${{ steps.check-skip-merge-queue.outputs.up-to-date }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: github.event_name == 'merge_group'
 
       - name: Check pull request merge queue status
         id: check-skip-merge-queue
         if: github.event_name == 'merge_group'
-        uses: MetaMask/github-tools/.github/actions/check-skip-merge-queue@v1
+        uses: MetaMask/github-tools/.github/actions/check-skip-merge-queue@b1b556ff7ab5b6054698d078c661a7b149b8609e # v1
 
   detect-changes:
     name: Detect changes
@@ -34,7 +34,7 @@ jobs:
       has-ci: ${{ steps.changes.outputs.has-ci }}
       has-lint-targets: ${{ steps.changes.outputs.has-lint-targets }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - name: Detect change categories
@@ -69,7 +69,7 @@ jobs:
             [[ -z "$file" ]] && continue
 
             case "$file" in
-              # CI workflow files (also lint-worthy for prettier on .yml)
+              # CI workflow files (also lint-worthy for oxfmt on .yml)
               .github/workflows/*)
                 HAS_CI=true
                 HAS_LINT_TARGETS=true
@@ -80,12 +80,13 @@ jobs:
                 HAS_CODE=true
                 HAS_LINT_TARGETS=true
                 ;;
-              # Documentation (lint-worthy for prettier, but not code)
+              # Documentation (lint-worthy for oxfmt, but not code)
               *.md|*.txt|docs/*|LICENSE*)
                 HAS_LINT_TARGETS=true
                 ;;
-              # Config/tooling (lint-worthy but not code)
-              .eslintrc*|.prettierrc*|.editorconfig|.gitignore|.gitattributes|.nvmrc|.yarnrc*)
+              # Config/tooling (lint-worthy but not code). The oxfmt config is
+              # a build input (repo-tools formats HTML with it), so it counts as code.
+              .oxlintrc*|oxlint.config.*|.editorconfig|.gitignore|.gitattributes|.nvmrc|.yarnrc*)
                 HAS_LINT_TARGETS=true
                 ;;
               # Everything else is code (source, tests, package.json, tsconfig, lockfile, etc.)
@@ -121,7 +122,7 @@ jobs:
       (github.event_name != 'merge_group' || needs.check-skip-merge-queue.outputs.skip-merge-queue != 'true')
       && (needs.detect-changes.outputs.has-ci == 'true' || needs.detect-changes.outputs.has-code == 'true')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Download actionlint
         id: download-actionlint
         run: bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/7fdc9630cc360ea1a469eed64ac6d78caeda1234/scripts/download-actionlint.bash) 1.6.25
@@ -129,23 +130,6 @@ jobs:
       - name: Check workflow files
         run: ${{ steps.download-actionlint.outputs.executable }} -color
         shell: bash
-
-  analyse-code:
-    name: Code scanner
-    needs: [check-skip-merge-queue, check-workflows, detect-changes]
-    if: |
-      always()
-      && needs.check-skip-merge-queue.outputs.skip-merge-queue != 'true'
-      && needs.detect-changes.outputs.has-code == 'true'
-      && needs.check-workflows.result != 'failure'
-    uses: ./.github/workflows/security-code-scanner.yml
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    secrets:
-      SECURITY_SCAN_METRICS_TOKEN: ${{ secrets.SECURITY_SCAN_METRICS_TOKEN }}
-      APPSEC_BOT_SLACK_WEBHOOK: ${{ secrets.APPSEC_BOT_SLACK_WEBHOOK }}
 
   lint-build-test:
     name: Lint, build, and test
@@ -167,7 +151,7 @@ jobs:
         node-version: [24.x]
     steps:
       - name: Checkout and setup environment
-        uses: MetaMask/action-checkout-and-setup@v3
+        uses: MetaMask/action-checkout-and-setup@0543b5929698c71e3ccc6ed24eac87825669b5de # v3
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
@@ -194,13 +178,13 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/publish-gh-pages.yml
     with:
-      publish_dir: ./coverage
       destination_dir: coverage
       artifact_name: coverage
+    # A called workflow's jobs cannot request more than the caller grants, and
+    # an enumerated block sets every unlisted scope to `none`.
     permissions:
-      contents: write
-    secrets:
-      PUBLISH_DOCS_TOKEN: ${{ secrets.PUBLISH_DOCS_TOKEN }}
+      pages: write
+      id-token: write
 
   is-release:
     name: Determine whether this is a release merge commit
@@ -211,7 +195,7 @@ jobs:
       IS_RELEASE: ${{ steps.is-release.outputs.IS_RELEASE }}
     steps:
       - id: is-release
-        uses: MetaMask/action-is-release@61ff8882da996cb68cdbc8583dc53956a1ffdd8b
+        uses: MetaMask/action-is-release@3cd51b98fa98d1347d06f5961299b0172ee31ae8 # v2
         with:
           commit-starts-with: 'Release [version],Release v[version],Release/[version],Release/v[version],Release `[version]`'
 
@@ -219,12 +203,14 @@ jobs:
     name: Publish release
     needs: is-release
     if: needs.is-release.outputs.IS_RELEASE == 'true'
+    # A called workflow's jobs cannot request more than the caller grants, and
+    # an enumerated block sets every unlisted scope to `none`.
     permissions:
       contents: write
+      id-token: write
     uses: ./.github/workflows/publish-release.yml
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   all-jobs-complete:
     name: All jobs complete
@@ -234,7 +220,6 @@ jobs:
       - detect-changes
       - check-skip-merge-queue
       - check-workflows
-      - analyse-code
       - lint-build-test
       - lint-only
     outputs:
@@ -247,7 +232,6 @@ jobs:
             detect-changes=${{ needs.detect-changes.result }}
             check-skip-merge-queue=${{ needs.check-skip-merge-queue.result }}
             check-workflows=${{ needs.check-workflows.result }}
-            analyse-code=${{ needs.analyse-code.result }}
             lint-build-test=${{ needs.lint-build-test.result }}
             lint-only=${{ needs.lint-only.result }}
         run: |

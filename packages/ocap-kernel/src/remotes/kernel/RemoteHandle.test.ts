@@ -1,24 +1,24 @@
 import type { VatOneResolution } from '@agoric/swingset-liveslots';
-import type { Logger } from '@metamask/logger';
+import { Logger } from '@metamask/logger';
 import { makeAbortSignalMock } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { RemoteHandle } from './RemoteHandle.ts';
+import { asRRef, asRemoteId, asVatId } from '../../../test/branded.ts';
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
+import { makeMapKernelDatabase } from '../../../test/storage.ts';
 import type { KernelQueue } from '../../KernelQueue.ts';
+import { makeKernelStore } from '../../store/index.ts';
 import type { KernelStore } from '../../store/index.ts';
-import { parseRef } from '../../store/utils/parse-ref.ts';
-import type { EndpointMessage, RRef } from '../../types.ts';
+import type { CrankResult, ERef, EndpointMessage, RRef } from '../../types.ts';
 import type { RemoteComms } from '../types.ts';
 
 let mockKernelStore: KernelStore;
 let mockRemoteComms: RemoteComms;
 let mockKernelQueue: KernelQueue;
-const mockRemoteId = 'r0';
+const mockRemoteId = asRemoteId('r0');
 const mockRemotePeerId = 'remotePeerId';
 let mockFactory: ReturnType<typeof createMockRemotesFactory>;
-
-/* eslint-disable vitest/no-conditional-expect */
 
 /**
  * Fabricate a mock remote for testing purposes
@@ -36,6 +36,67 @@ export function makeRemote(logger?: Logger): RemoteHandle {
     remoteComms: mockRemoteComms,
     logger,
   });
+}
+
+/**
+ * Take a message off the wire and run the crank it queues, the way the kernel's
+ * message handler and the run loop do between them. A message that queues
+ * nothing — a standalone acknowledgement — is handled entirely by the first
+ * step.
+ *
+ * @param remote - The handle receiving it.
+ * @param message - The message, as it arrived.
+ */
+async function receiveAndRunCrank(
+  remote: RemoteHandle,
+  message: string,
+): Promise<void> {
+  const { calls } = vi.mocked(mockKernelQueue.acceptRemoteInbound).mock;
+  const queuedBefore = calls.length;
+  remote.receiveFromPeer(message);
+  if (calls.length === queuedBefore) {
+    return;
+  }
+  const result = await remote.deliverInbound(message);
+  await result.afterCommit?.();
+}
+
+/**
+ * Make a delivery and run the post-commit work with it, the way the run loop
+ * does. A delivery only writes its message down; the send waits for the commit.
+ *
+ * @param delivery - The delivery to make.
+ * @returns Its crank result.
+ */
+async function deliverAndCommit(
+  delivery: Promise<CrankResult>,
+): Promise<CrankResult> {
+  const result = await delivery;
+  await result.afterCommit?.();
+  await drainSends();
+  return result;
+}
+
+/**
+ * Let the outbound chain run to a standstill. Every send waits on the one
+ * before it, and the run loop does not wait for any of them, so they are still
+ * in flight when the post-commit work returns.
+ */
+async function drainSends(): Promise<void> {
+  for (let i = 0; i < 100; i += 1) {
+    await Promise.resolve();
+  }
+}
+
+/**
+ * What went to the peer, in the order it went.
+ *
+ * @returns One payload per send.
+ */
+function sentStrings(): string[] {
+  return vi
+    .mocked(mockRemoteComms.sendRemoteMessage)
+    .mock.calls.map(([, messageString]) => messageString);
 }
 
 describe('RemoteHandle', () => {
@@ -59,12 +120,14 @@ describe('RemoteHandle', () => {
 
   it('deliverMessage calls sendRemoteMessage with correct delivery message', async () => {
     const remote = makeRemote();
-    const target: RRef = 'ro+1';
+    const target = asRRef('ro+1');
     const message: EndpointMessage = {
       methargs: { body: '["method",["arg1","arg2"]]', slots: [] },
-      result: 'rp-2',
+      result: asRRef('rp-2'),
     };
-    const crankResult = await remote.deliverMessage(target, message);
+    const crankResult = await deliverAndCommit(
+      remote.deliverMessage(target, message),
+    );
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
       expect.any(String),
@@ -76,7 +139,77 @@ describe('RemoteHandle', () => {
     expect(parsed.seq).toBe(1);
     expect(parsed.method).toBe('deliver');
     expect(parsed.params).toStrictEqual(['message', target, message]);
-    expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
+    expect(crankResult).toStrictEqual({
+      didDelivery: remote.remoteId,
+      afterCommit: expect.any(Function),
+    });
+  });
+
+  it('writes the delivery down before the crank commits, and sends it after', async () => {
+    const remote = makeRemote();
+
+    const { afterCommit } = await remote.deliverMessage(asRRef('ro+1'), {
+      methargs: { body: '["m",[]]', slots: [] },
+    } as EndpointMessage);
+
+    // Persisted inside the crank, so a rollback takes it back with everything
+    // else the crank did.
+    expect(mockKernelStore.getPendingMessage(mockRemoteId, 1)).toBeDefined();
+    expect(mockRemoteComms.sendRemoteMessage).not.toHaveBeenCalled();
+
+    await afterCommit?.();
+
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledOnce();
+  });
+
+  // `afterCommit` runs after the crank's transaction has been released, so a
+  // write from it would autocommit on its own. Enforced rather than asserted
+  // in prose. The send is made to fail, because the transport's failure
+  // handling is the one part of transmitting that writes — the guard is armed
+  // only for `afterCommit`'s own execution, which is the extent the contract
+  // covers, and that handling runs detached from it.
+  it('writes nothing to the store from afterCommit', async () => {
+    const database = makeMapKernelDatabase();
+    const underlying = database.kernelKVStore;
+    let refuseWrites = false;
+    const refuse = (what: string, key: string): void => {
+      if (refuseWrites) {
+        throw Error(`afterCommit wrote the kernel store: ${what} ${key}`);
+      }
+    };
+    const kernelStore = makeKernelStore({
+      ...database,
+      kernelKVStore: {
+        ...underlying,
+        set: (key: string, value: string) => {
+          refuse('set', key);
+          underlying.set(key, value);
+        },
+        delete: (key: string) => {
+          refuse('delete', key);
+          underlying.delete(key);
+        },
+      },
+    });
+    const remote = RemoteHandle.make({
+      remoteId: mockRemoteId,
+      peerId: mockRemotePeerId,
+      kernelStore,
+      kernelQueue: mockKernelQueue,
+      remoteComms: mockRemoteComms,
+    });
+    kernelStore.initEndpoint(remote.remoteId);
+    vi.spyOn(mockRemoteComms, 'sendRemoteMessage').mockRejectedValue(
+      new Error('network is down'),
+    );
+
+    const { afterCommit } = await remote.deliverBringOutYourDead();
+    refuseWrites = true;
+
+    await afterCommit?.();
+    refuseWrites = false;
+
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledOnce();
   });
 
   it('deliverNotify calls sendRemoteMessage with correct delivery message', async () => {
@@ -85,7 +218,9 @@ describe('RemoteHandle', () => {
       ['rp-3', false, { body: '"resolved value"', slots: [] }],
     ];
 
-    const crankResult = await remote.deliverNotify(resolutions);
+    const crankResult = await deliverAndCommit(
+      remote.deliverNotify(resolutions),
+    );
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
       expect.any(String),
@@ -96,14 +231,19 @@ describe('RemoteHandle', () => {
     expect(parsed.seq).toBe(1);
     expect(parsed.method).toBe('deliver');
     expect(parsed.params).toStrictEqual(['notify', resolutions]);
-    expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
+    expect(crankResult).toStrictEqual({
+      didDelivery: remote.remoteId,
+      afterCommit: expect.any(Function),
+    });
   });
 
   it('deliverDropExports calls sendRemoteMessage with correct delivery message', async () => {
     const remote = makeRemote();
-    const rrefs: RRef[] = ['ro+4', 'ro+5'];
+    const rrefs: RRef[] = [asRRef('ro+4'), asRRef('ro+5')];
 
-    const crankResult = await remote.deliverDropExports(rrefs);
+    const crankResult = await deliverAndCommit(
+      remote.deliverDropExports(rrefs),
+    );
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
       expect.any(String),
@@ -114,14 +254,19 @@ describe('RemoteHandle', () => {
     expect(parsed.seq).toBe(1);
     expect(parsed.method).toBe('deliver');
     expect(parsed.params).toStrictEqual(['dropExports', rrefs]);
-    expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
+    expect(crankResult).toStrictEqual({
+      didDelivery: remote.remoteId,
+      afterCommit: expect.any(Function),
+    });
   });
 
   it('deliverRetireExports calls sendRemoteMessage with correct delivery message', async () => {
     const remote = makeRemote();
-    const rrefs: RRef[] = ['ro+4', 'ro+5'];
+    const rrefs: RRef[] = [asRRef('ro+4'), asRRef('ro+5')];
 
-    const crankResult = await remote.deliverRetireExports(rrefs);
+    const crankResult = await deliverAndCommit(
+      remote.deliverRetireExports(rrefs),
+    );
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
       expect.any(String),
@@ -132,14 +277,19 @@ describe('RemoteHandle', () => {
     expect(parsed.seq).toBe(1);
     expect(parsed.method).toBe('deliver');
     expect(parsed.params).toStrictEqual(['retireExports', rrefs]);
-    expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
+    expect(crankResult).toStrictEqual({
+      didDelivery: remote.remoteId,
+      afterCommit: expect.any(Function),
+    });
   });
 
   it('deliverRetireImports calls sendRemoteMessage with correct delivery message', async () => {
     const remote = makeRemote();
-    const rrefs: RRef[] = ['ro+4', 'ro+5'];
+    const rrefs: RRef[] = [asRRef('ro+4'), asRRef('ro+5')];
 
-    const crankResult = await remote.deliverRetireImports(rrefs);
+    const crankResult = await deliverAndCommit(
+      remote.deliverRetireImports(rrefs),
+    );
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
       expect.any(String),
@@ -150,14 +300,38 @@ describe('RemoteHandle', () => {
     expect(parsed.seq).toBe(1);
     expect(parsed.method).toBe('deliver');
     expect(parsed.params).toStrictEqual(['retireImports', rrefs]);
-    expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
+    expect(crankResult).toStrictEqual({
+      didDelivery: remote.remoteId,
+      afterCommit: expect.any(Function),
+    });
+  });
+
+  it.each([
+    'deliverDropExports',
+    'deliverRetireExports',
+    'deliverRetireImports',
+  ] as const)('%s goes past the pending queue capacity', async (method) => {
+    const remote = makeRemote();
+    for (let i = 0; i < 200; i += 1) {
+      await remote.deliverBringOutYourDead();
+    }
+    await expect(remote.deliverBringOutYourDead()).rejects.toThrow(
+      'pending queue at capacity',
+    );
+
+    expect(await remote[method]([asRRef('ro+4')])).toStrictEqual({
+      didDelivery: remote.remoteId,
+      afterCommit: expect.any(Function),
+    });
   });
 
   describe('bringOutYourDead', () => {
     it('sends BOYD delivery to remote when locally triggered', async () => {
       const remote = makeRemote();
 
-      const crankResult = await remote.deliverBringOutYourDead();
+      const crankResult = await deliverAndCommit(
+        remote.deliverBringOutYourDead(),
+      );
       expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
         mockRemotePeerId,
         expect.any(String),
@@ -170,7 +344,10 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['bringOutYourDead'],
       });
-      expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
+      expect(crankResult).toStrictEqual({
+        didDelivery: remote.remoteId,
+        afterCommit: expect.any(Function),
+      });
     });
 
     it('handles incoming BOYD by scheduling reap', async () => {
@@ -181,9 +358,8 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['bringOutYourDead'],
       });
-      const reply = await remote.handleRemoteMessage(delivery);
+      await receiveAndRunCrank(remote, delivery);
 
-      expect(reply).toBeNull();
       // Verify reap was scheduled by checking the reap queue
       expect(mockKernelStore.nextReapAction()).toStrictEqual({
         type: 'bringOutYourDead',
@@ -191,11 +367,62 @@ describe('RemoteHandle', () => {
       });
     });
 
+    it('lets the queue refuse an arrival for a dead run loop', () => {
+      const remote = makeRemote();
+      const failure = new Error('Kernel run loop died; cannot accept it');
+      vi.mocked(mockKernelQueue.acceptRemoteInbound).mockImplementation(() => {
+        throw failure;
+      });
+
+      expect(() =>
+        remote.receiveFromPeer(
+          JSON.stringify({
+            seq: 1,
+            method: 'deliver',
+            params: ['bringOutYourDead'],
+          }),
+        ),
+      ).toThrow(failure);
+    });
+
+    it('hands the queue the sender and the highest seq committed', async () => {
+      const remote = makeRemote();
+      const notify = (seq: number): string =>
+        JSON.stringify({ seq, method: 'deliver', params: ['notify', []] });
+      await receiveAndRunCrank(remote, notify(1));
+
+      remote.receiveFromPeer(notify(2));
+
+      expect(mockKernelQueue.acceptRemoteInbound).toHaveBeenLastCalledWith({
+        remoteId: mockRemoteId,
+        peerId: mockRemotePeerId,
+        seq: 2,
+        message: notify(2),
+        highestReceivedSeq: 1,
+      });
+    });
+
+    it('warns of an arrival the queue refuses', () => {
+      const logger = new Logger('test');
+      const warn = vi.spyOn(logger, 'warn');
+      const remote = makeRemote(logger);
+      vi.mocked(mockKernelQueue.acceptRemoteInbound).mockReturnValueOnce(false);
+
+      remote.receiveFromPeer(
+        JSON.stringify({ seq: 7, method: 'deliver', params: ['notify', []] }),
+      );
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('refused message seq=7'),
+      );
+    });
+
     it('does not send BOYD back when remotely triggered (ping-pong prevention)', async () => {
       const remote = makeRemote();
 
       // Receive BOYD from remote
-      await remote.handleRemoteMessage(
+      await receiveAndRunCrank(
+        remote,
         JSON.stringify({
           seq: 1,
           method: 'deliver',
@@ -204,7 +431,9 @@ describe('RemoteHandle', () => {
       );
 
       // Now local kernel calls deliverBringOutYourDead - should NOT send back
-      const crankResult = await remote.deliverBringOutYourDead();
+      const crankResult = await deliverAndCommit(
+        remote.deliverBringOutYourDead(),
+      );
       expect(mockRemoteComms.sendRemoteMessage).not.toHaveBeenCalled();
       expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
     });
@@ -213,7 +442,8 @@ describe('RemoteHandle', () => {
       const remote = makeRemote();
 
       // Receive BOYD from remote
-      await remote.handleRemoteMessage(
+      await receiveAndRunCrank(
+        remote,
         JSON.stringify({
           seq: 1,
           method: 'deliver',
@@ -222,11 +452,11 @@ describe('RemoteHandle', () => {
       );
 
       // First local BOYD - suppressed
-      await remote.deliverBringOutYourDead();
+      await deliverAndCommit(remote.deliverBringOutYourDead());
       expect(mockRemoteComms.sendRemoteMessage).not.toHaveBeenCalled();
 
       // Second local BOYD - should send normally (flag was cleared)
-      await remote.deliverBringOutYourDead();
+      await deliverAndCommit(remote.deliverBringOutYourDead());
       expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
         mockRemotePeerId,
         expect.any(String),
@@ -250,7 +480,8 @@ describe('RemoteHandle', () => {
       const resolutions: VatOneResolution[] = [
         [promiseRRef, false, { body: '"resolved value"', slots: [] }],
       ];
-      await remote.handleRemoteMessage(
+      await receiveAndRunCrank(
+        remote,
         JSON.stringify({
           seq: 3,
           method: 'deliver',
@@ -259,12 +490,12 @@ describe('RemoteHandle', () => {
       );
 
       // Send a non-BOYD message first to consume seq 1
-      await remote.deliverNotify([
-        ['rp+1', false, { body: '"value"', slots: [] }],
-      ]);
+      await deliverAndCommit(
+        remote.deliverNotify([['rp+1', false, { body: '"value"', slots: [] }]]),
+      );
 
       // Now send BOYD - should get seq 2 with ack 3
-      await remote.deliverBringOutYourDead();
+      await deliverAndCommit(remote.deliverBringOutYourDead());
 
       const { calls } = vi.mocked(mockRemoteComms.sendRemoteMessage).mock;
       // Second call is the BOYD (first was the notify)
@@ -280,7 +511,7 @@ describe('RemoteHandle', () => {
     it('persists BOYD message for retransmission', async () => {
       const remote = makeRemote();
 
-      await remote.deliverBringOutYourDead();
+      await deliverAndCommit(remote.deliverBringOutYourDead());
 
       // Verify message was persisted
       const pendingMsgString = mockKernelStore.getPendingMessage(
@@ -296,7 +527,7 @@ describe('RemoteHandle', () => {
   it('redeemOcapURL calls sendRemoteMessage correctly and handles expected reply (success)', async () => {
     const remote = makeRemote();
     const mockOcapURL = 'as if it was a URL';
-    const mockURLResolutionRRef = 'ro+6';
+    const mockURLResolutionRRef = asRRef('ro+6');
     const mockURLResolutionKRef = 'ko1';
     const expectedReplyKey = '1';
 
@@ -307,7 +538,7 @@ describe('RemoteHandle', () => {
       method: 'redeemURLReply',
       params: [true, expectedReplyKey, mockURLResolutionRRef],
     };
-    await remote.handleRemoteMessage(JSON.stringify(redeemURLReply));
+    await receiveAndRunCrank(remote, JSON.stringify(redeemURLReply));
     const kref = await urlPromise;
     expect(mockRemoteComms.registerLocationHints).toHaveBeenCalledWith(
       mockRemotePeerId,
@@ -341,7 +572,7 @@ describe('RemoteHandle', () => {
       method: 'redeemURLReply',
       params: [false, expectedReplyKey],
     };
-    await remote.handleRemoteMessage(JSON.stringify(redeemURLReply));
+    await receiveAndRunCrank(remote, JSON.stringify(redeemURLReply));
     expect(mockRemoteComms.registerLocationHints).toHaveBeenCalledWith(
       mockRemotePeerId,
       [],
@@ -361,7 +592,7 @@ describe('RemoteHandle', () => {
     );
   });
 
-  it('handleRemoteMessage throws for unknown URL redemption reply key', async () => {
+  it('deliverInbound throws for unknown URL redemption reply key', async () => {
     const remote = makeRemote();
     const unknownReplyKey = 'unknown-key';
 
@@ -373,15 +604,15 @@ describe('RemoteHandle', () => {
     };
 
     await expect(
-      remote.handleRemoteMessage(JSON.stringify(redeemURLReply)),
+      remote.deliverInbound(JSON.stringify(redeemURLReply)),
     ).rejects.toThrow(`unknown URL redemption reply key ${unknownReplyKey}`);
   });
 
-  it('handleRemoteMessage handles deliver message', async () => {
+  it('takes delivery of deliver message', async () => {
     const remote = makeRemote();
-    const targetRRef = 'ro+1';
+    const targetRRef = asRRef('ro+1');
     const targetKRef = 'ko1';
-    const resultRRef = 'rp+2';
+    const resultRRef = asRRef('rp+2');
     const resultKRef = 'kp1';
     const message: EndpointMessage = {
       methargs: { body: '["method",["arg1","arg2"]]', slots: [] },
@@ -393,8 +624,7 @@ describe('RemoteHandle', () => {
       method: 'deliver',
       params: ['message', targetRRef, message],
     });
-    const reply = await remote.handleRemoteMessage(delivery);
-    expect(reply).toBeNull();
+    await receiveAndRunCrank(remote, delivery);
     expect(mockKernelQueue.enqueueSend).toHaveBeenCalledWith(targetKRef, {
       methargs: message.methargs,
       result: resultKRef,
@@ -407,7 +637,7 @@ describe('RemoteHandle', () => {
     );
   });
 
-  it('handleRemoteMessage handles deliver notify', async () => {
+  it('takes delivery of deliver notify', async () => {
     const remote = makeRemote();
     const promiseRRef = 'rp+3';
     const promiseKRef = 'kp1';
@@ -420,87 +650,56 @@ describe('RemoteHandle', () => {
       method: 'deliver',
       params: ['notify', resolutions],
     });
-    const reply = await remote.handleRemoteMessage(notify);
-    expect(reply).toBeNull();
+    await receiveAndRunCrank(remote, notify);
     expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith(
       remote.remoteId,
       [[promiseKRef, false, { body: '"resolved value"', slots: [] }]],
+      false,
     );
   });
 
-  it('handleRemoteMessage handles deliver dropExports', async () => {
+  it('takes delivery of deliver dropExports', async () => {
     const remote = makeRemote();
 
     // Note that vat v1 does not exist; we're just pretending the test object
     // came from there (because it had to come from *somewhere*).
-    const koref = mockKernelStore.initKernelObject('v1');
-    const [kpref] = mockKernelStore.initKernelPromise();
+    const koref = mockKernelStore.initKernelObject(asVatId('v1'));
     mockKernelStore.initEndpoint(remote.remoteId);
 
-    // Pretend these refs had earlier been imported into the test remote from
-    // our kernel (as if they had, say, appeared in message slots) and thence were
-    // exported at the remote end.  This way they'll be here to be dropped when
-    // a request to do so is "received".
+    // Pretend this ref had earlier been imported into the test remote from our
+    // kernel (as if it had, say, appeared in message slots) and thence was
+    // exported at the remote end.  This way it'll be here to be dropped when a
+    // request to do so is "received".
     const roref = mockKernelStore.translateRefKtoE(
       remote.remoteId,
       koref,
       true,
     );
-    const rpref = mockKernelStore.translateRefKtoE(
-      remote.remoteId,
-      kpref,
-      true,
-    );
-
-    const drops = [
-      mockKernelStore.invertRRef(roref),
-      mockKernelStore.invertRRef(rpref),
-    ];
-
-    const krefs = drops.map((rref) => {
-      const result = mockKernelStore.translateRefEtoK(remote.remoteId, rref);
-      return result;
+    expect(mockKernelStore.getObjectRefCount(koref)).toStrictEqual({
+      reachable: 1,
+      recognizable: 1,
     });
-    for (const kref of krefs) {
-      const { isPromise } = parseRef(kref);
-      if (isPromise) {
-        expect(mockKernelStore.getRefCount(kref)).toBe(1);
-      } else {
-        expect(mockKernelStore.getObjectRefCount(kref)).toStrictEqual({
-          reachable: 1,
-          recognizable: 1,
-        });
-      }
-    }
 
-    // Now have the "other end" drop them (include seq for incoming message)
+    // Now have the "other end" drop it (include seq for incoming message)
     const dropExports = JSON.stringify({
       seq: 1,
       method: 'deliver',
-      params: ['dropExports', drops],
+      params: ['dropExports', [mockKernelStore.invertRRef(asRRef(roref))]],
     });
-    const reply = await remote.handleRemoteMessage(dropExports);
+    await receiveAndRunCrank(remote, dropExports);
 
-    expect(reply).toBeNull();
-    for (const kref of krefs) {
-      const { isPromise } = parseRef(kref);
-      if (isPromise) {
-        expect(mockKernelStore.getRefCount(kref)).toBe(1);
-      } else {
-        expect(mockKernelStore.getObjectRefCount(kref)).toStrictEqual({
-          reachable: 0,
-          recognizable: 1,
-        });
-      }
-    }
+    expect(mockKernelStore.getObjectRefCount(koref)).toStrictEqual({
+      reachable: 0,
+      recognizable: 1,
+    });
   });
 
-  it('handleRemoteMessage handles deliver retireExports', async () => {
+  it('takes delivery of deliver retireExports', async () => {
     const remote = makeRemote();
 
     // Note that vat v1 does not exist; we're just pretending the test object
     // came from there (because it had to come from *somewhere*).
-    const koref = mockKernelStore.initKernelObject('v1');
+    const koref = mockKernelStore.initKernelObject(asVatId('v1'));
     mockKernelStore.initEndpoint(remote.remoteId);
 
     // Pretend this ref had earlier been imported into the test remote from our
@@ -513,7 +712,7 @@ describe('RemoteHandle', () => {
       true,
     );
 
-    const toRetireRRef = mockKernelStore.invertRRef(roref);
+    const toRetireRRef = mockKernelStore.invertRRef(roref as RRef);
 
     const kref = mockKernelStore.translateRefEtoK(
       remote.remoteId,
@@ -533,25 +732,23 @@ describe('RemoteHandle', () => {
       method: 'deliver',
       params: ['retireExports', [toRetireRRef]],
     });
-    const reply = await remote.handleRemoteMessage(retireExports);
+    await receiveAndRunCrank(remote, retireExports);
 
-    expect(reply).toBeNull();
     expect(mockKernelStore.getObjectRefCount(kref)).toStrictEqual({
       reachable: 0,
       recognizable: 0,
     });
   });
 
-  it('handleRemoteMessage handles deliver retireImports', async () => {
+  it('takes delivery of deliver retireImports', async () => {
     const remote = makeRemote();
 
     // An object, as if it had been imported from the other end (and thus exported here)
-    const roref = 'ro+1';
+    const roref = asRRef('ro+1');
     const koref = mockKernelStore.translateRefEtoK(remote.remoteId, roref);
 
     // As if we're no longer using it (which, in fact, we weren't), which is a
     // prequisite for a valid 'retireImports' delivery
-    mockKernelStore.decrementRefCount(koref, 'test');
     mockKernelStore.clearReachableFlag(remote.remoteId, koref);
 
     // Now have the "other end" retire the import (include seq for incoming message)
@@ -560,9 +757,7 @@ describe('RemoteHandle', () => {
       method: 'deliver',
       params: ['retireImports', [roref]],
     });
-    const reply = await remote.handleRemoteMessage(retireImports);
-
-    expect(reply).toBeNull();
+    await receiveAndRunCrank(remote, retireImports);
 
     // Object should have disappeared from the clists
     expect(() =>
@@ -571,7 +766,56 @@ describe('RemoteHandle', () => {
     expect(mockKernelStore.erefToKref(remote.remoteId, roref)).toBeUndefined();
   });
 
-  it('handleRemoteMessage handles bogus deliver', async () => {
+  it.each([
+    { method: 'retireImports', rref: asRRef('ro+1') },
+    { method: 'retireExports', rref: asRRef('ro-1') },
+    { method: 'dropExports', rref: asRRef('ro-1') },
+  ])(
+    'ignores a $method naming an rref it no longer has',
+    async ({ method, rref }) => {
+      const logger = new Logger();
+      vi.spyOn(logger, 'warn');
+      const remote = makeRemote(logger);
+      mockKernelStore.initEndpoint(remote.remoteId);
+
+      const delivery = JSON.stringify({
+        seq: 1,
+        method: 'deliver',
+        params: [method, [rref]],
+      });
+
+      await receiveAndRunCrank(remote, delivery);
+      expect(mockKernelStore.erefToKref(remote.remoteId, rref)).toBeUndefined();
+      expect(logger.warn).toHaveBeenCalledWith(
+        `${mockRemotePeerId.slice(0, 8)}:: ${method} names ${rref}, which is not in the c-list; skipped`,
+      );
+    },
+  );
+
+  it.each([
+    { method: 'retireImports', rref: 'ro-1' },
+    { method: 'retireExports', rref: 'ro+1' },
+    { method: 'dropExports', rref: 'rp-1' },
+    { method: 'dropExports', rref: 'ko1' },
+  ])('refuses a $method naming $rref', async ({ method, rref }) => {
+    const remote = makeRemote();
+    mockKernelStore.initEndpoint(remote.remoteId);
+
+    const delivery = JSON.stringify({
+      seq: 1,
+      method: 'deliver',
+      params: [method, [rref]],
+    });
+
+    await expect(remote.deliverInbound(delivery)).rejects.toThrow(
+      `${method} names ${rref}, which is not`,
+    );
+    expect(
+      mockKernelStore.erefToKref(remote.remoteId, rref as ERef),
+    ).toBeUndefined();
+  });
+
+  it('takes delivery of bogus deliver', async () => {
     const remote = makeRemote();
     // Include seq for incoming message
     const delivery = JSON.stringify({
@@ -579,16 +823,21 @@ describe('RemoteHandle', () => {
       method: 'deliver',
       params: ['bogus'],
     });
-    await expect(remote.handleRemoteMessage(delivery)).rejects.toThrow(
+    await expect(remote.deliverInbound(delivery)).rejects.toThrow(
       'unknown remote delivery method bogus',
     );
   });
 
-  it('handleRemoteMessage handles redeemURL request', async () => {
+  it('takes delivery of redeemURL request', async () => {
     const remote = makeRemote();
     const mockOcapURL = 'as if it was a URL';
     const mockReplyKey = 'replyKey';
-    const replyKRef = 'ko100';
+    // A URL only ever names an object the kernel still has, so redeem one that
+    // exists: importing a deleted kref is refused outright.
+    const replyKRef = mockKernelStore.initKernelObject('kernel');
+    vi.spyOn(mockRemoteComms, 'redeemLocalOcapURL').mockResolvedValue(
+      replyKRef,
+    );
     const replyRRef = 'ro+1';
     // Include seq for incoming message
     const request = JSON.stringify({
@@ -597,28 +846,25 @@ describe('RemoteHandle', () => {
       params: [mockOcapURL, mockReplyKey],
     });
     mockKernelStore.initEndpoint(remote.remoteId); // mock effects of stuff that was never called
-    const reply = await remote.handleRemoteMessage(request);
+    await receiveAndRunCrank(remote, request);
     expect(mockRemoteComms.redeemLocalOcapURL).toHaveBeenCalledWith(
       mockOcapURL,
     );
-    // Reply is now sent via sendRemoteCommand, not returned
-    expect(reply).toBeNull();
     // Verify reply was sent with seq/ack via sendRemoteMessage
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalled();
     const sentMessage = JSON.parse(
-      mockRemoteComms.sendRemoteMessage.mock.calls[0]?.[1] ?? '{}',
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mock.calls[0]?.[1] ?? '{}',
     );
     expect(sentMessage.method).toBe('redeemURLReply');
     expect(sentMessage.params).toStrictEqual([true, mockReplyKey, replyRRef]);
     expect(sentMessage.seq).toBe(1); // First outgoing message gets seq 1
-    // Reply is sent after commit, so ACK can be piggybacked
     expect(sentMessage.ack).toBe(1);
     expect(
       mockKernelStore.translateRefKtoE(remote.remoteId, replyKRef, false),
     ).toBe(replyRRef);
   });
 
-  it('handleRemoteMessage handles redeemURL request with error', async () => {
+  it('takes delivery of redeemURL request with error', async () => {
     const remote = makeRemote();
     const mockOcapURL = 'invalid-url';
     const mockReplyKey = 'replyKey';
@@ -636,17 +882,15 @@ describe('RemoteHandle', () => {
       params: [mockOcapURL, mockReplyKey],
     });
 
-    const reply = await remote.handleRemoteMessage(request);
+    await receiveAndRunCrank(remote, request);
 
     expect(mockRemoteComms.redeemLocalOcapURL).toHaveBeenCalledWith(
       mockOcapURL,
     );
-    // Reply is now sent via sendRemoteCommand, not returned
-    expect(reply).toBeNull();
     // Verify error reply was sent with seq/ack via sendRemoteMessage
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalled();
     const sentMessage = JSON.parse(
-      mockRemoteComms.sendRemoteMessage.mock.calls[0]?.[1] ?? '{}',
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mock.calls[0]?.[1] ?? '{}',
     );
     expect(sentMessage.method).toBe('redeemURLReply');
     expect(sentMessage.params).toStrictEqual([
@@ -655,11 +899,10 @@ describe('RemoteHandle', () => {
       errorMessage,
     ]);
     expect(sentMessage.seq).toBe(1); // First outgoing message gets seq 1
-    // Reply is sent after commit, so ACK can be piggybacked
     expect(sentMessage.ack).toBe(1);
   });
 
-  it('handleRemoteMessage rejects bogus message type', async () => {
+  it('rejects a bogus message type', async () => {
     const remote = makeRemote();
     // Include seq for incoming message
     const request = JSON.stringify({
@@ -667,7 +910,7 @@ describe('RemoteHandle', () => {
       method: 'bogus',
       params: [],
     });
-    await expect(remote.handleRemoteMessage(request)).rejects.toThrow(
+    await expect(remote.deliverInbound(request)).rejects.toThrow(
       'unknown remote message type bogus',
     );
   });
@@ -707,7 +950,7 @@ describe('RemoteHandle', () => {
       params: [true, '1', 'ro+1'],
     };
     await expect(
-      remote.handleRemoteMessage(JSON.stringify(redeemURLReply)),
+      remote.deliverInbound(JSON.stringify(redeemURLReply)),
     ).rejects.toThrow('unknown URL redemption reply key 1');
 
     await expect(promise).rejects.toThrow(errorMessage);
@@ -729,7 +972,7 @@ describe('RemoteHandle', () => {
     const resolutions: VatOneResolution[] = [
       ['rp+3', false, { body: '"value"', slots: [] }],
     ];
-    await remote.deliverNotify(resolutions);
+    await deliverAndCommit(remote.deliverNotify(resolutions));
 
     // Start a URL redemption
     const redeemPromise = remote.redeemOcapURL('ocap:test@peer');
@@ -758,21 +1001,24 @@ describe('RemoteHandle', () => {
     const promise3 = remote.redeemOcapURL(mockOcapURL3);
 
     // Resolve all redemptions (include seq for incoming messages)
-    await remote.handleRemoteMessage(
+    await receiveAndRunCrank(
+      remote,
       JSON.stringify({
         seq: 1,
         method: 'redeemURLReply',
         params: [true, '1', 'ro+1'],
       }),
     );
-    await remote.handleRemoteMessage(
+    await receiveAndRunCrank(
+      remote,
       JSON.stringify({
         seq: 2,
         method: 'redeemURLReply',
         params: [true, '2', 'ro+2'],
       }),
     );
-    await remote.handleRemoteMessage(
+    await receiveAndRunCrank(
+      remote,
       JSON.stringify({
         seq: 3,
         method: 'redeemURLReply',
@@ -783,6 +1029,9 @@ describe('RemoteHandle', () => {
     await promise1;
     await promise2;
     await promise3;
+    // A reply can arrive before the request behind it has left, since each
+    // send waits on the one before it.
+    await drainSends();
 
     // Verify each redemption uses a different reply key (messages are strings with seq)
     const { calls } = vi.mocked(mockRemoteComms.sendRemoteMessage).mock;
@@ -800,22 +1049,24 @@ describe('RemoteHandle', () => {
     const remote = makeRemote();
     const mockOcapURL1 = 'url1';
     const mockOcapURL2 = 'url2';
-    const mockURLResolutionRRef1 = 'ro+1';
-    const mockURLResolutionRRef2 = 'ro+2';
+    const mockURLResolutionRRef1 = asRRef('ro+1');
+    const mockURLResolutionRRef2 = asRRef('ro+2');
 
     // Start two concurrent redemptions
     const promise1 = remote.redeemOcapURL(mockOcapURL1);
     const promise2 = remote.redeemOcapURL(mockOcapURL2);
 
     // Resolve them in reverse order to verify they're handled independently (include seq)
-    await remote.handleRemoteMessage(
+    await receiveAndRunCrank(
+      remote,
       JSON.stringify({
         seq: 1,
         method: 'redeemURLReply',
         params: [true, '2', mockURLResolutionRRef2],
       }),
     );
-    await remote.handleRemoteMessage(
+    await receiveAndRunCrank(
+      remote,
       JSON.stringify({
         seq: 2,
         method: 'redeemURLReply',
@@ -867,7 +1118,8 @@ describe('RemoteHandle', () => {
       const sentMessage = JSON.parse(sendCall![1]);
       const replyKey = sentMessage.params[1] as string;
 
-      await remote.handleRemoteMessage(
+      await receiveAndRunCrank(
+        remote,
         JSON.stringify({
           seq: 1,
           method: 'redeemURLReply',
@@ -899,7 +1151,7 @@ describe('RemoteHandle', () => {
         method: 'redeemURLReply',
         params: [true, expectedReplyKey, mockURLResolutionRRef],
       };
-      await remote.handleRemoteMessage(JSON.stringify(redeemURLReply));
+      await receiveAndRunCrank(remote, JSON.stringify(redeemURLReply));
 
       const kref = await urlPromise;
       expect(kref).toBe(mockURLResolutionKRef);
@@ -911,7 +1163,7 @@ describe('RemoteHandle', () => {
       // Use different seq for the duplicate attempt
       const duplicateReply = { ...redeemURLReply, seq: 2 };
       await expect(
-        remote.handleRemoteMessage(JSON.stringify(duplicateReply)),
+        remote.deliverInbound(JSON.stringify(duplicateReply)),
       ).rejects.toThrow(`unknown URL redemption reply key ${expectedReplyKey}`);
     });
 
@@ -959,7 +1211,7 @@ describe('RemoteHandle', () => {
         params: [true, replyKey, 'ro+1'],
       };
       await expect(
-        remote.handleRemoteMessage(JSON.stringify(redeemURLReply)),
+        remote.deliverInbound(JSON.stringify(redeemURLReply)),
       ).rejects.toThrow(`unknown URL redemption reply key ${replyKey}`);
     });
   });
@@ -975,7 +1227,8 @@ describe('RemoteHandle', () => {
       ];
 
       // Receive a message with seq=5
-      await remote.handleRemoteMessage(
+      await receiveAndRunCrank(
+        remote,
         JSON.stringify({
           seq: 5,
           method: 'deliver',
@@ -984,7 +1237,7 @@ describe('RemoteHandle', () => {
       );
 
       // Now send a message - it should include ack=5 (piggyback ACK)
-      await remote.deliverNotify(resolutions);
+      await deliverAndCommit(remote.deliverNotify(resolutions));
 
       const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
         .calls[0]![1];
@@ -1001,7 +1254,7 @@ describe('RemoteHandle', () => {
       ];
 
       // First message sent should not have ack (nothing received yet)
-      await remote.deliverNotify(resolutions);
+      await deliverAndCommit(remote.deliverNotify(resolutions));
 
       let sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
         .calls[0]![1];
@@ -1010,7 +1263,8 @@ describe('RemoteHandle', () => {
       expect(parsed.seq).toBe(1);
 
       // Receive a message
-      await remote.handleRemoteMessage(
+      await receiveAndRunCrank(
+        remote,
         JSON.stringify({
           seq: 1,
           method: 'deliver',
@@ -1019,7 +1273,7 @@ describe('RemoteHandle', () => {
       );
 
       // Now send another message - it should include piggyback ack
-      await remote.deliverNotify(resolutions);
+      await deliverAndCommit(remote.deliverNotify(resolutions));
 
       sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
         .calls[1]![1];
@@ -1044,12 +1298,7 @@ describe('RemoteHandle', () => {
         params: ['notify', resolutions],
       };
 
-      const result = await remote.handleRemoteMessage(
-        JSON.stringify(deliveryMessage),
-      );
-
-      // Verify message was processed (handleRemoteMessage returns null on success)
-      expect(result).toBeNull();
+      await receiveAndRunCrank(remote, JSON.stringify(deliveryMessage));
 
       // Verify kernel queue was called
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalled();
@@ -1062,9 +1311,9 @@ describe('RemoteHandle', () => {
       // but wants to acknowledge our messages
       const standaloneAck = JSON.stringify({ ack: 5 });
 
-      // This should not throw and should return null
-      const result = await remote.handleRemoteMessage(standaloneAck);
-      expect(result).toBeNull();
+      await receiveAndRunCrank(remote, standaloneAck);
+
+      expect(mockKernelQueue.acceptRemoteInbound).not.toHaveBeenCalled();
     });
 
     it('assigns sequential sequence numbers to outgoing messages', async () => {
@@ -1076,14 +1325,76 @@ describe('RemoteHandle', () => {
       ];
 
       // Send three messages
-      await remote.deliverNotify(resolutions);
-      await remote.deliverNotify(resolutions);
-      await remote.deliverNotify(resolutions);
+      await deliverAndCommit(remote.deliverNotify(resolutions));
+      await deliverAndCommit(remote.deliverNotify(resolutions));
+      await deliverAndCommit(remote.deliverNotify(resolutions));
 
       const { calls } = vi.mocked(mockRemoteComms.sendRemoteMessage).mock;
       expect(JSON.parse(calls[0]![1]).seq).toBe(1);
       expect(JSON.parse(calls[1]![1]).seq).toBe(2);
       expect(JSON.parse(calls[2]![1]).seq).toBe(3);
+    });
+  });
+
+  describe('the front half, at receive time', () => {
+    it.each([
+      { what: 'no seq', message: { method: 'deliver', params: [] } },
+      { what: 'a non-numeric seq', message: { seq: 'bogus', method: 'x' } },
+      { what: 'a fractional seq', message: { seq: 1.5, method: 'x' } },
+      { what: 'a seq below one', message: { seq: 0, method: 'x' } },
+    ])('refuses $what without queueing anything', ({ message }) => {
+      const remote = makeRemote();
+
+      expect(() => remote.receiveFromPeer(JSON.stringify(message))).toThrow(
+        'invalid message seq',
+      );
+
+      expect(mockKernelQueue.acceptRemoteInbound).not.toHaveBeenCalled();
+    });
+
+    it('acknowledges a retransmission the crank will discard as a duplicate', async () => {
+      const noAck = (): void => undefined;
+      let sendAck = noAck;
+      vi.spyOn(globalThis, 'setTimeout').mockImplementation(((
+        callback: () => void,
+      ) => {
+        sendAck = callback;
+        return 1 as unknown as ReturnType<typeof setTimeout>;
+      }) as typeof setTimeout);
+      const remote = makeRemote();
+      const message = JSON.stringify({
+        seq: 1,
+        method: 'deliver',
+        params: ['notify', []],
+      });
+      await receiveAndRunCrank(remote, message);
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mockClear();
+      sendAck = noAck;
+
+      await receiveAndRunCrank(remote, message);
+      sendAck();
+
+      expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledOnce();
+    });
+
+    it('takes the acknowledgement off a message it queues', async () => {
+      const remote = makeRemote();
+      await deliverAndCommit(remote.deliverNotify([]));
+      expect(mockKernelStore.getPendingMessage(mockRemoteId, 1)).toBeDefined();
+
+      await receiveAndRunCrank(
+        remote,
+        JSON.stringify({
+          seq: 1,
+          ack: 1,
+          method: 'deliver',
+          params: ['notify', []],
+        }),
+      );
+
+      expect(
+        mockKernelStore.getPendingMessage(mockRemoteId, 1),
+      ).toBeUndefined();
     });
   });
 
@@ -1095,7 +1406,7 @@ describe('RemoteHandle', () => {
         [promiseRRef, false, { body: '"resolved value"', slots: [] }],
       ];
 
-      await remote.deliverNotify(resolutions);
+      await deliverAndCommit(remote.deliverNotify(resolutions));
 
       // Verify message was persisted (as a plain string)
       const pendingMsgString = mockKernelStore.getPendingMessage(
@@ -1122,7 +1433,8 @@ describe('RemoteHandle', () => {
       ];
 
       // Receive a message with seq=5
-      await remote.handleRemoteMessage(
+      await receiveAndRunCrank(
+        remote,
         JSON.stringify({
           seq: 5,
           method: 'deliver',
@@ -1142,15 +1454,15 @@ describe('RemoteHandle', () => {
       ];
 
       // Send two messages
-      await remote.deliverNotify(resolutions);
-      await remote.deliverNotify(resolutions);
+      await deliverAndCommit(remote.deliverNotify(resolutions));
+      await deliverAndCommit(remote.deliverNotify(resolutions));
 
       // Verify both are persisted
       expect(mockKernelStore.getPendingMessage(mockRemoteId, 1)).toBeDefined();
       expect(mockKernelStore.getPendingMessage(mockRemoteId, 2)).toBeDefined();
 
       // ACK the first message
-      await remote.handleRemoteMessage(JSON.stringify({ ack: 1 }));
+      await receiveAndRunCrank(remote, JSON.stringify({ ack: 1 }));
 
       // First message should be deleted, second should remain
       expect(
@@ -1181,12 +1493,12 @@ describe('RemoteHandle', () => {
       ];
 
       // Verify restore happened by checking the next seq number assigned
-      await remote.deliverNotify(resolutions);
+      await deliverAndCommit(remote.deliverNotify(resolutions));
 
-      const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
-        .calls[0]?.[1];
-      expect(sentString).toBeDefined();
-      const parsed = JSON.parse(sentString as string);
+      const sent = sentStrings();
+      // The restored queue goes out ahead of the message numbered after it.
+      expect(sent.slice(0, -1)).toStrictEqual(['message 2', 'message 3']);
+      const parsed = JSON.parse(sent.at(-1) as string);
       expect(parsed.seq).toBe(4);
       expect(parsed.ack).toBe(2); // Should have restored highestReceivedSeq
     });
@@ -1208,12 +1520,15 @@ describe('RemoteHandle', () => {
       const resolutions: VatOneResolution[] = [
         [promiseRRef, false, { body: '"resolved value"', slots: [] }],
       ];
-      await remote.deliverNotify(resolutions);
+      await deliverAndCommit(remote.deliverNotify(resolutions));
 
-      const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
-        .calls[0]?.[1];
-      expect(sentString).toBeDefined();
-      const parsed = JSON.parse(sentString as string);
+      const sent = sentStrings();
+      expect(sent.slice(0, -1)).toStrictEqual([
+        'message 1',
+        'message 2',
+        'message 3',
+      ]);
+      const parsed = JSON.parse(sent.at(-1) as string);
       expect(parsed.seq).toBe(4);
 
       // Verify nextSendSeq was repaired in storage
@@ -1237,12 +1552,11 @@ describe('RemoteHandle', () => {
       const resolutions: VatOneResolution[] = [
         [promiseRRef, false, { body: '"resolved value"', slots: [] }],
       ];
-      await remote.deliverNotify(resolutions);
+      await deliverAndCommit(remote.deliverNotify(resolutions));
 
-      const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
-        .calls[0]?.[1];
-      expect(sentString).toBeDefined();
-      const parsed = JSON.parse(sentString as string);
+      const sent = sentStrings();
+      expect(sent.slice(0, -1)).toStrictEqual(['message 1']);
+      const parsed = JSON.parse(sent.at(-1) as string);
       expect(parsed.seq).toBe(2);
 
       // Verify state is correct: 2 pending messages (seq 1 and 2)
@@ -1266,12 +1580,11 @@ describe('RemoteHandle', () => {
       const resolutions: VatOneResolution[] = [
         [promiseRRef, false, { body: '"resolved value"', slots: [] }],
       ];
-      await remote.deliverNotify(resolutions);
+      await deliverAndCommit(remote.deliverNotify(resolutions));
 
-      const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
-        .calls[0]?.[1];
-      expect(sentString).toBeDefined();
-      const parsed = JSON.parse(sentString as string);
+      const sent = sentStrings();
+      expect(sent.slice(0, -1)).toStrictEqual(['message 1']);
+      const parsed = JSON.parse(sent.at(-1) as string);
       expect(parsed.seq).toBe(2);
 
       // Verify state is correct: seq state recovered and 2 pending messages
@@ -1314,7 +1627,7 @@ describe('RemoteHandle', () => {
       const resolutions: VatOneResolution[] = [
         [promiseRRef, false, { body: '"resolved value"', slots: [] }],
       ];
-      await remote.deliverNotify(resolutions);
+      await deliverAndCommit(remote.deliverNotify(resolutions));
 
       const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
         .calls[0]?.[1];
@@ -1337,7 +1650,7 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['notify', resolutions],
       });
-      await remote.handleRemoteMessage(message1);
+      await receiveAndRunCrank(remote, message1);
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledTimes(1);
 
       // Duplicate message with seq=1 - should ignore
@@ -1346,7 +1659,7 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['notify', resolutions],
       });
-      await remote.handleRemoteMessage(message2);
+      await receiveAndRunCrank(remote, message2);
       // Should still be 1 call, not 2
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledTimes(1);
 
@@ -1356,7 +1669,7 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['notify', resolutions],
       });
-      await remote.handleRemoteMessage(message3);
+      await receiveAndRunCrank(remote, message3);
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledTimes(2);
     });
 
@@ -1373,7 +1686,7 @@ describe('RemoteHandle', () => {
         params: ['notify', resolutions],
       });
 
-      await remote.handleRemoteMessage(message);
+      await receiveAndRunCrank(remote, message);
 
       // Verify highestReceivedSeq was persisted
       expect(
@@ -1381,7 +1694,7 @@ describe('RemoteHandle', () => {
       ).toBe(1);
     });
 
-    it('restores highestReceivedSeq on processing error', async () => {
+    it('leaves highestReceivedSeq alone on processing error', async () => {
       const remote = makeRemote();
 
       // First, process a valid message to set highestReceivedSeq to 1
@@ -1390,7 +1703,7 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['notify', [['rp+3', false, { body: '"value"', slots: [] }]]],
       });
-      await remote.handleRemoteMessage(validMessage);
+      await receiveAndRunCrank(remote, validMessage);
       expect(
         mockKernelStore.getRemoteSeqState(mockRemoteId)?.highestReceivedSeq,
       ).toBe(1);
@@ -1402,11 +1715,13 @@ describe('RemoteHandle', () => {
         params: ['bogus'], // Unknown delivery method
       });
 
-      await expect(remote.handleRemoteMessage(badMessage)).rejects.toThrow(
+      await expect(remote.deliverInbound(badMessage)).rejects.toThrow(
         'unknown remote delivery method bogus',
       );
 
-      // highestReceivedSeq should still be 1 (restored after rollback)
+      // highestReceivedSeq should still be 1: the throw comes before it is
+      // written. The map-backed store cannot roll back, so this tests the write
+      // order, not the rollback.
       // Send another message with seq=2 to verify it's not considered a duplicate
       vi.mocked(mockKernelQueue.resolvePromises).mockClear();
       const retryMessage = JSON.stringify({
@@ -1414,7 +1729,7 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['notify', [['rp+4', false, { body: '"value2"', slots: [] }]]],
       });
-      await remote.handleRemoteMessage(retryMessage);
+      await receiveAndRunCrank(remote, retryMessage);
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledTimes(1);
     });
   });
@@ -1428,8 +1743,9 @@ describe('RemoteHandle', () => {
       const resolutions: VatOneResolution[] = [
         [promiseRRef, false, { body: '"resolved value"', slots: [] }],
       ];
-      await remote.deliverNotify(resolutions);
-      await remote.handleRemoteMessage(
+      await deliverAndCommit(remote.deliverNotify(resolutions));
+      await receiveAndRunCrank(
+        remote,
         JSON.stringify({
           seq: 5,
           method: 'deliver',
@@ -1442,7 +1758,7 @@ describe('RemoteHandle', () => {
 
       // Send a new message - should start from seq=1
       vi.mocked(mockRemoteComms.sendRemoteMessage).mockClear();
-      await remote.deliverNotify(resolutions);
+      await deliverAndCommit(remote.deliverNotify(resolutions));
 
       const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
         .calls[0]![1];
@@ -1460,7 +1776,7 @@ describe('RemoteHandle', () => {
       const resolutions: VatOneResolution[] = [
         [promiseRRef, false, { body: '"resolved value"', slots: [] }],
       ];
-      await remote.deliverNotify(resolutions);
+      await deliverAndCommit(remote.deliverNotify(resolutions));
 
       // Verify state exists before restart
       expect(mockKernelStore.getRemoteSeqState(mockRemoteId)).toBeDefined();
@@ -1489,7 +1805,8 @@ describe('RemoteHandle', () => {
       const remote = makeRemote();
 
       // Receive BOYD from remote — sets the ping-pong prevention flag
-      await remote.handleRemoteMessage(
+      await receiveAndRunCrank(
+        remote,
         JSON.stringify({
           seq: 1,
           method: 'deliver',
@@ -1501,7 +1818,7 @@ describe('RemoteHandle', () => {
       remote.handlePeerRestart();
 
       // Next deliverBringOutYourDead should send BOYD (not suppress it)
-      await remote.deliverBringOutYourDead();
+      await deliverAndCommit(remote.deliverBringOutYourDead());
       expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
         mockRemotePeerId,
         expect.any(String),
@@ -1569,12 +1886,14 @@ describe('RemoteHandle', () => {
         ackTimeoutMs: 100,
       });
 
-      await remote.deliverNotify([
-        ['rp+1', false, { body: '"first"', slots: [] }],
-      ]);
-      await remote.deliverNotify([
-        ['rp+2', false, { body: '"second"', slots: [] }],
-      ]);
+      await deliverAndCommit(
+        remote.deliverNotify([['rp+1', false, { body: '"first"', slots: [] }]]),
+      );
+      await deliverAndCommit(
+        remote.deliverNotify([
+          ['rp+2', false, { body: '"second"', slots: [] }],
+        ]),
+      );
 
       // send 1 stays pending until we resolve it.
       const sendCalls: string[] = [];
@@ -1601,10 +1920,7 @@ describe('RemoteHandle', () => {
       expect(sendCalls).toHaveLength(1);
 
       resolveFirst();
-      // Drain microtasks so the second iteration completes.
-      for (let i = 0; i < 5; i += 1) {
-        await Promise.resolve();
-      }
+      await drainSends();
       expect(sendCalls).toHaveLength(2);
     });
 
@@ -1620,8 +1936,12 @@ describe('RemoteHandle', () => {
         onGiveUp,
       });
 
-      await remote.deliverNotify([['rp+1', false, { body: '"a"', slots: [] }]]);
-      await remote.deliverNotify([['rp+2', false, { body: '"b"', slots: [] }]]);
+      await deliverAndCommit(
+        remote.deliverNotify([['rp+1', false, { body: '"a"', slots: [] }]]),
+      );
+      await deliverAndCommit(
+        remote.deliverNotify([['rp+2', false, { body: '"b"', slots: [] }]]),
+      );
 
       // Synthesize a PeerRestartedError-shaped rejection (the real class is
       // transport-internal; isTerminalSendError matches by `error.name`).
@@ -1635,9 +1955,7 @@ describe('RemoteHandle', () => {
       );
 
       fireLastAckTimer();
-      for (let i = 0; i < 5; i += 1) {
-        await Promise.resolve();
-      }
+      await drainSends();
 
       // Only iteration 1 runs before the terminal error short-circuits.
       expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledTimes(1);
@@ -1656,8 +1974,12 @@ describe('RemoteHandle', () => {
         onGiveUp,
       });
 
-      await remote.deliverNotify([['rp+1', false, { body: '"a"', slots: [] }]]);
-      await remote.deliverNotify([['rp+2', false, { body: '"b"', slots: [] }]]);
+      await deliverAndCommit(
+        remote.deliverNotify([['rp+1', false, { body: '"a"', slots: [] }]]),
+      );
+      await deliverAndCommit(
+        remote.deliverNotify([['rp+2', false, { body: '"b"', slots: [] }]]),
+      );
 
       vi.mocked(mockRemoteComms.sendRemoteMessage).mockReset();
       vi.mocked(mockRemoteComms.sendRemoteMessage)
@@ -1665,9 +1987,7 @@ describe('RemoteHandle', () => {
         .mockResolvedValueOnce(undefined);
 
       fireLastAckTimer();
-      for (let i = 0; i < 5; i += 1) {
-        await Promise.resolve();
-      }
+      await drainSends();
 
       // Both iterations ran — the transient failure didn't abort.
       expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledTimes(2);
@@ -1733,7 +2053,7 @@ describe('RemoteHandle', () => {
 
       // Seed an object export from the peer (peer-allocated eref ro+5
       // mapped to a fresh kernel object).
-      const eref = 'ro+5';
+      const eref = asRRef('ro+5');
       const kref = mockKernelStore.exportFromEndpoint(mockRemoteId, eref);
 
       // Sanity: c-list is populated in both directions before restart.

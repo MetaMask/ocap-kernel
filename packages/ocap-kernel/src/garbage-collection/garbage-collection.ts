@@ -93,7 +93,7 @@ function filterActionsForProcessing(
   endpointId: EndpointId,
   actions: Set<GCAction>,
   allActionsSet: Set<GCAction>,
-): { krefs: KRef[]; actionSetUpdated: boolean } {
+): { krefs: readonly KRef[]; actionSetUpdated: boolean } {
   const krefs: KRef[] = [];
   let actionSetUpdated = false;
 
@@ -106,6 +106,8 @@ function filterActionsForProcessing(
     actionSetUpdated = true;
   }
 
+  // `harden` freezes `krefs`, so it has to be sorted first.
+  krefs.sort();
   return harden({ krefs, actionSetUpdated });
 }
 
@@ -113,10 +115,17 @@ function filterActionsForProcessing(
  * Process the set of GC actions.
  *
  * @param storage - The kernel storage.
+ * @param options - Options bag.
+ * @param options.isOffline - Whether an endpoint cannot take a GC delivery
+ * now. Its actions are left in the set unexamined, since examining one spends
+ * it.
  * @returns The next action to process, or undefined if there are no actions to process.
  */
 export function processGCActionSet(
   storage: KernelStore,
+  {
+    isOffline = () => false,
+  }: { isOffline?: (endpointId: EndpointId) => boolean } = {},
 ): RunQueueItem | undefined {
   const allActionsSet = storage.getGCActions();
   let actionSetUpdated = false;
@@ -129,6 +138,10 @@ export function processGCActionSet(
 
   for (const action of allActionsSet) {
     const { endpointId, type } = parseAction(action);
+
+    if (isOffline(endpointId)) {
+      continue;
+    }
 
     if (!actionsByEndpoint.has(endpointId)) {
       actionsByEndpoint.set(endpointId, new Map());
@@ -174,16 +187,13 @@ export function processGCActionSet(
         actionSetUpdated = actionSetUpdated || updated;
 
         if (krefs.length > 0) {
-          // We found actions to process
-          krefs.sort();
-
           // Update the durable set before returning
           storage.setGCActions(allActionsSet);
 
           const queueType = queueTypeFromActionType.get(type);
           assert(queueType !== undefined, `Unknown action type: ${type}`);
 
-          return harden({ type: queueType, endpointId, krefs });
+          return harden({ type: queueType, endpointId, krefs: [...krefs] });
         }
       }
     }

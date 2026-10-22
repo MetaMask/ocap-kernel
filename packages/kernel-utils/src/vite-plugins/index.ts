@@ -4,6 +4,8 @@ import { bundleVat } from './bundle-vat.ts';
 
 export { bundleVat, removeDynamicImportsPlugin } from './bundle-vat.ts';
 export type { VatBundle } from './bundle-vat.ts';
+export { replaceNodeEnvPlugin } from './replace-node-env-plugin.ts';
+export type { ReplaceNodeEnvPluginOptions } from './replace-node-env-plugin.ts';
 
 type VatEntry = {
   /** Absolute path to the vat source file */

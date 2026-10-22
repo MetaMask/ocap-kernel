@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **BREAKING:** Remove the CommonJS build; the package is ESM-only. Its entry points are `.js` and `.d.ts` files, formerly `.mjs`/`.cjs` and `.d.mts`/`.d.cts` ([#1186](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1186))
+
 ## [0.7.0]
 
 ### Changed
@@ -54,11 +58,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/logger@0.7.0...HEAD
-[0.7.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/logger@0.6.0...@metamask/logger@0.7.0
-[0.6.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/logger@0.5.0...@metamask/logger@0.6.0
-[0.5.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/logger@0.4.0...@metamask/logger@0.5.0
-[0.4.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/logger@0.3.0...@metamask/logger@0.4.0
-[0.3.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/logger@0.2.0...@metamask/logger@0.3.0
-[0.2.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/logger@0.1.0...@metamask/logger@0.2.0
-[0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/logger@0.1.0
+[Unreleased]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/logger@0.7.0...HEAD
+[0.7.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/logger@0.6.0...@metamask/logger@0.7.0
+[0.6.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/logger@0.5.0...@metamask/logger@0.6.0
+[0.5.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/logger@0.4.0...@metamask/logger@0.5.0
+[0.4.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/logger@0.3.0...@metamask/logger@0.4.0
+[0.3.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/logger@0.2.0...@metamask/logger@0.3.0
+[0.2.0]: https://github.com/Consensys-Incorporated/ocap-kernel/compare/@metamask/logger@0.1.0...@metamask/logger@0.2.0
+[0.1.0]: https://github.com/Consensys-Incorporated/ocap-kernel/releases/tag/@metamask/logger@0.1.0

@@ -9,6 +9,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { VatEndowments } from './endowments.ts';
 import { VatSupervisor } from './VatSupervisor.ts';
 import type { FetchBlob } from './VatSupervisor.ts';
+import type { VatId } from '../types.ts';
 
 vi.mock('./syscall.ts', () => ({
   makeSupervisorSyscall: vi.fn(() => ({
@@ -40,7 +41,7 @@ const makeVatSupervisor = async ({
   platformOptions,
   makeAllowedGlobals,
   fetchBlob,
-  writerOnEnd,
+  onEnd,
 }: {
   dispatch?: (input: unknown) => void | Promise<void>;
   logger?: Logger;
@@ -49,7 +50,7 @@ const makeVatSupervisor = async ({
   platformOptions?: Record<string, unknown>;
   makeAllowedGlobals?: (options: { logger: Logger }) => VatEndowments;
   fetchBlob?: FetchBlob;
-  writerOnEnd?: () => void;
+  onEnd?: () => void;
 } = {}): Promise<{
   supervisor: VatSupervisor;
   stream: TestDuplexStream<JsonRpcMessage, JsonRpcMessage>;
@@ -59,7 +60,7 @@ const makeVatSupervisor = async ({
     JsonRpcMessage
   >(dispatch ?? (() => undefined), {
     validateInput: isJsonRpcMessage,
-    writerOnEnd,
+    onEnd,
   });
 
   // Provide a default makePlatform if none is specified
@@ -67,14 +68,14 @@ const makeVatSupervisor = async ({
 
   return {
     supervisor: new VatSupervisor({
-      id: 'test-id',
+      id: 'test-id' as VatId,
       kernelStream,
       logger: logger ?? new Logger(),
       vatPowers: vatPowers ?? {},
       makePlatform: makePlatform ?? defaultMakePlatform,
       platformOptions: platformOptions ?? {},
-      makeAllowedGlobals,
-      fetchBlob,
+      ...(makeAllowedGlobals && { makeAllowedGlobals }),
+      ...(fetchBlob && { fetchBlob }),
     }),
     stream: kernelStream,
   };
@@ -160,20 +161,20 @@ describe('VatSupervisor', () => {
 
     it('calls the endowments teardown before closing the stream', async () => {
       // The stream is hardened, so we can't vi.spyOn(stream, 'end'). Instead,
-      // observe the writer's onEnd callback, which fires as part of stream.end().
+      // observe the stream's onEnd callback, which fires as part of stream.end().
       const teardown = vi.fn().mockResolvedValue(undefined);
-      const writerOnEnd = vi.fn();
+      const onEnd = vi.fn();
       const { supervisor } = await makeVatSupervisor({
         makeAllowedGlobals: () => makeVatEndowments({}, teardown),
-        writerOnEnd,
+        onEnd,
       });
 
       await supervisor.terminate();
 
       expect(teardown).toHaveBeenCalledTimes(1);
-      expect(writerOnEnd).toHaveBeenCalledTimes(1);
+      expect(onEnd).toHaveBeenCalledTimes(1);
       expect(teardown.mock.invocationCallOrder[0]).toBeLessThan(
-        writerOnEnd.mock.invocationCallOrder[0] as number,
+        onEnd.mock.invocationCallOrder[0] as number,
       );
     });
 
@@ -255,7 +256,7 @@ describe('VatSupervisor', () => {
   describe('platform configuration', () => {
     it('accepts makePlatform and platformOptions parameters', async () => {
       const makePlatform = vi.fn().mockResolvedValue({});
-      const platformOptions = { fs: { rootDir: '/tmp' } };
+      const platformOptions = { fs: { root: ['tmp'] } };
 
       const { supervisor } = await makeVatSupervisor({
         makePlatform,
