@@ -56,7 +56,7 @@
   "dependencies": {
     "@metamask/design-system-react": "^0.47.0",
     "@metamask/design-system-tailwind-preset": "^0.15.0",
-    "@metamask/design-tokens": "^11.1.0",
+    "@metamask/design-tokens": "^12.0.0",
     "@metamask/kernel-browser-runtime": "workspace:^",
     "@metamask/kernel-rpc-methods": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
