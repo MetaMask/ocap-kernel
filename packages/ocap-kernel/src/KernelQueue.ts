@@ -3,7 +3,7 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { stringify } from '@metamask/kernel-utils';
 
 import { processGCActionSet } from './garbage-collection/garbage-collection.ts';
-import { kser } from './liveslots/kernel-marshal.ts';
+import { kser, makeKernelError } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
   CrankResult,
@@ -22,6 +22,7 @@ import type {
   RunQueueItemSend,
   VatId,
 } from './types.ts';
+import { insistKRef } from './types.ts';
 import { Fail } from './utils/assert.ts';
 
 /**
@@ -32,7 +33,30 @@ import { Fail } from './utils/assert.ts';
  */
 const MAX_ARRIVALS_PER_REMOTE = 200;
 
-type HeldRequest = RunQueueItemRestartVat | RunQueueItemTerminateVat;
+type Subscription = {
+  resolve: (value: CapData<KRef>) => void;
+  reject: (reason: unknown) => void;
+};
+
+type HeldMessage = {
+  type: 'queueMessage';
+  target: KRef;
+  methargs: CapData<KRef>;
+  subscription: Subscription;
+};
+
+/** A write from {@link KernelQueue.writeOutsideCrank}. */
+type HeldWrite = {
+  type: 'write';
+  write: () => void;
+  reject: (error: Error) => void;
+};
+
+type HeldRequest =
+  | RunQueueItemRestartVat
+  | RunQueueItemTerminateVat
+  | HeldMessage
+  | HeldWrite;
 
 /** What a caller awaiting queued work is told when the run loop dies. */
 const DEAD_RUN_LOOP_WORK =
@@ -59,13 +83,7 @@ export class KernelQueue {
   ) => Promise<void>;
 
   /** Message results that the kernel itself has subscribed to */
-  readonly subscriptions: Map<
-    KRef,
-    {
-      resolve: (value: CapData<KRef>) => void;
-      reject: (reason: unknown) => void;
-    }
-  > = new Map();
+  readonly subscriptions: Map<KRef, Subscription> = new Map();
 
   /**
    * Resolutions made during this crank of promises that have kernel
@@ -82,7 +100,7 @@ export class KernelQueue {
    * Requests made while a crank was open, for the run loop to write once it
    * ends, unless it ends by killing the loop. Written into the crank, they
    * would be rolled back with it if it aborts, and their callers would wait on
-   * work nothing is going to do.
+   * work nothing is going to do, or be handed IDs the store gives out again.
    */
   #heldRequests: HeldRequest[] = [];
 
@@ -291,7 +309,14 @@ export class KernelQueue {
         : new Error(String(error), { cause: error });
     this.#runLoopState = { state: 'failed', error: failure };
 
-    const orphaned = [...this.subscriptions.values()];
+    const held = this.#heldRequests;
+    this.#heldRequests = [];
+    const orphaned = [
+      ...this.subscriptions.values(),
+      ...held.flatMap((item) =>
+        item.type === 'queueMessage' ? [item.subscription] : [],
+      ),
+    ];
     this.subscriptions.clear();
     this.#resolvedWithKernelSubscription = [];
     for (const { reject } of orphaned) {
@@ -300,6 +325,11 @@ export class KernelQueue {
           'Kernel run loop died; this message result will never be delivered',
         ),
       );
+    }
+    for (const item of held) {
+      if (item.type === 'write') {
+        item.reject(this.#makeDeadRunLoopError(DEAD_RUN_LOOP_WORK));
+      }
     }
 
     const abandoned = [...this.#pendingWorkWaiters];
@@ -615,12 +645,15 @@ export class KernelQueue {
 
   /**
    * Queue a message to be delivered from the kernel to an object in an endpoint.
+   * Held until the open crank, if any, has ended.
    *
    * @param target - The object to which the message is directed.
    * @param method - The method to be invoked.
    * @param args - Message arguments.
    *
-   * @returns a promise for the (CapData encoded) result of the message invocation.
+   * @returns a promise for the (CapData encoded) result of the message
+   * invocation. It rejects with `OBJECT_DELETED` if the kernel does not have
+   * the target or a kref in the arguments by the time the message is written.
    */
   async enqueueMessage(
     target: KRef,
@@ -629,15 +662,78 @@ export class KernelQueue {
   ): Promise<CapData<KRef>> {
     // Nothing is draining the run queue, so a returned promise could never settle.
     this.assertRunLoopAlive('queue a message');
+    insistKRef(target);
     // TODO(#562): Use logger instead.
     // oxlint-disable-next-line no-console
     console.debug('enqueueMessage', target, method, args);
-    const result = this.#kernelStore.initKernelPromise()[0];
     const { promise, resolve, reject } = makePromiseKit<CapData<KRef>>();
-    this.subscriptions.set(result, { resolve, reject });
-    this.enqueueSend(target, {
+    this.#enqueueRequest({
+      type: 'queueMessage',
+      target,
       methargs: kser([method, args]),
-      result,
+      subscription: { resolve, reject },
+    });
+    return promise;
+  }
+
+  /**
+   * Write a `queueMessage` call. Its caller hears of a failure, which would
+   * otherwise kill a run loop writing it at the end of a crank.
+   *
+   * @param message - The call.
+   */
+  #writeMessage(message: HeldMessage): void {
+    const { target, methargs, subscription } = message;
+    let result: KRef;
+    try {
+      // Before anything is charged: `incrementRefCount` refuses a kref the
+      // kernel does not have, and the units taken before it would never be
+      // released.
+      const missing = [target, ...methargs.slots].find(
+        (kref) => !this.#kernelStore.kernelRefExists(kref),
+      );
+      if (missing !== undefined) {
+        subscription.reject(
+          makeKernelError(
+            'OBJECT_DELETED',
+            `${missing} does not exist; it may have been deleted`,
+          ),
+        );
+        return;
+      }
+      [result] = this.#kernelStore.initKernelPromise();
+      this.enqueueSend(target, { methargs, result });
+    } catch (error) {
+      subscription.reject(error);
+      return;
+    }
+    // Last, so that a write that threw leaves no subscription behind.
+    this.subscriptions.set(result, subscription);
+  }
+
+  /**
+   * Make a write from outside the run loop now if no crank is open, or else as
+   * soon as the open crank ends. Made inside it, the write would be rolled
+   * back if that crank aborts, while its caller went on as if it had been
+   * made.
+   *
+   * @param write - The write. It runs between two cranks, so it must not
+   * wait on anything.
+   * @returns A promise for what `write` returns or throws. It rejects if the
+   * run loop dies first.
+   */
+  async writeOutsideCrank<Result>(write: () => Result): Promise<Result> {
+    const { promise, resolve, reject } = makePromiseKit<Result>();
+    this.#enqueueRequest({
+      type: 'write',
+      write: () => {
+        try {
+          resolve(write());
+        } catch (error) {
+          reject(error);
+        }
+      },
+      reject,
     });
     return promise;
   }
@@ -785,27 +881,61 @@ export class KernelQueue {
     if (this.#kernelStore.isInCrank()) {
       this.#heldRequests.push(item);
     } else {
-      this.#enqueueRun(item);
+      this.#writeRequest(item);
+    }
+  }
+
+  /**
+   * Write a request from outside the run loop.
+   *
+   * @param item - The request.
+   */
+  #writeRequest(item: HeldRequest): void {
+    switch (item.type) {
+      case 'queueMessage':
+        this.#writeMessage(item);
+        break;
+      case 'write':
+        item.write();
+        break;
+      default:
+        this.#enqueueRun(item);
     }
   }
 
   /**
    * Forget the requests held for the open crank to write once it ends, for a
    * kernel discarding its run queue: not in the store yet, they would outlive
-   * a wipe of it.
+   * a wipe of it. Writes are kept: a remote they set up names no kernel
+   * object, and dropping one would lose the peer's message waiting on it once
+   * a later one commits.
+   *
+   * @param error - What to tell a `queueMessage` caller whose message is
+   * forgotten.
    */
-  discardHeldRequests(): void {
-    this.#heldRequests = [];
+  discardHeldRequests(error: Error): void {
+    const held = this.#heldRequests;
+    this.#heldRequests = held.filter((item) => item.type === 'write');
+    for (const item of held) {
+      if (item.type === 'queueMessage') {
+        item.subscription.reject(error);
+      }
+    }
   }
 
   /**
    * Write the requests held while the crank that just ended was open.
    */
   #enqueueHeldRequests(): void {
-    const held = this.#heldRequests;
-    this.#heldRequests = [];
-    for (const item of held) {
-      this.#enqueueRun(item);
+    // Each taken off only once written: one that throws kills the run loop,
+    // and `#failRunLoop` must still find the rest to tell their callers.
+    for (;;) {
+      const [item] = this.#heldRequests;
+      if (item === undefined) {
+        return;
+      }
+      this.#writeRequest(item);
+      this.#heldRequests.shift();
     }
   }
 

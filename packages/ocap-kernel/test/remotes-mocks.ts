@@ -81,6 +81,7 @@ export class MockRemotesFactory {
       resolvePromises: vi.fn(),
       assertRunLoopAlive: vi.fn(),
       waitForCrank: vi.fn(),
+      writeOutsideCrank: vi.fn(async (write: () => unknown) => write()),
       run: vi.fn(),
     } as unknown as KernelQueue;
   }
@@ -162,7 +163,7 @@ export class MockRemotesFactory {
       remoteManager: {
         getRemoteComms: vi.fn().mockReturnValue(remoteComms),
         getRemoteIdentity: vi.fn().mockReturnValue(remoteComms),
-        remoteFor: vi.fn().mockReturnValue(remoteHandle),
+        remoteFor: vi.fn().mockResolvedValue(remoteHandle),
       },
       remoteComms,
       remoteHandle,

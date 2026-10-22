@@ -80,6 +80,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A `queueMessage` made while a crank is open is written once that crank ends. An abort used to lose the message and give its result promise's ID to the next promise, so the caller waited forever or got that promise's value ([#XXXX](https://github.com/Consensys-Incorporated/ocap-kernel/pull/XXXX))
+  - A message to a kref the kernel no longer has rejects with `OBJECT_DELETED`, and one to a malformed target with `not a valid KRef`, instead of an internal reference count error that left its result promise and reference counts behind
+- A new remote, for a peer's first message or an ocap URL redemption, is set up once the open crank ends. An abort used to give its ID to the next new remote, so two peers shared one c-list ([#XXXX](https://github.com/Consensys-Incorporated/ocap-kernel/pull/XXXX))
 - Sends to a peer no longer fail or time out after it reconnects, which happened when several sends dialed it at once ([#1188](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1188))
 - A send's dial retry follows `reconnectionBaseDelayMs` and `reconnectionMaxDelayMs`, as it already followed `maxRetryAttempts`, rather than always backing off up to 10 s ([#1188](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1188))
 - Retiring a kernel object tells remote importers and terminated vats cleanup has not reached, rather than leaving them a c-list entry for the deleted kref ([#1088](https://github.com/Consensys-Incorporated/ocap-kernel/pull/1088))

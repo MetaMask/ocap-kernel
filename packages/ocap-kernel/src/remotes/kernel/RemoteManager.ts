@@ -376,7 +376,9 @@ export class RemoteManager {
   }
 
   /**
-   * Set up bookkeeping for a newly established remote connection.
+   * Set up bookkeeping for a newly established remote connection. Writes into
+   * the open crank, if there is one; from outside the run loop, go through
+   * {@link remoteFor}.
    *
    * @param peerId - Peer ID of the kernel at the other end of the connection.
    * @param hints - Optional list of possible relays via which the requested peer might be contacted.
@@ -419,14 +421,35 @@ export class RemoteManager {
   }
 
   /**
-   * Get or create a RemoteHandle for a given peer ID.
+   * Get or create a RemoteHandle for a given peer ID. A new one is set up once
+   * the open crank, if any, has ended: set up inside it, an abort would take
+   * back the remote's ID and records but not its handle, and the next new
+   * remote would be given the same ID.
    *
    * @param peerId - The libp2p peer for which a handle is sought.
    * @param hints - Optional list of possible relays via which the requested peer might be contacted.
    *
    * @returns an existing or new RemoteHandle to communicate with `peerId`.
    */
-  remoteFor(peerId: string, hints: string[] = []): RemoteHandle {
+  async remoteFor(peerId: string, hints: string[] = []): Promise<RemoteHandle> {
+    if (this.#remotesByPeer.has(peerId)) {
+      return this.#provideRemote(peerId, hints);
+    }
+    // Looked up again then: a setup held for an earlier caller may come first.
+    return this.#kernelQueue.writeOutsideCrank(() =>
+      this.#provideRemote(peerId, hints),
+    );
+  }
+
+  /**
+   * Get or create a RemoteHandle for a given peer ID, now.
+   *
+   * @param peerId - The libp2p peer for which a handle is sought.
+   * @param hints - Optional list of possible relays via which the requested peer might be contacted.
+   *
+   * @returns an existing or new RemoteHandle to communicate with `peerId`.
+   */
+  #provideRemote(peerId: string, hints: string[]): RemoteHandle {
     const existing = this.#remotesByPeer.get(peerId);
     if (existing) {
       if (hints.length > 0) {
@@ -480,7 +503,7 @@ export class RemoteManager {
     from: string,
     message: string,
   ): Promise<string | null> {
-    this.remoteFor(from).receiveFromPeer(message);
+    (await this.remoteFor(from)).receiveFromPeer(message);
     return null;
   }
 

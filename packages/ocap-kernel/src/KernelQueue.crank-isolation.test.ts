@@ -1,3 +1,4 @@
+import type { CapData } from '@endo/marshal';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { delay } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
@@ -45,6 +46,7 @@ vi.mock('./remotes/kernel/remote-comms.ts', async () => {
 const STOP_RUN_LOOP = 'test: stop run loop';
 // Base58, like a real one: it ends up in a savepoint name.
 const PEER_ID = '12D3KooWPeer1';
+const NEW_PEER_ID = '12D3KooWPeer2';
 
 type Harness = Awaited<ReturnType<typeof setUp>>;
 
@@ -159,13 +161,17 @@ async function setUp() {
  *
  * @param harness - What {@link setUp} returned.
  * @param act - The writer acting from outside the crank.
+ * @param options - Options bag.
+ * @param options.answer - What `target` answers a message with, if anything.
  * @returns The items delivered after the aborted crank.
  */
 async function abortACrankWhile(
   harness: Harness,
   act: () => Promise<void>,
+  { answer }: { answer?: CapData<KRef> } = {},
 ): Promise<RunLoopItem[]> {
-  const { kernelQueue, vatManager, remoteManager, doomed, sentinel } = harness;
+  const { kernelQueue, vatManager, remoteManager, doomed, target, sentinel } =
+    harness;
   kernelQueue.enqueueSend(doomed, {
     methargs: kser(['work', []]),
     result: null,
@@ -201,6 +207,18 @@ async function abortACrankWhile(
     }
     if (item.type === 'send' && item.target === sentinel) {
       throw new Error(STOP_RUN_LOOP);
+    }
+    if (
+      item.type === 'send' &&
+      item.target === target &&
+      answer &&
+      item.message.result
+    ) {
+      kernelQueue.resolvePromises(
+        undefined,
+        [[item.message.result, false, answer]],
+        false,
+      );
     }
     if (item.type === 'terminateVat') {
       return await vatManager.performVatTermination(item.vatId, item.reason);
@@ -308,16 +326,60 @@ function letPeerDecide(harness: Harness): void {
 }
 
 describe('a writer acting while a crank aborts', () => {
-  it('queueMessage: the message is lost with the aborted crank (gap)', async () => {
+  it('queueMessage: the message lands in a crank of its own and its caller is answered', async () => {
     const harness = await setUp();
     const { kernelStore, kernelQueue, target } = harness;
-    const delivered = await abortACrankWhile(harness, async () => {
-      kernelQueue
-        .enqueueMessage(target, 'fromKernel', [])
-        .catch(() => undefined);
-      expect(kernelStore.runQueueLength()).toBe(1);
+    let answered: Promise<CapData<KRef>> | undefined;
+    const delivered = await abortACrankWhile(
+      harness,
+      async () => {
+        answered = kernelQueue.enqueueMessage(target, 'fromKernel', []);
+        expect(kernelStore.runQueueLength()).toBe(0);
+      },
+      { answer: kser('answer') },
+    );
+    const results = delivered.flatMap((item) =>
+      item.type === 'send' && item.target === target
+        ? [item.message.result]
+        : [],
+    );
+    expect({
+      sent: methodsSentTo(delivered, target),
+      answer: await answered,
+      resultReused: results.includes(kernelStore.initKernelPromise()[0]),
+    }).toStrictEqual({
+      sent: ['fromKernel'],
+      answer: kser('answer'),
+      resultReused: false,
     });
-    expect(methodsSentTo(delivered, target)).toStrictEqual([]);
+  });
+
+  it('new remote: the remote is set up once the aborted crank ends', async () => {
+    const harness = await setUp();
+    const { kernelStore, remote, remoteManager } = harness;
+    let handled: Promise<string | null> | undefined;
+    await abortACrankWhile(harness, async () => {
+      handled = remoteManager.handleRemoteMessage(
+        NEW_PEER_ID,
+        JSON.stringify({ seq: 1, method: 'deliver', params: ['notify', []] }),
+      );
+      expect(kernelStore.getRemoteIDs()).toStrictEqual([remote.remoteId]);
+    });
+    expect(await handled).toBeNull();
+    const [, newRemoteId] = kernelStore.getRemoteIDs();
+    expect({
+      peers: kernelStore
+        .getRemoteIDs()
+        .map((remoteId) => kernelStore.getRemoteInfo(remoteId)?.peerId),
+      highestReceivedSeq:
+        newRemoteId &&
+        kernelStore.getRemoteSeqState(newRemoteId)?.highestReceivedSeq,
+      nextRemoteIdReused: kernelStore.getNextRemoteId() === newRemoteId,
+    }).toStrictEqual({
+      peers: [PEER_ID, NEW_PEER_ID],
+      highestReceivedSeq: 1,
+      nextRemoteIdReused: false,
+    });
   });
 
   it('inbound remote message: the message lands in a crank of its own', async () => {

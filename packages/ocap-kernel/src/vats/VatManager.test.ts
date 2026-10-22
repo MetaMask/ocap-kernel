@@ -1615,9 +1615,13 @@ describe('VatManager', () => {
     });
 
     it('discards requests held for the open crank', () => {
-      vatManager.abandonQueuedWork(new Error('Kernel was reset'));
+      const reset = new Error('Kernel was reset');
 
-      expect(mockKernelQueue.discardHeldRequests).toHaveBeenCalledOnce();
+      vatManager.abandonQueuedWork(reset);
+
+      expect(
+        mockKernelQueue.discardHeldRequests,
+      ).toHaveBeenCalledExactlyOnceWith(reset);
     });
   });
 

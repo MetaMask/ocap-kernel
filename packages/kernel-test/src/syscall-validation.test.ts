@@ -19,8 +19,8 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
   });
 
   it.each([
-    ['invalid-kref' as KRef, 'invalid reference context'],
-    ['' as KRef, 'incrementRefCount called with empty kref'],
+    ['invalid-kref' as KRef, 'not a valid KRef'],
+    ['' as KRef, 'not a valid KRef'],
   ])(
     'should throw "%s" error for malformed KRef "%s"',
     async (kref, expectedError) => {
@@ -52,6 +52,21 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
       expect(kernel.getVats()).toHaveLength(1);
     },
   );
+
+  it('rejects a message to a kref the kernel does not have', async () => {
+    const kernelDatabase = await makeSQLKernelDatabase({
+      dbFilename: ':memory:',
+    });
+    const kernel = await makeKernel(
+      kernelDatabase,
+      true,
+      logger.logger.subLogger({ tags: ['test'] }),
+    );
+
+    await expect(
+      kernel.queueMessage('ko999' as KRef, 'testMethod', []),
+    ).rejects.toThrow('[KERNEL:OBJECT_DELETED] ko999 does not exist');
+  });
 
   it('should handle message delivery to revoked objects', async () => {
     const kernelDatabase = await makeSQLKernelDatabase({

@@ -843,7 +843,7 @@ export class VatManager {
    * @param error - What to reject them with.
    */
   abandonQueuedWork(error: Error): void {
-    this.#kernelQueue.discardHeldRequests();
+    this.#kernelQueue.discardHeldRequests(error);
     for (const waiters of [
       this.#restartWaiters,
       this.#terminationWaiters,
