@@ -16,6 +16,7 @@ import type {
   RunLoopStatus,
   RunLoopItem,
   RunQueueItem,
+  RunQueueItemPeerIncarnation,
   RunQueueItemRemoteInbound,
   RunQueueItemNotify,
   RunQueueItemRestartVat,
@@ -29,7 +30,8 @@ import { Fail } from './utils/assert.ts';
  * The most arrivals held for one remote at once, matching the window a peer
  * keeps unacknowledged (`MAX_PENDING_MESSAGES` in `RemoteHandle.ts`). A peer
  * goes past it only after giving up on a window this kernel still holds, or
- * with `redeemURL` replies, which are exempt from that window.
+ * with GC deliveries and `redeemURL` replies, which are exempt from that
+ * window.
  */
 const MAX_ARRIVALS_PER_REMOTE = 200;
 
@@ -121,7 +123,7 @@ export class KernelQueue {
   readonly #arrivedFromRemotes: PeerArrival[] = [];
 
   /** How many arrivals each waiting restart has had taken ahead of it. */
-  readonly #takenAhead = new WeakMap<PeerArrival, number>();
+  readonly #takenAhead = new WeakMap<RunQueueItemPeerIncarnation, number>();
 
   /** Whether the last pick between arrivals and the run queue was an arrival. */
   #tookArrivalLast = false;
@@ -688,8 +690,8 @@ export class KernelQueue {
    * One that arrives while a restart of the peer waits to be recorded is taken
    * ahead of it, against the incarnation that sent it: the transport reads
    * nothing from the new incarnation until then, so what arrives was read late
-   * off the old one's channel. An incarnation that has ended left no more than
-   * `MAX_ARRIVALS_PER_REMOTE` unacknowledged, and past that many one is
+   * off the old one's channel. An incarnation that has ended left about a
+   * window's worth unacknowledged, and past `MAX_ARRIVALS_PER_REMOTE` one is
    * refused, or a peer still sending on that channel would hold the restart,
    * and every arrival behind it, back for as long as it sends.
    *
@@ -741,13 +743,7 @@ export class KernelQueue {
       seq,
       message,
     };
-    const index = this.#arrivedFromRemotes.findIndex(
-      (item) =>
-        item.type === 'peerIncarnation' &&
-        item.peerId === peerId &&
-        item.restart,
-    );
-    const restart = this.#arrivedFromRemotes[index];
+    const restart = this.#waitingRestart(peerId);
     if (restart === undefined) {
       this.#arrivedFromRemotes.push(arrival);
     } else {
@@ -756,7 +752,11 @@ export class KernelQueue {
         return false;
       }
       this.#takenAhead.set(restart, ahead);
-      this.#arrivedFromRemotes.splice(index, 0, arrival);
+      this.#arrivedFromRemotes.splice(
+        this.#arrivedFromRemotes.indexOf(restart),
+        0,
+        arrival,
+      );
     }
     this.#wakeRunLoop();
     return true;
@@ -765,6 +765,12 @@ export class KernelQueue {
   /**
    * Accept a peer's incarnation change, for the run loop to carry out in a
    * crank of its own, behind everything the peer sent before it.
+   *
+   * A restart reported while another of the peer's waits takes that one's
+   * place rather than queueing a crank of its own, or a peer reporting a new
+   * incarnation on every handshake would queue one for each. Nothing waits
+   * behind the one replaced, since every handshake from it reported a restart
+   * and the transport kept its channel closed.
    *
    * @param options - Options bag.
    * @param options.peerId - The peer.
@@ -782,13 +788,33 @@ export class KernelQueue {
     restart: boolean;
   }): void {
     this.assertRunLoopAlive('accept a peer incarnation change');
-    this.#arrivedFromRemotes.push({
-      type: 'peerIncarnation',
-      peerId,
-      incarnation,
-      restart,
-    });
+    const waiting = restart ? this.#waitingRestart(peerId) : undefined;
+    if (waiting === undefined) {
+      this.#arrivedFromRemotes.push({
+        type: 'peerIncarnation',
+        peerId,
+        incarnation,
+        restart,
+      });
+    } else {
+      waiting.incarnation = incarnation;
+    }
     this.#wakeRunLoop();
+  }
+
+  /**
+   * Find the restart of a peer that waits for its crank.
+   *
+   * @param peerId - The peer.
+   * @returns The waiting change, or undefined if none is a restart.
+   */
+  #waitingRestart(peerId: string): RunQueueItemPeerIncarnation | undefined {
+    return this.#arrivedFromRemotes.find(
+      (item): item is RunQueueItemPeerIncarnation =>
+        item.type === 'peerIncarnation' &&
+        item.peerId === peerId &&
+        item.restart,
+    );
   }
 
   /**

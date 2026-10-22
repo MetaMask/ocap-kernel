@@ -94,8 +94,9 @@ export class KernelRouter {
   ) => Promise<CrankResult | undefined>;
 
   /**
-   * A function that records a peer's incarnation change, for the crank that
-   * carries out one the handshake queued.
+   * A function that records a peer's incarnation change. Synchronous: an
+   * await between taking the change and recording it would let a handshake
+   * find the incarnation neither waiting nor recorded, and queue it again.
    */
   readonly #applyIncarnationChange: (
     item: RunQueueItemPeerIncarnation,

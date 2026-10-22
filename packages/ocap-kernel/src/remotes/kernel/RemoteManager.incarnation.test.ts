@@ -1,14 +1,16 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { delay } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, onTestFinished, vi } from 'vitest';
 
 import { initRemoteComms } from './remote-comms.ts';
 import { RemoteManager } from './RemoteManager.ts';
+import { asRRef } from '../../../test/branded.ts';
 import { KernelQueue } from '../../KernelQueue.ts';
 import { makeKernelStore } from '../../store/index.ts';
 import type {
   CrankResult,
+  KRef,
   PlatformServices,
   RunLoopItem,
 } from '../../types.ts';
@@ -20,6 +22,13 @@ vi.mock('./remote-comms.ts', async () => {
 });
 
 const PEER_ID = '12D3KooWPeer1';
+
+type Hooks = {
+  /** Awaited before the run loop's delivery of each item. */
+  beforeDelivery?: (item: RunLoopItem) => Promise<void>;
+  /** Awaited once an incarnation change is recorded, before its commit. */
+  afterApply?: (item: RunLoopItem) => Promise<void>;
+};
 
 /**
  * A real store and run loop, a RemoteManager over them, and a remote for
@@ -54,17 +63,22 @@ async function setUp() {
   });
   remoteManager.setMessageHandler(vi.fn());
   await remoteManager.initRemoteComms();
+  onTestFinished(() => remoteManager.cleanup());
   const onIncarnationChange = vi.mocked(initRemoteComms).mock.lastCall?.[8] as (
     peerId: string,
     incarnation: string,
   ) => Promise<boolean>;
   const remote = remoteManager.establishRemote(PEER_ID);
 
+  const hooks: Hooks = {};
   // Each sequence number a crank took delivery of, rather than dropped.
   const taken: number[] = [];
   const deliver = async (
     item: RunLoopItem,
   ): Promise<CrankResult | undefined> => {
+    if (hooks.beforeDelivery) {
+      await hooks.beforeDelivery(item);
+    }
     if (item.type === 'remoteInbound') {
       const result = await remoteManager
         .getRemote(item.remoteId)
@@ -75,7 +89,11 @@ async function setUp() {
       return result;
     }
     if (item.type === 'peerIncarnation') {
-      return remoteManager.applyIncarnationChange(item);
+      const result = remoteManager.applyIncarnationChange(item);
+      if (hooks.afterApply) {
+        await hooks.afterApply(item);
+      }
+      return result;
     }
     return undefined;
   };
@@ -86,6 +104,7 @@ async function setUp() {
     remoteManager,
     remote,
     onIncarnationChange,
+    hooks,
     taken,
     sent,
     startRunLoop: async () => kernelQueue.run(deliver),
@@ -110,6 +129,25 @@ async function settle(): Promise<void> {
 }
 
 /**
+ * Keep the run loop inside the next crank it takes until released, so what
+ * arrives meanwhile waits.
+ *
+ * @param hooks - The harness's hooks.
+ * @returns A function that lets the crank go on.
+ */
+function holdNextCrank(hooks: Hooks): () => void {
+  let release!: () => void;
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  hooks.beforeDelivery = async () => {
+    delete hooks.beforeDelivery;
+    await released;
+  };
+  return release;
+}
+
+/**
  * @param sent - The messages the remote handed to the transport.
  * @returns The sequence number of each, in order.
  */
@@ -120,10 +158,26 @@ function sentSeqs(sent: string[]): number[] {
   });
 }
 
+/**
+ * Make a promise the remote decides.
+ *
+ * @param harness - The harness.
+ * @returns The promise's kpid.
+ */
+function promiseThePeerDecides(
+  harness: Awaited<ReturnType<typeof setUp>>,
+): KRef {
+  const { kernelStore, remote } = harness;
+  const [kpid] = kernelStore.initKernelPromise();
+  kernelStore.setPromiseDecider(kpid, remote.remoteId);
+  kernelStore.addCListEntry(remote.remoteId, kpid, asRRef('rp+1'));
+  return kpid;
+}
+
 describe('a peer incarnation change on the run loop', () => {
   it('takes a message read off the old channel after the restart handshake against the old incarnation', async () => {
     const harness = await setUp();
-    const { remoteManager, onIncarnationChange, taken, sent } = harness;
+    const { remoteManager, onIncarnationChange, hooks, taken, sent } = harness;
     harness.startRunLoop().catch(() => undefined);
     expect(await onIncarnationChange(PEER_ID, 'incarnation-A')).toBe(false);
     for (const seq of [1, 2, 3]) {
@@ -131,11 +185,14 @@ describe('a peer incarnation change on the run loop', () => {
     }
     await settle();
 
-    // The old channel still holds a message, which its reader hands over
-    // once the handshake has queued the change.
-    const verdict = onIncarnationChange(PEER_ID, 'incarnation-B');
+    const release = holdNextCrank(hooks);
     await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(4));
-    expect(await verdict).toBe(true);
+    await settle();
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-B')).toBe(true);
+    // The old channel still holds a message, which its reader hands over
+    // while the change waits.
+    await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(5));
+    release();
     await settle();
     expect(await onIncarnationChange(PEER_ID, 'incarnation-B')).toBe(false);
     for (const seq of [1, 2, 3, 4, 5]) {
@@ -146,15 +203,14 @@ describe('a peer incarnation change on the run loop', () => {
     await delay(100);
 
     expect({ taken, lastSent: sent.at(-1) }).toStrictEqual({
-      taken: [1, 2, 3, 4, 1, 2, 3, 4, 5],
+      taken: [1, 2, 3, 4, 5, 1, 2, 3, 4, 5],
       lastSent: '{"ack":5}',
     });
-    remoteManager.cleanup();
   });
 
   it('drops a copy of a taken message read off the old channel after the restart handshake', async () => {
     const harness = await setUp();
-    const { remoteManager, onIncarnationChange, taken } = harness;
+    const { remoteManager, onIncarnationChange, hooks, taken } = harness;
     harness.startRunLoop().catch(() => undefined);
     expect(await onIncarnationChange(PEER_ID, 'incarnation-A')).toBe(false);
     for (const seq of [1, 2, 3]) {
@@ -162,19 +218,56 @@ describe('a peer incarnation change on the run loop', () => {
     }
     await settle();
 
-    const verdict = onIncarnationChange(PEER_ID, 'incarnation-B');
+    const release = holdNextCrank(hooks);
+    await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(4));
+    await settle();
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-B')).toBe(true);
     await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(2));
-    expect(await verdict).toBe(true);
+    release();
     await settle();
 
-    expect(taken).toStrictEqual([1, 2, 3]);
-    remoteManager.cleanup();
+    expect(taken).toStrictEqual([1, 2, 3, 4]);
+  });
+
+  it('takes what the first incarnation sent ahead of a restart reported before it was recorded', async () => {
+    const harness = await setUp();
+    const { remoteManager, onIncarnationChange, taken } = harness;
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-A')).toBe(false);
+    for (const seq of [1, 2]) {
+      await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(seq));
+    }
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-B')).toBe(true);
+    // Read late off the first incarnation's channel.
+    await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(3));
+    harness.startRunLoop().catch(() => undefined);
+    await settle();
+    for (const seq of [1, 2, 3]) {
+      await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(seq));
+    }
+    await settle();
+
+    expect(taken).toStrictEqual([1, 2, 3, 1, 2, 3]);
+  });
+
+  it('reports no restart to a re-dial of a first incarnation still waiting to be recorded', async () => {
+    const harness = await setUp();
+    const { kernelStore, remote, onIncarnationChange, sent } = harness;
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-A')).toBe(false);
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-A')).toBe(false);
+    harness.startRunLoop().catch(() => undefined);
+    await settle();
+    remote.redeemOcapURL('ocap:y@peer').catch(() => undefined);
+    await delay(5);
+
+    expect({
+      incarnation: kernelStore.getPeerIncarnation(PEER_ID),
+      sent: sentSeqs(sent),
+    }).toStrictEqual({ incarnation: 'incarnation-A', sent: [1] });
   });
 
   it('holds what it sends to a peer that restarts before its first incarnation is recorded', async () => {
     const harness = await setUp();
-    const { kernelStore, remoteManager, remote, onIncarnationChange, sent } =
-      harness;
+    const { kernelStore, remote, onIncarnationChange, sent } = harness;
     expect(await onIncarnationChange(PEER_ID, 'incarnation-B')).toBe(false);
 
     expect(await onIncarnationChange(PEER_ID, 'incarnation-C')).toBe(true);
@@ -192,22 +285,108 @@ describe('a peer incarnation change on the run loop', () => {
       incarnation: kernelStore.getPeerIncarnation(PEER_ID),
       sent: sentSeqs(sent),
     }).toStrictEqual({ incarnation: 'incarnation-C', sent: [1] });
-    remoteManager.cleanup();
   });
 
-  it('stops the run loop when the restart cannot be recorded', async () => {
+  it('holds what it sends between a restart’s crank and a later restart’s', async () => {
+    const harness = await setUp();
+    const { kernelStore, remote, onIncarnationChange, hooks, sent } = harness;
+    kernelStore.setPeerIncarnation(PEER_ID, 'incarnation-A');
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-B')).toBe(true);
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-C')).toBe(true);
+    // C took B's place, so a later restart is reported while C's crank is open.
+    hooks.afterApply = async () => {
+      delete hooks.afterApply;
+      expect(await onIncarnationChange(PEER_ID, 'incarnation-D')).toBe(true);
+    };
+    let sentBetween: number[] | undefined;
+    hooks.beforeDelivery = async (item) => {
+      if (
+        item.type === 'peerIncarnation' &&
+        item.incarnation === 'incarnation-D'
+      ) {
+        remote.redeemOcapURL('ocap:between@peer').catch(() => undefined);
+        await delay(5);
+        sentBetween = sentSeqs(sent);
+      }
+    };
+    harness.startRunLoop().catch(() => undefined);
+    await settle();
+
+    expect({
+      sentBetween,
+      incarnation: kernelStore.getPeerIncarnation(PEER_ID),
+    }).toStrictEqual({ sentBetween: [], incarnation: 'incarnation-D' });
+  });
+
+  it('rejects the promises the peer decides inside the crank, and answers their callers at its flush', async () => {
+    const harness = await setUp();
+    const { kernelStore, kernelQueue, onIncarnationChange, hooks } = harness;
+    kernelStore.setPeerIncarnation(PEER_ID, 'incarnation-A');
+    const kpid = promiseThePeerDecides(harness);
+    let answered = false;
+    const answer = (): void => {
+      answered = true;
+    };
+    kernelQueue.subscriptions.set(kpid, { resolve: answer, reject: answer });
+    let inTheCrank: { state: string; answered: boolean } | undefined;
+    hooks.afterApply = async () => {
+      inTheCrank = {
+        state: kernelStore.getKernelPromise(kpid).state,
+        answered,
+      };
+    };
+    harness.startRunLoop().catch(() => undefined);
+    await onIncarnationChange(PEER_ID, 'incarnation-B');
+    await settle();
+
+    expect({ inTheCrank, answered }).toStrictEqual({
+      inTheCrank: { state: 'rejected', answered: false },
+      answered: true,
+    });
+  });
+
+  it('keeps sending once something writes the send window while the restart’s crank is open', async () => {
+    const harness = await setUp();
+    const { kernelStore, remote, onIncarnationChange, hooks, sent } = harness;
+    kernelStore.setPeerIncarnation(PEER_ID, 'incarnation-A');
+    harness.startRunLoop().catch(() => undefined);
+    remote.redeemOcapURL('ocap:before@peer').catch(() => undefined);
+    await settle();
+    // A transport give-up whose turn comes while the crank is open.
+    hooks.afterApply = async () => {
+      remote.giveUp('connection lost');
+    };
+
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-B')).toBe(true);
+    await settle();
+    remote.redeemOcapURL('ocap:after@peer').catch(() => undefined);
+    await delay(5);
+
+    expect(sentSeqs(sent)).toStrictEqual([1, 1]);
+  });
+
+  it('stops the run loop when the restart cannot be recorded, keeping the old session', async () => {
     const harness = await setUp();
     const { kernelStore, remoteManager, remote, onIncarnationChange } = harness;
-    kernelStore.setPeerIncarnation(PEER_ID, 'incarnation-A');
+    const running = harness.startRunLoop();
+    expect(await onIncarnationChange(PEER_ID, 'incarnation-A')).toBe(false);
+    for (const seq of [1, 2]) {
+      await remoteManager.handleRemoteMessage(PEER_ID, emptyNotify(seq));
+    }
+    await settle();
+    // Partway through the teardown, after its first write.
     vi.spyOn(remote, 'persistPeerRestart').mockImplementation(() => {
+      kernelStore.clearRemoteSeqState(remote.remoteId);
       throw new Error('refcount underflow');
     });
-    const running = harness.startRunLoop();
 
     expect(await onIncarnationChange(PEER_ID, 'incarnation-B')).toBe(true);
 
     await expect(running).rejects.toThrow('refcount underflow');
-    expect(kernelStore.getPeerIncarnation(PEER_ID)).toBe('incarnation-A');
-    remoteManager.cleanup();
+    expect({
+      incarnation: kernelStore.getPeerIncarnation(PEER_ID),
+      highestReceivedSeq: kernelStore.getRemoteSeqState(remote.remoteId)
+        ?.highestReceivedSeq,
+    }).toStrictEqual({ incarnation: 'incarnation-A', highestReceivedSeq: 2 });
   });
 });

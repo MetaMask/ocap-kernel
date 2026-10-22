@@ -411,7 +411,13 @@ export type RunQueueItemPeerIncarnation = {
   type: 'peerIncarnation';
   peerId: string;
   incarnation: string;
-  /** Whether it replaces an incarnation the kernel knew the peer by. */
+  /**
+   * Whether it replaced an incarnation the kernel knew the peer by when the
+   * handshake reported it. It decides where a message read late off the old
+   * channel goes, ahead of a restart and behind a first incarnation, and
+   * whether a later restart takes its place; the crank judges the restart
+   * again, against the store.
+   */
   restart: boolean;
 };
 
@@ -427,9 +433,9 @@ export const RunQueueItemStruct = union([
 export type RunQueueItem = Infer<typeof RunQueueItemStruct>;
 
 /**
- * What a peer sends, a message or an incarnation change. Held in memory and
- * never written to the run queue, so it is not a {@link RunQueueItem} and the
- * store's queue methods do not accept one.
+ * What arrives from a peer: a message, or a change of incarnation a handshake
+ * reported. Held in memory and never written to the run queue, so it is not a
+ * {@link RunQueueItem} and the store's queue methods do not accept one.
  */
 export type PeerArrival =
   | RunQueueItemRemoteInbound

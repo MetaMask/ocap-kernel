@@ -3,6 +3,7 @@ import { Logger } from '@metamask/logger';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import * as remoteComms from './remote-comms.ts';
+import { RemoteHandle } from './RemoteHandle.ts';
 import { RemoteManager } from './RemoteManager.ts';
 import { asRRef, asRemoteId } from '../../../test/branded.ts';
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
@@ -861,7 +862,7 @@ describe('RemoteManager', () => {
     }
 
     /**
-     * Run the crank the last handshake queued, the way the run loop does.
+     * Apply the change the last handshake queued and run its `afterCommit`.
      */
     async function runQueuedIncarnationChange(): Promise<void> {
       await applyQueuedIncarnationChange()?.afterCommit?.();
@@ -959,6 +960,62 @@ describe('RemoteManager', () => {
       expect(mockKernelQueue.acceptPeerIncarnation).toHaveBeenCalledOnce();
       expect(holdSpy).toHaveBeenCalledTimes(2);
     });
+
+    it('reports no restart to a re-dial of a first incarnation still waiting to be recorded', async () => {
+      const peerId = 'peer-redialing-before-first-record';
+      const remote = remoteManager.establishRemote(peerId);
+      const holdSpy = vi.spyOn(remote, 'holdForRestart');
+      vi.mocked(mockKernelQueue.waitingIncarnations).mockReturnValue([
+        'incarnation-A',
+      ]);
+
+      expect(await getOnIncarnationChange()(peerId, 'incarnation-A')).toBe(
+        false,
+      );
+      expect(mockKernelQueue.acceptPeerIncarnation).not.toHaveBeenCalled();
+      expect(holdSpy).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      {
+        what: 'a restart waiting',
+        stored: 'incarnation-A',
+        waiting: ['incarnation-B'],
+        held: true,
+      },
+      {
+        what: 'a restart waiting behind its first incarnation',
+        stored: undefined,
+        waiting: ['incarnation-A', 'incarnation-B'],
+        held: true,
+      },
+      {
+        what: 'nothing waiting',
+        stored: 'incarnation-A',
+        waiting: [],
+        held: false,
+      },
+      {
+        what: 'only its first incarnation waiting',
+        stored: undefined,
+        waiting: ['incarnation-A'],
+        held: false,
+      },
+    ])(
+      'holds a remote made while its peer has $what: $held',
+      ({ stored, waiting, held }) => {
+        const peerId = 'peer-established-late';
+        if (stored !== undefined) {
+          kernelStore.setPeerIncarnation(peerId, stored);
+        }
+        vi.mocked(mockKernelQueue.waitingIncarnations).mockReturnValue(waiting);
+        const holdSpy = vi.spyOn(RemoteHandle.prototype, 'holdForRestart');
+
+        remoteManager.establishRemote(peerId);
+
+        expect(holdSpy.mock.calls.length > 0).toBe(held);
+      },
+    );
 
     it('reports a restart again to a re-dial before the first incarnation is recorded', async () => {
       const peerId = 'peer-redialing-on-first-contact';
@@ -1153,10 +1210,6 @@ describe('RemoteManager', () => {
       const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');
       kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
 
-      // The verdict reflects the persisted-state comparison, not whether
-      // there's a RemoteHandle to reset. Transport callers use the verdict
-      // to suppress stale outbound messages; that decision is correct
-      // regardless of local handle presence.
       const verdict = await handshakeAndRunCrank(peerId, 'incarnation-B');
       expect(verdict).toBe(true);
 
@@ -1212,16 +1265,17 @@ describe('RemoteManager', () => {
       expect(finalizeSpy).toHaveBeenCalledOnce();
     });
 
-    it('records a change once though it is carried out twice', async () => {
+    it('throws rather than tear a session down twice for one change', async () => {
       const peerId = 'peer-reconnecting';
       const remote = remoteManager.establishRemote(peerId);
       const persistSpy = vi.spyOn(remote, 'persistPeerRestart');
       kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
       await getOnIncarnationChange()(peerId, 'incarnation-B');
-
-      applyQueuedIncarnationChange();
       applyQueuedIncarnationChange();
 
+      expect(() => applyQueuedIncarnationChange()).toThrow(
+        `Peer ${peerId} incarnation incarnation-B is already recorded`,
+      );
       expect(persistSpy).toHaveBeenCalledOnce();
     });
 
@@ -1238,6 +1292,15 @@ describe('RemoteManager', () => {
       expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-A');
     });
 
+    it('records a first incarnation queued before remote comms started', async () => {
+      const peerId = 'peer-met-at-boot';
+      await getOnIncarnationChange()(peerId, 'incarnation-A');
+      remoteManager.cleanup();
+
+      expect(applyQueuedIncarnationChange()).toStrictEqual({});
+      expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-A');
+    });
+
     it('throws, leaving the incarnation unadvanced, when persistPeerRestart throws', async () => {
       const peerId = 'peer-handler-throws';
       const remote = remoteManager.establishRemote(peerId);
@@ -1249,8 +1312,6 @@ describe('RemoteManager', () => {
       });
       const finalizeSpy = vi.spyOn(remote, 'finalizePeerRestart');
 
-      // The handshake is answered from what the store already says, so it
-      // succeeds; the writes it queued are what fail.
       expect(await getOnIncarnationChange()(peerId, 'incarnation-B')).toBe(
         true,
       );

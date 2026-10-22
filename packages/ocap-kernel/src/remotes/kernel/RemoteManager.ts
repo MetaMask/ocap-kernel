@@ -202,7 +202,9 @@ export class RemoteManager {
    * transport needs the answer to finish the handshake and cannot wait for
    * that crank, so it comes from the incarnations the kernel knows: the one
    * the store holds and the ones waiting to be recorded. While a change from
-   * a known incarnation waits, every handshake reports a restart.
+   * a known incarnation waits, every handshake reports a restart. Nothing is
+   * awaited between reading them and queueing the change, or two handshakes
+   * could queue one incarnation twice.
    *
    * Fires on every handshake (not only on detected change) because the
    * in-memory PeerStateManager is unreliable across receiver restart and
@@ -211,19 +213,18 @@ export class RemoteManager {
    *
    * @param peerId - The peer that completed the handshake.
    * @param observedIncarnation - The incarnationId the peer just reported.
-   * @returns Whether the peer was determined to have restarted. The
-   *   transport uses this to suppress stale outbound messages on the same
-   *   connection.
+   * @returns Whether the kernel knows the peer by an incarnation other than
+   *   the observed one: it restarted, or a restart of it waits to be
+   *   recorded. The transport uses this to suppress stale outbound messages
+   *   on the same connection.
    */
   async #handleIncarnationChange(
     peerId: string,
     observedIncarnation: string,
   ): Promise<boolean> {
     const stored = this.#kernelStore.getPeerIncarnation(peerId);
-    const known = [
-      ...(stored === undefined ? [] : [stored]),
-      ...this.#kernelQueue.waitingIncarnations(peerId),
-    ];
+    const waiting = this.#kernelQueue.waitingIncarnations(peerId);
+    const known = stored === undefined ? waiting : [stored, ...waiting];
     if (!known.includes(observedIncarnation)) {
       this.#kernelQueue.acceptPeerIncarnation({
         peerId,
@@ -231,14 +232,28 @@ export class RemoteManager {
         restart: known.length > 0,
       });
     }
-    if (
-      known.length === 0 ||
-      (known.length === 1 && known[0] === observedIncarnation)
-    ) {
-      return false;
+    const restarted = known.some(
+      (incarnation) => incarnation !== observedIncarnation,
+    );
+    if (restarted) {
+      this.#remotesByPeer.get(peerId)?.holdForRestart();
     }
-    this.#remotesByPeer.get(peerId)?.holdForRestart();
-    return true;
+    return restarted;
+  }
+
+  /**
+   * Whether a restart of a peer waits for its crank: a change from the
+   * incarnation the store holds, or from a first one still waiting ahead of
+   * it.
+   *
+   * @param peerId - The peer.
+   * @returns True if a restart waits.
+   */
+  #restartWaits(peerId: string): boolean {
+    const waiting = this.#kernelQueue.waitingIncarnations(peerId).length;
+    return this.#kernelStore.getPeerIncarnation(peerId) === undefined
+      ? waiting > 1
+      : waiting > 0;
   }
 
   /**
@@ -252,26 +267,34 @@ export class RemoteManager {
   }
 
   /**
-   * Record a peer's incarnation change, in a crank of its own.
+   * Record a peer's incarnation change, for the run loop to call in a crank of
+   * its own.
    *
    * @param item - The change, as accepted at handshake time.
    * @returns The crank outcome, carrying the work that follows the commit.
    */
   applyIncarnationChange(item: RunQueueItemPeerIncarnation): CrankResult {
     const { peerId, incarnation } = item;
-    // Remote comms stopped while the change waited and took the remote's
-    // handle, so the cleanup cannot run; recording the incarnation without it
-    // would hide the restart from the next handshake.
-    if (!this.isRemoteCommsInitialized()) {
-      return {};
-    }
     const stored = this.#kernelStore.getPeerIncarnation(peerId);
-    // Recorded already: a second teardown would take what the new incarnation
-    // has built since.
+    // A handshake queues only an incarnation the kernel does not know, so this
+    // is a kernel bug, and a second teardown would take what the new
+    // incarnation has built since.
     if (stored === incarnation) {
-      return {};
+      throw Error(
+        `Peer ${peerId} incarnation ${incarnation} is already recorded`,
+      );
     }
     const isRestart = stored !== undefined;
+    // Remote comms stopped while the restart waited, or had yet to start when
+    // the handshake queued it, so no handle is there to clean up after.
+    // Recorded without that cleanup, the restart would be hidden from the next
+    // handshake, which reports it again instead.
+    if (isRestart && !this.isRemoteCommsInitialized()) {
+      this.#logger?.log(
+        `Peer ${peerId.slice(0, 8)} restart to ${incarnation.slice(0, 8)} not recorded: remote comms are not running`,
+      );
+      return {};
+    }
     const remote = isRestart ? this.#remotesByPeer.get(peerId) : undefined;
 
     // Snapshot the decider list BEFORE any kv mutation so the c-list lookup
@@ -304,18 +327,16 @@ export class RemoteManager {
 
     // In the crank, not after it, because rejecting writes; `false` leaves the
     // notifies to the crank's flush.
-    if (promisesToReject.length > 0) {
-      const failure = makeKernelError(
-        'PEER_RESTARTED',
-        'Remote peer restarted (incarnation changed)',
+    const failure = makeKernelError(
+      'PEER_RESTARTED',
+      'Remote peer restarted (incarnation changed)',
+    );
+    for (const kpid of promisesToReject) {
+      this.#kernelQueue.resolvePromises(
+        remote.remoteId,
+        [[kpid, true, failure]],
+        false,
       );
-      for (const kpid of promisesToReject) {
-        this.#kernelQueue.resolvePromises(
-          remote.remoteId,
-          [[kpid, true, failure]],
-          false,
-        );
-      }
     }
 
     return {
@@ -323,7 +344,7 @@ export class RemoteManager {
         remote.finalizePeerRestart();
         // A later restart still waits, and what this remote sends belongs to
         // the incarnation it ends.
-        if (this.#kernelQueue.waitingIncarnations(peerId).length > 0) {
+        if (this.#restartWaits(peerId)) {
           remote.holdForRestart();
         }
       },
@@ -458,6 +479,11 @@ export class RemoteManager {
       onGiveUp: this.#handleRemoteGiveUp.bind(this),
       ackTimeoutMs: this.#ackTimeoutMs,
     });
+    // Made after the handshake that found the restart, so held as that
+    // handshake would have held it.
+    if (this.#restartWaits(peerId)) {
+      remote.holdForRestart();
+    }
     this.#remotes.set(remoteId, remote);
     this.#remotesByPeer.set(peerId, remote);
     return remote;
