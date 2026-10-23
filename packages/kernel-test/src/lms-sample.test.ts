@@ -1,11 +1,11 @@
-import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import { waitUntilQuiescent } from '@metamask/kernel-utils';
-import type { LogEntry } from '@metamask/logger';
 import {
   LANGUAGE_MODEL_SERVICE_NAME,
   makeKernelLanguageModelService,
-} from '@ocap/kernel-language-model-service';
-import { makeMockSample } from '@ocap/kernel-language-model-service/test-utils';
+} from '@metamask/kernel-language-model-service';
+import { makeMockSample } from '@metamask/kernel-language-model-service/test-utils';
+import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
+import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import type { LogEntry } from '@metamask/logger';
 import { describe, expect, it, vi } from 'vitest';
 
 import {

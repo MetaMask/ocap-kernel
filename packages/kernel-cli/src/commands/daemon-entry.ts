@@ -20,6 +20,7 @@ import {
 import { resolveDevMode } from '../dev-mode.ts';
 import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive } from '../utils.ts';
+import { makeLlmKernelService, readLlmConfig } from './llm-config.ts';
 
 // Mirror of @metamask/logger's level ordering (`logLevels` is not part
 // of the package's public surface). Higher numbers are more severe.
@@ -160,6 +161,14 @@ async function main(): Promise<void> {
   try {
     await kernel.initIdentity();
     runLoop.assertSurvivedStartup();
+    const llmConfig = await readLlmConfig(ocapDir);
+    if (llmConfig) {
+      const { name, service } = await makeLlmKernelService(llmConfig);
+      kernel.registerKernelServiceObject(name, service);
+      logger.info(
+        `Registered kernel service "${name}" (${llmConfig.provider} at ${llmConfig.baseUrl})`,
+      );
+    }
     await writeFile(pidPath, String(process.pid));
 
     handle = await startDaemon({
